@@ -86,45 +86,53 @@ const App: React.FC = () => {
 
     const hitokoto = useHitokoto();
 
-    // ========== 保留的 Refs 和局部状态 ==========
+    // ========== Refs ==========
     const playingRef = useRef<string | null>(null);
     const playbackRetryRef = useRef<Map<string, number>>(new Map());
     const prevSongIdRef = useRef<string | null>(null);
     const sliceAudioRef = useRef<HTMLAudioElement | null>(null);
     const settingsLoadedRef = useRef(false);
+    const skipPersistRef = useRef(false);
+    const fileDraftInputRef = useRef<HTMLInputElement | null>(null);
 
+    // ========== 模态框管理 ==========
+    const { modals, openModal, closeModal } = useModalContext();
+
+    // ========== 核心应用状态 ==========
     const [setting, setSetting] = useState<PlayerSetting | null>(null);
     const [lyric, setLyric] = useState<LyricMapping | null>(null);
     const [status, setStatus] = useState<string>("加载中...");
+
+    // 搜索相关
     const [searchQuery, setSearchQuery] = useState("");
     const [globalSearchTerm, setGlobalSearchTerm] = useState("");
     const [selectedFavId, setSelectedFavId] = useState<string | null>(null);
     const [remoteResults, setRemoteResults] = useState<Song[]>([]);
     const [remoteLoading, setRemoteLoading] = useState(false);
 
-    // 模态框管理
-    const { modals, openModal, closeModal } = useModalContext();
+    // 设置相关
     const [cacheSize, setCacheSize] = useState(0);
-    // 弹窗状态改由 ModalContext 管理
+
+    // ========== 收藏夹管理状态 ==========
+    // 创建收藏夹
     const [createFavName, setCreateFavName] = useState("新歌单");
     const [createFavMode, setCreateFavMode] = useState<"blank" | "duplicate" | "importMine" | "importFid">("blank");
     const [duplicateSourceId, setDuplicateSourceId] = useState<string | null>(null);
     const [importFid, setImportFid] = useState("");
     const [confirmDeleteFavId, setConfirmDeleteFavId] = useState<string | null>(null);
-    // 编辑收藏夹改由 ModalContext 管理
+
+    // 编辑收藏夹
     const [editingFavId, setEditingFavId] = useState<string | null>(null);
     const [editingFavName, setEditingFavName] = useState("");
 
-    // 下载相关状态
+    // ========== 下载管理状态 ==========
     const [isDownloaded, setIsDownloaded] = useState<boolean>(false);
-    // 下载管理改由 ModalContext 管理
     const [confirmDeleteDownloaded, setConfirmDeleteDownloaded] = useState<boolean>(false);
     const [downloadedSongIds, setDownloadedSongIds] = useState<Set<string>>(new Set());
     const [managingSong, setManagingSong] = useState<Song | null>(null);
     const [confirmRemoveSongId, setConfirmRemoveSongId] = useState<string | null>(null);
 
-    // 主题编辑器状态
-    // 主题编辑器改由 ModalContext 管理
+    // ========== 主题编辑器状态 ==========
     const [editingThemeId, setEditingThemeId] = useState<string | null>(null);
     const [newThemeName, setNewThemeName] = useState<string>("");
     const [colorSchemeDraft, setColorSchemeDraft] = useState<"light" | "dark">("light");
@@ -135,9 +143,8 @@ const App: React.FC = () => {
     const [panelOpacityDraft, setPanelOpacityDraft] = useState<number>(0.92);
     const [panelColorDraft, setPanelColorDraft] = useState<string>("#ffffff");
     const [savingTheme, setSavingTheme] = useState(false);
-    const skipPersistRef = useRef(false);
-    const fileDraftInputRef = useRef<HTMLInputElement | null>(null);
 
+    // ========== 派生值和辅助函数 ==========
     const setBackgroundImageUrlDraftSafe = useCallback((url: string) => {
         setBackgroundImageUrlDraft(prev => (prev === url ? prev : url));
     }, []);
@@ -1517,8 +1524,7 @@ const App: React.FC = () => {
 
     const handleClearBackgroundImageDraft = () => {
         console.log('handleClearBackgroundImageDraft 被调用，URL长度:', backgroundImageUrlDraft?.length || 0);
-        // 移除 window.confirm，在 Wails 中可能不工作
-        // TODO: 之后可改用 Mantine Modal 确认
+        // 注意：在 Wails 中 window.confirm 可能不工作，直接清除背景图
         console.log('开始清除背景图');
         setBackgroundImageUrlDraft("");
         console.log('背景图已设置为空字符串');

@@ -374,7 +374,7 @@ const App: React.FC = () => {
 
     // 当设置打开时，刷新缓存大小
     useEffect(() => {
-        if (settingsOpen) {
+        if (modals.settingsModal) {
             (async () => {
                 try {
                     const size = await Services.GetAudioCacheSize();
@@ -384,7 +384,7 @@ const App: React.FC = () => {
                 }
             })();
         }
-    }, [settingsOpen]);
+    }, [modals.settingsModal]);
 
     useEffect(() => {
         (async () => {
@@ -1793,7 +1793,7 @@ const App: React.FC = () => {
 
     const handleAddSongToFavorite = (song: Song) => {
         setCurrentSong(song);
-        setShowFavoriteModal(true);
+        openModal("addFavoriteModal");
     };
 
     const handleRemoveSongFromPlaylist = async (song: Song) => {
@@ -1815,13 +1815,13 @@ const App: React.FC = () => {
 
     const handleAddToFavoriteFromModal = (fav: Favorite) => {
         setStatus(`已添加到歌单: ${fav.title}`);
-        setShowFavoriteModal(false);
+        closeModal("addFavoriteModal");
     };
 
     const handlePlaylistSelect = (song: Song, index: number) => {
         setCurrentIndex(index);
         setCurrentSong(song);
-        setShowPlaylistModal(false);
+        closeModal("playlistModal");
     };
 
     const handlePlaylistReorder = (fromIndex: number, toIndex: number) => {
@@ -2168,8 +2168,8 @@ const App: React.FC = () => {
             />
 
             <AddToFavoriteModal
-                opened={showFavoriteModal}
-                onClose={() => setShowFavoriteModal(false)}
+                opened={modals.addFavoriteModal}
+                onClose={() => closeModal("addFavoriteModal")}
                 favorites={favorites}
                 currentSong={currentSong}
                 themeColor={themeColor}
@@ -2177,8 +2177,8 @@ const App: React.FC = () => {
             />
 
             <PlaylistModal
-                opened={showPlaylistModal}
-                onClose={() => setShowPlaylistModal(false)}
+                opened={modals.playlistModal}
+                onClose={() => closeModal("playlistModal")}
                 queue={queue}
                 currentIndex={currentIndex}
                 themeColorHighlight={themeColorLight}
@@ -2236,8 +2236,8 @@ const App: React.FC = () => {
 
             {/* 设置弹窗 */}
             <Modal
-                opened={settingsOpen}
-                onClose={() => setSettingsOpen(false)}
+                opened={modals.settingsModal}
+                onClose={() => closeModal("settingsModal")}
                 size="md"
                 centered
                 title="设置"
@@ -2760,7 +2760,7 @@ const App: React.FC = () => {
                         setPanelOpacityDraft(panelOpacity);
                         setShowThemeModal(true);
                     }}
-                    onSettingsClick={() => setSettingsOpen(true)}
+                    onSettingsClick={() => openModal("settingsModal")}
                     onLoginClick={() => setLoginModalOpened(true)}
                     onLogout={() => {
                         setUserInfo(null);
@@ -2840,8 +2840,8 @@ const App: React.FC = () => {
                     isPlaying={isPlaying}
                     playMode={playMode}
                     onTogglePlayMode={handlePlayModeToggle}
-                    onAddToFavorite={() => setShowFavoriteModal(true)}
-                    onShowPlaylist={() => setShowPlaylistModal(true)}
+                    onAddToFavorite={() => openModal("addFavoriteModal")}
+                    onShowPlaylist={() => openModal("playlistModal")}
                     onDownload={handleDownload}
                     isDownloaded={isDownloaded}
                     volume={volume}

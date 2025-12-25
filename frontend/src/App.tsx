@@ -20,9 +20,10 @@ import ControlsPanel from "./components/ControlsPanel";
 // Hooks
 import { useAudioPlayer, usePlaylist, useAudioInterval } from "./hooks/player";
 import { useSongs, useFavorites, useSongCache } from "./hooks/data";
-import { useTheme, useAuth, useBVResolver } from "./hooks/features";
+import { useAuth, useBVResolver } from "./hooks/features";
 import { useHitokoto } from "./hooks/ui";
-import { useModalManager } from "./hooks/ui/useModalManager";
+// Contexts
+import { useThemeContext, useModalContext } from "./context";
 
 // Utils
 import { formatTime, formatTimeLabel, parseTimeLabel } from "./utils/time";
@@ -60,14 +61,16 @@ const App: React.FC = () => {
     const { updateSongWithCache } = songCache;
 
     // 功能模块
-    const theme = useTheme();
+    const { state: themeState, actions: themeActions } = useThemeContext();
     const {
         themes, currentThemeId, themeColor, backgroundColor, backgroundOpacity,
         backgroundImageUrl, panelColor, panelOpacity, computedColorScheme,
+    } = themeState;
+    const {
         setThemes, setCurrentThemeId, setThemeColor, setBackgroundColor,
         setBackgroundOpacity, setBackgroundImageUrl, setPanelColor, setPanelOpacity,
-        applyTheme, setBackgroundImageUrlSafe
-    } = theme;
+        applyTheme, setBackgroundImageUrlSafe,
+    } = themeActions;
 
     const auth = useAuth();
     const { isLoggedIn, userInfo, loginModalOpened, setIsLoggedIn, setUserInfo, setLoginModalOpened, checkLoginStatus, getUserInfo } = auth;
@@ -101,7 +104,7 @@ const App: React.FC = () => {
     const [remoteLoading, setRemoteLoading] = useState(false);
 
     // 模态框管理
-    const { modals, openModal, closeModal } = useModalManager();
+    const { modals, openModal, closeModal } = useModalContext();
     const [cacheSize, setCacheSize] = useState(0);
     const [createFavModalOpen, setCreateFavModalOpen] = useState(false);
     const [createFavName, setCreateFavName] = useState("新歌单");

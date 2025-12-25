@@ -6,22 +6,22 @@ const ModalContext = createContext<UseModalManagerReturn | undefined>(undefined)
 
 // ========== Provider 组件 ==========
 export const ModalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const modalManager = useModalManager();
+    const modalManager = useModalManager();
 
-  return (
-    <ModalContext.Provider value={modalManager}>
-      {children}
-    </ModalContext.Provider>
-  );
+    return (
+        <ModalContext.Provider value={modalManager}>
+            {children}
+        </ModalContext.Provider>
+    );
 };
 
 // ========== Hook ==========
 export const useModalContext = (): UseModalManagerReturn => {
-  const context = useContext(ModalContext);
-  if (!context) {
-    throw new Error('useModalContext must be used within ModalProvider');
-  }
-  return context;
+    const context = useContext(ModalContext);
+    if (!context) {
+        throw new Error('useModalContext must be used within ModalProvider');
+    }
+    return context;
 };
 
 // ========== 导出类型 ==========

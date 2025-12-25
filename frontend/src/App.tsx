@@ -125,7 +125,7 @@ const App: React.FC = () => {
     const [confirmRemoveSongId, setConfirmRemoveSongId] = useState<string | null>(null);
 
     // 主题编辑器状态
-    const [showThemeModal, setShowThemeModal] = useState(false);
+    // 主题弹窗改由 ModalContext 管理
     const [showNewThemeModal, setShowNewThemeModal] = useState(false);
     const [editingThemeId, setEditingThemeId] = useState<string | null>(null);
     const [newThemeName, setNewThemeName] = useState<string>("");
@@ -2131,8 +2131,8 @@ const App: React.FC = () => {
         <Box h="100vh" w="100vw" style={backgroundStyle}>
             {/* 顶部右侧设置按钮移动到工具栏，避免与主题按钮重叠 */}
             <ThemeManagerModal
-                opened={showThemeModal}
-                onClose={() => setShowThemeModal(false)}
+                opened={modals.themeModal}
+                onClose={() => closeModal("themeModal")}
                 themes={themes}
                 currentThemeId={currentThemeId}
                 onSelectTheme={handleSelectTheme}
@@ -2760,7 +2760,7 @@ const App: React.FC = () => {
                         setBackgroundImageUrlDraftSafe(backgroundImageUrl);
                         setPanelColorDraft(panelColor);
                         setPanelOpacityDraft(panelOpacity);
-                        setShowThemeModal(true);
+                        openModal("themeModal");
                     }}
                     onSettingsClick={() => openModal("settingsModal")}
                     onLoginClick={() => setLoginModalOpened(true)}

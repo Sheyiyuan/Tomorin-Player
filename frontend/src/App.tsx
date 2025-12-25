@@ -2763,7 +2763,7 @@ const App: React.FC = () => {
                         openModal("themeModal");
                     }}
                     onSettingsClick={() => openModal("settingsModal")}
-                    onLoginClick={() => setLoginModalOpened(true)}
+                    onLoginClick={() => openModal("loginModal")}
                     onLogout={() => {
                         setUserInfo(null);
                         setStatus("已退出登录");

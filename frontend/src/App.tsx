@@ -97,7 +97,6 @@ const App: React.FC = () => {
     const [lyric, setLyric] = useState<LyricMapping | null>(null);
     const [status, setStatus] = useState<string>("加载中...");
     const [searchQuery, setSearchQuery] = useState("");
-    const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
     const [globalSearchTerm, setGlobalSearchTerm] = useState("");
     const [selectedFavId, setSelectedFavId] = useState<string | null>(null);
     const [remoteResults, setRemoteResults] = useState<Song[]>([]);
@@ -106,27 +105,26 @@ const App: React.FC = () => {
     // 模态框管理
     const { modals, openModal, closeModal } = useModalContext();
     const [cacheSize, setCacheSize] = useState(0);
-    const [createFavModalOpen, setCreateFavModalOpen] = useState(false);
+    // 弹窗状态改由 ModalContext 管理
     const [createFavName, setCreateFavName] = useState("新歌单");
     const [createFavMode, setCreateFavMode] = useState<"blank" | "duplicate" | "importMine" | "importFid">("blank");
     const [duplicateSourceId, setDuplicateSourceId] = useState<string | null>(null);
     const [importFid, setImportFid] = useState("");
     const [confirmDeleteFavId, setConfirmDeleteFavId] = useState<string | null>(null);
-    const [editFavModalOpen, setEditFavModalOpen] = useState(false);
+    // 编辑收藏夹改由 ModalContext 管理
     const [editingFavId, setEditingFavId] = useState<string | null>(null);
     const [editingFavName, setEditingFavName] = useState("");
 
     // 下载相关状态
     const [isDownloaded, setIsDownloaded] = useState<boolean>(false);
-    const [downloadModalOpen, setDownloadModalOpen] = useState<boolean>(false);
+    // 下载管理改由 ModalContext 管理
     const [confirmDeleteDownloaded, setConfirmDeleteDownloaded] = useState<boolean>(false);
     const [downloadedSongIds, setDownloadedSongIds] = useState<Set<string>>(new Set());
     const [managingSong, setManagingSong] = useState<Song | null>(null);
     const [confirmRemoveSongId, setConfirmRemoveSongId] = useState<string | null>(null);
 
     // 主题编辑器状态
-    // 主题弹窗改由 ModalContext 管理
-    const [showNewThemeModal, setShowNewThemeModal] = useState(false);
+    // 主题编辑器改由 ModalContext 管理
     const [editingThemeId, setEditingThemeId] = useState<string | null>(null);
     const [newThemeName, setNewThemeName] = useState<string>("");
     const [colorSchemeDraft, setColorSchemeDraft] = useState<"light" | "dark">("light");
@@ -1072,7 +1070,7 @@ const App: React.FC = () => {
         setCreateFavMode("blank");
         setDuplicateSourceId(null);
         setImportFid("");
-        setCreateFavModalOpen(true);
+        openModal("createFavModal");
     };
 
     const handleDeleteFavorite = async (id: string) => {
@@ -1093,7 +1091,7 @@ const App: React.FC = () => {
     const handleEditFavorite = (fav: Favorite) => {
         setEditingFavId(fav.id);
         setEditingFavName(fav.title);
-        setEditFavModalOpen(true);
+        openModal("editFavModal");
     };
 
     const handleSaveEditFavorite = async () => {
@@ -1109,7 +1107,7 @@ const App: React.FC = () => {
             await Services.SaveFavorite(updated as any);
             const refreshed = await Services.ListFavorites();
             setFavorites(refreshed);
-            setEditFavModalOpen(false);
+            closeModal("editFavModal");
             notifications.show({ title: "已保存", color: "green" });
         } catch (error) {
             notifications.show({ title: "保存失败", message: String(error), color: "red" });
@@ -1250,7 +1248,7 @@ const App: React.FC = () => {
                         loading: false,
                         autoClose: 2000,
                     });
-                    setCreateFavModalOpen(false);
+                    closeModal("createFavModal");
                 } catch (e: any) {
                     console.error("[App] 导入收藏夹失败:", e);
                     const errorMsg = e?.message || String(e);
@@ -1275,7 +1273,7 @@ const App: React.FC = () => {
             if (created) {
                 setSelectedFavId(created.id);
             }
-            setCreateFavModalOpen(false);
+            closeModal("createFavModal");
         } catch (error) {
             notifications.show({ title: "创建失败", message: String(error), color: "red" });
         }
@@ -1410,7 +1408,7 @@ const App: React.FC = () => {
         setBackgroundImageUrlDraftSafe(theme.backgroundImage);
         setPanelColorDraft(theme.panelColor);
         setPanelOpacityDraft(theme.panelOpacity);
-        setShowNewThemeModal(true);
+        openModal("themeEditorModal");
     };
 
     const handleDeleteTheme = async (id: string) => {
@@ -1431,7 +1429,7 @@ const App: React.FC = () => {
         setBackgroundImageUrlDraftSafe("");
         setPanelColorDraft(computedColorScheme === "dark" ? "#1f2937" : "#ffffff");
         setPanelOpacityDraft(0.92);
-        setShowNewThemeModal(true);
+        openModal("themeEditorModal");
     };
 
     const handleSubmitTheme = async () => {
@@ -1503,7 +1501,7 @@ const App: React.FC = () => {
                     autoClose: 1500,
                 });
             }
-            setShowNewThemeModal(false);
+            closeModal("themeEditorModal");
             setEditingThemeId(null);
             setNewThemeName("");
         } catch (err) {
@@ -1521,7 +1519,7 @@ const App: React.FC = () => {
     };
 
     const handleCloseThemeEditor = () => {
-        setShowNewThemeModal(false);
+        closeModal("themeEditorModal");
         setEditingThemeId(null);
         setNewThemeName("");
         // 清空草稿状态
@@ -1709,7 +1707,7 @@ const App: React.FC = () => {
         if (isAlreadyDownloaded) {
             setManagingSong(song);
             setConfirmDeleteDownloaded(false);
-            setDownloadModalOpen(true);
+            openModal("downloadModal");
             return;
         }
         try {
@@ -1785,7 +1783,7 @@ const App: React.FC = () => {
             if (currentSong?.id === managingSong.id) {
                 setIsDownloaded(false);
             }
-            setDownloadModalOpen(false);
+            closeModal("downloadModal");
             setConfirmDeleteDownloaded(false);
             setManagingSong(null);
             notifications.show({ title: '已删除下载文件', color: 'green' });
@@ -1875,7 +1873,7 @@ const App: React.FC = () => {
             setSelectedFavId(result.favorite.id);
             playFavorite(result.favorite);
         }
-        setGlobalSearchOpen(false);
+        closeModal("globalSearchModal");
     };
 
     const handleRemoteSearch = async () => {
@@ -1970,7 +1968,7 @@ const App: React.FC = () => {
                 autoClose: 3000,
             });
 
-            setGlobalSearchOpen(false);
+            closeModal("globalSearchModal");
         } catch (err) {
             notifications.update({
                 id: toastId,
@@ -2143,7 +2141,7 @@ const App: React.FC = () => {
             />
 
             <ThemeEditorModal
-                opened={showNewThemeModal}
+                opened={modals.themeEditorModal}
                 onClose={handleCloseThemeEditor}
                 onCancel={handleCloseThemeEditor}
                 editingThemeId={editingThemeId}
@@ -2191,8 +2189,8 @@ const App: React.FC = () => {
             />
 
             <Modal
-                opened={editFavModalOpen}
-                onClose={() => setEditFavModalOpen(false)}
+                opened={modals.editFavModal}
+                onClose={() => closeModal("editFavModal")}
                 title="编辑歌单"
                 centered
                 size="sm"
@@ -2205,7 +2203,7 @@ const App: React.FC = () => {
                         placeholder="输入歌单名称"
                     />
                     <Group justify="flex-end" gap="sm">
-                        <Button variant="subtle" color={themeColor} onClick={() => setEditFavModalOpen(false)}>
+                        <Button variant="subtle" color={themeColor} onClick={() => closeModal("editFavModal")}>
                             取消
                         </Button>
                         <Button color={themeColor} onClick={handleSaveEditFavorite}>
@@ -2305,8 +2303,8 @@ const App: React.FC = () => {
 
             {/* 下载管理弹窗 */}
             <Modal
-                opened={downloadModalOpen}
-                onClose={() => { setDownloadModalOpen(false); setConfirmDeleteDownloaded(false); setManagingSong(null); }}
+                opened={modals.downloadModal}
+                onClose={() => { closeModal("downloadModal"); setConfirmDeleteDownloaded(false); setManagingSong(null); }}
                 size="sm"
                 centered
                 title="下载文件管理"
@@ -2376,15 +2374,15 @@ const App: React.FC = () => {
                         <Text size="xs" c="dimmed">需要已登录 B 站账号。当前实现暂未接入后端接口。</Text>
                     )}
                     <Group justify="flex-end" mt="sm">
-                        <Button variant="default" onClick={() => setCreateFavModalOpen(false)}>取消</Button>
+                        <Button variant="default" onClick={() => closeModal("createFavModal")}>取消</Button>
                         <Button color={themeColor} onClick={handleSubmitCreateFavorite}>确认</Button>
                     </Group>
                 </Stack>
             </Modal>
 
             <Modal
-                opened={createFavModalOpen}
-                onClose={() => setCreateFavModalOpen(false)}
+                opened={modals.createFavModal}
+                onClose={() => closeModal("createFavModal")}
                 title="新建歌单"
                 centered
                 size="md"
@@ -2438,8 +2436,8 @@ const App: React.FC = () => {
             </Modal>
 
             <Modal
-                opened={globalSearchOpen}
-                onClose={() => setGlobalSearchOpen(false)}
+                opened={modals.globalSearchModal}
+                onClose={() => closeModal("globalSearchModal")}
                 size="lg"
                 centered
                 radius="md"
@@ -2751,7 +2749,7 @@ const App: React.FC = () => {
                     hitokoto={hitokoto}
                     onSearchClick={() => {
                         setGlobalSearchTerm("");
-                        setGlobalSearchOpen(true);
+                        openModal("globalSearchModal");
                     }}
                     onThemeClick={() => {
                         setThemeColorDraft(themeColor);

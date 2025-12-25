@@ -3,3 +3,4 @@ export * from './usePlaylist';
 export * from './useAudioInterval';
 export * from './usePlaylistActions';
 export * from './useSkipIntervalHandler';
+export * from './useDownloadManager';

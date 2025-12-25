@@ -18,7 +18,7 @@ import MainLayout from "./components/MainLayout";
 import ControlsPanel from "./components/ControlsPanel";
 
 // Hooks
-import { useAudioPlayer, usePlaylist, useAudioInterval, usePlaylistActions, useSkipIntervalHandler } from "./hooks/player";
+import { useAudioPlayer, usePlaylist, useAudioInterval, usePlaylistActions, useSkipIntervalHandler, useDownloadManager } from "./hooks/player";
 import { useSongs, useFavorites, useSongCache } from "./hooks/data";
 import { useAuth, useBVResolver, useFavoriteActions, useThemeEditor, useSearchAndBV, useBVModal } from "./hooks/features";
 import { useHitokoto } from "./hooks/ui";
@@ -243,6 +243,20 @@ const App: React.FC = () => {
         intervalLength,
         setIntervalStart,
         setIntervalEnd,
+    });
+
+    const downloadManager = useDownloadManager({
+        currentSong,
+        currentFavSongs,
+        downloadedSongIds,
+        managingSong,
+        setStatus,
+        setDownloadedSongIds,
+        setIsDownloaded,
+        setManagingSong,
+        setConfirmDeleteDownloaded,
+        openModal,
+        closeModal,
     });
 
     // ========== 派生值和其他辅助函数 ==========
@@ -1330,108 +1344,12 @@ const App: React.FC = () => {
 
     const handlePlayModeToggle = () => setPlayMode(playMode === "order" ? "random" : playMode === "random" ? "single" : "order");
 
-    const handleDownload = async () => {
-        if (!currentSong) {
-            notifications.show({ title: '无法操作', message: '未选择歌曲', color: 'red' });
-            return;
-        }
-        await handleDownloadSong(currentSong);
-    };
-
-    const handleDownloadSong = async (song: Song) => {
-        if (!song) {
-            notifications.show({ title: '无法操作', message: '未选择歌曲', color: 'red' });
-            return;
-        }
-        const isAlreadyDownloaded = downloadedSongIds.has(song.id);
-        // 已下载则打开管理弹窗，未下载则直接下载
-        if (isAlreadyDownloaded) {
-            setManagingSong(song);
-            setConfirmDeleteDownloaded(false);
-            openModal("downloadModal");
-            return;
-        }
-        try {
-            setStatus(`正在下载: ${song.name}`);
-            const savedPath = await Services.DownloadSong(song.id);
-            notifications.show({ title: '下载完成', message: `已保存到: ${savedPath}`, color: 'green' });
-            setStatus('下载完成');
-            // 更新下载状态
-            setDownloadedSongIds(prev => new Set([...prev, song.id]));
-            if (currentSong?.id === song.id) {
-                setIsDownloaded(true);
-            }
-        } catch (e: any) {
-            const msg = e?.message ?? String(e);
-            notifications.show({ title: '下载失败', message: msg, color: 'red' });
-            setStatus(`下载失败: ${msg}`);
-        }
-    };
-
-    const handleDownloadAllFavorite = async (fav: Favorite) => {
-        if (!fav || fav.songIds.length === 0) {
-            notifications.show({ title: '无法操作', message: '歌单为空', color: 'red' });
-            return;
-        }
-        // 过滤出未下载的歌曲
-        const songsToDownload = currentFavSongs.filter(s => !downloadedSongIds.has(s.id));
-        if (songsToDownload.length === 0) {
-            notifications.show({ title: '提示', message: '所有歌曲都已下载', color: 'blue' });
-            return;
-        }
-        setStatus(`开始批量下载 ${songsToDownload.length} 首歌曲...`);
-        let successCount = 0;
-        let failCount = 0;
-        for (const song of songsToDownload) {
-            try {
-                setStatus(`正在下载: ${song.name} (${successCount + failCount + 1}/${songsToDownload.length})`);
-                await Services.DownloadSong(song.id);
-                setDownloadedSongIds(prev => new Set([...prev, song.id]));
-                successCount++;
-            } catch (e: any) {
-                failCount++;
-                console.error(`下载失败: ${song.name}`, e);
-            }
-        }
-        setStatus(`下载完成: 成功 ${successCount} 首，失败 ${failCount} 首`);
-        notifications.show({
-            title: '批量下载完成',
-            message: `成功 ${successCount} 首，失败 ${failCount} 首`,
-            color: failCount === 0 ? 'green' : 'yellow',
-        });
-    };
-
-
-    const handleOpenDownloadedFile = async () => {
-        if (!managingSong) return;
-        try {
-            await Services.OpenDownloadedFile(managingSong.id);
-        } catch (e: any) {
-            notifications.show({ title: '打开失败', message: e?.message ?? String(e), color: 'red' });
-        }
-    };
-
-    const handleDeleteDownloadedFile = async () => {
-        if (!managingSong) return;
-        try {
-            await Services.DeleteDownloadedSong(managingSong.id);
-            // 更新下载状态
-            setDownloadedSongIds(prev => {
-                const next = new Set(prev);
-                next.delete(managingSong.id);
-                return next;
-            });
-            if (currentSong?.id === managingSong.id) {
-                setIsDownloaded(false);
-            }
-            closeModal("downloadModal");
-            setConfirmDeleteDownloaded(false);
-            setManagingSong(null);
-            notifications.show({ title: '已删除下载文件', color: 'green' });
-        } catch (e: any) {
-            notifications.show({ title: '删除失败', message: e?.message ?? String(e), color: 'red' });
-        }
-    };
+    // ========== 下载管理函数（来自 useDownloadManager Hook）==========
+    const handleDownload = downloadManager.handleDownload;
+    const handleDownloadSong = downloadManager.handleDownloadSong;
+    const handleDownloadAllFavorite = downloadManager.handleDownloadAllFavorite;
+    const handleOpenDownloadedFile = downloadManager.handleOpenDownloadedFile;
+    const handleDeleteDownloadedFile = downloadManager.handleDeleteDownloadedFile;
 
     const handleAddSongToFavorite = playlistActions.addSongToFavorite;
 

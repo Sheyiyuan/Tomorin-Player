@@ -20,7 +20,7 @@ import ControlsPanel from "./components/ControlsPanel";
 // Hooks
 import { useAudioPlayer, usePlaylist, useAudioInterval, usePlaylistActions } from "./hooks/player";
 import { useSongs, useFavorites, useSongCache } from "./hooks/data";
-import { useAuth, useBVResolver, useFavoriteActions } from "./hooks/features";
+import { useAuth, useBVResolver, useFavoriteActions, useThemeEditor } from "./hooks/features";
 import { useHitokoto } from "./hooks/ui";
 // Contexts
 import { useThemeContext, useModalContext } from "./context";
@@ -173,6 +173,29 @@ const App: React.FC = () => {
         setFavorites,
         setStatus,
         setConfirmRemoveSongId,
+        openModal,
+        closeModal,
+    });
+
+    const themeEditor = useThemeEditor({
+        themes,
+        setThemes,
+        currentThemeId,
+        themeColorDraft,
+        computedColorScheme,
+        saveCachedCustomThemes,
+        applyThemeToUi,
+        getCustomThemesFromState,
+        setEditingThemeId,
+        setNewThemeName,
+        setColorSchemeDraft,
+        setThemeColorDraft,
+        setBackgroundColorDraft,
+        setBackgroundOpacityDraft,
+        setBackgroundImageUrlDraftSafe,
+        setPanelColorDraft,
+        setPanelOpacityDraft,
+        setSavingTheme,
         openModal,
         closeModal,
     });
@@ -1229,138 +1252,23 @@ const App: React.FC = () => {
         setPanelOpacity(theme.panelOpacity);
     };
 
-    const handleSelectTheme = (theme: Theme) => {
-        applyThemeToUi(theme);
-        Services.SetCurrentTheme(theme.id).catch(err => console.error("SetCurrentTheme failed", err));
-    };
-
-    const handleEditTheme = (theme: Theme) => {
-        setEditingThemeId(theme.id);
-        setNewThemeName(theme.name);
-        setColorSchemeDraft((theme.colorScheme as "light" | "dark") || "light");
-        setThemeColorDraft(theme.themeColor);
-        setBackgroundColorDraft(theme.backgroundColor);
-        setBackgroundOpacityDraft(theme.backgroundOpacity);
-        setBackgroundImageUrlDraftSafe(theme.backgroundImage);
-        setPanelColorDraft(theme.panelColor);
-        setPanelOpacityDraft(theme.panelOpacity);
-        openModal("themeEditorModal");
-    };
-
-    const handleDeleteTheme = async (id: string) => {
-        await Services.DeleteTheme(id);
-        const currentCustomThemes = getCustomThemesFromState(themes);
-        const nextCustom = currentCustomThemes.filter((t) => t.id !== id);
-        saveCachedCustomThemes(nextCustom);
-        setThemes([...defaultThemes, ...nextCustom]);
-    };
-
-    const handleCreateThemeClick = () => {
-        setEditingThemeId(null);
-        setNewThemeName("");
-        setColorSchemeDraft(computedColorScheme);
-        setThemeColorDraft("#228be6");
-        setBackgroundColorDraft(computedColorScheme === "dark" ? "#0b1021" : "#f8fafc");
-        setBackgroundOpacityDraft(1);
-        setBackgroundImageUrlDraftSafe("");
-        setPanelColorDraft(computedColorScheme === "dark" ? "#1f2937" : "#ffffff");
-        setPanelOpacityDraft(0.92);
-        openModal("themeEditorModal");
-    };
-
-    const handleSubmitTheme = async () => {
-        setSavingTheme(true);
-        const toastId = notifications.show({
-            title: editingThemeId ? "正在保存主题" : "正在创建主题",
-            message: "请稍候...",
-            color: themeColorDraft,
-            loading: true,
-            autoClose: false,
-        });
-        try {
-            if (editingThemeId) {
-                const editingTheme = themes.find(t => t.id === editingThemeId);
-                const updatedTheme: Theme = {
-                    id: editingThemeId,
-                    name: newThemeName || "未命名主题",
-                    colorScheme: colorSchemeDraft,
-                    themeColor: themeColorDraft,
-                    backgroundColor: backgroundColorDraft,
-                    backgroundOpacity: backgroundOpacityDraft,
-                    backgroundImage: backgroundImageUrlDraft,
-                    panelColor: panelColorDraft,
-                    panelOpacity: panelOpacityDraft,
-                    isDefault: editingTheme?.isDefault || false,
-                    isReadOnly: false,
-                };
-                await Services.UpdateTheme(updatedTheme);
-                const currentCustomThemes = getCustomThemesFromState(themes);
-                const nextCustom = currentCustomThemes.map((t) => (t.id === editingThemeId ? updatedTheme : t));
-                saveCachedCustomThemes(nextCustom);
-                setThemes([...defaultThemes, ...nextCustom]);
-                if (currentThemeId === editingThemeId) {
-                    applyThemeToUi(updatedTheme);
-                }
-                notifications.update({
-                    id: toastId,
-                    title: "主题已保存",
-                    message: updatedTheme.name,
-                    color: "teal",
-                    loading: false,
-                    autoClose: 1500,
-                });
-            } else {
-                const newTheme: Theme = {
-                    id: "",
-                    name: newThemeName || "未命名主题",
-                    colorScheme: colorSchemeDraft,
-                    themeColor: themeColorDraft,
-                    backgroundColor: backgroundColorDraft,
-                    backgroundOpacity: backgroundOpacityDraft,
-                    backgroundImage: backgroundImageUrlDraft,
-                    panelColor: panelColorDraft,
-                    panelOpacity: panelOpacityDraft,
-                    isDefault: false,
-                    isReadOnly: false,
-                };
-                const createdTheme = await Services.CreateTheme(newTheme);
-                const currentCustomThemes = getCustomThemesFromState(themes);
-                const nextCustom = [...currentCustomThemes, createdTheme];
-                saveCachedCustomThemes(nextCustom);
-                setThemes([...defaultThemes, ...nextCustom]);
-                notifications.update({
-                    id: toastId,
-                    title: "主题已创建",
-                    message: createdTheme.name,
-                    color: "teal",
-                    loading: false,
-                    autoClose: 1500,
-                });
-            }
-            closeModal("themeEditorModal");
-            setEditingThemeId(null);
-            setNewThemeName("");
-        } catch (err) {
-            notifications.update({
-                id: toastId,
-                title: editingThemeId ? "保存失败" : "创建失败",
-                message: `${err}`,
-                color: "red",
-                loading: false,
-                autoClose: 3000,
-            });
-        } finally {
-            setSavingTheme(false);
-        }
-    };
-
-    const handleCloseThemeEditor = () => {
-        closeModal("themeEditorModal");
-        setEditingThemeId(null);
-        setNewThemeName("");
-        // 清空草稿状态
-        setBackgroundImageUrlDraft("");
-    };
+    // ========== 主题管理函数（来自 useThemeEditor Hook）==========
+    const handleSelectTheme = themeEditor.selectTheme;
+    const handleEditTheme = themeEditor.editTheme;
+    const handleDeleteTheme = themeEditor.deleteTheme;
+    const handleCreateThemeClick = themeEditor.createThemeClick;
+    const handleSubmitTheme = () => themeEditor.submitTheme(
+        editingThemeId,
+        newThemeName,
+        colorSchemeDraft,
+        themeColorDraft,
+        backgroundColorDraft,
+        backgroundOpacityDraft,
+        backgroundImageUrlDraft,
+        panelColorDraft,
+        panelOpacityDraft
+    );
+    const handleCloseThemeEditor = themeEditor.closeThemeEditor;
 
     const handleClearBackgroundImageDraft = () => {
         console.log('handleClearBackgroundImageDraft 被调用，URL长度:', backgroundImageUrlDraft?.length || 0);

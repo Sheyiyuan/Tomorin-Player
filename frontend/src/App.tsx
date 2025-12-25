@@ -197,6 +197,15 @@ const App: React.FC = () => {
 
     const normalizeText = (value?: string | null) => (value || "").toLowerCase();
 
+    // 主题缓存辅助函数
+    const saveCachedCustomThemes = useCallback((themesToCache: Theme[]) => {
+        try {
+            localStorage.setItem('customThemes', JSON.stringify(themesToCache));
+        } catch (e) {
+            console.warn('保存自定义主题缓存失败', e);
+        }
+    }, []);
+
     const toRgba = (color: string, alpha: number) => {
         const a = Math.min(1, Math.max(0, alpha));
         if (color.startsWith("#")) {
@@ -351,26 +360,6 @@ const App: React.FC = () => {
                 settingsLoadedRef.current = true;
             });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // 获取随机一言
-    useEffect(() => {
-        const fetchHitokoto = async () => {
-            try {
-                const response = await fetch("/hitokoto.json");
-                const data: string[] = await response.json();
-                if (Array.isArray(data) && data.length > 0) {
-                    const randomIndex = Math.floor(Math.random() * data.length);
-                    setHitokoto(data[randomIndex]);
-                } else {
-                    setHitokoto("生活就像海洋，只有意志坚强的人才能到达彼岸。");
-                }
-            } catch (e) {
-                console.warn("获取一言失败", e);
-                setHitokoto("生活就像海洋，只有意志坚强的人才能到达彼岸。");
-            }
-        };
-        fetchHitokoto();
     }, []);
 
     // 当设置打开时，刷新缓存大小

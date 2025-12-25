@@ -38,7 +38,7 @@ export const useFavoriteActions = ({
     openModal,
     closeModal,
 }: UseFavoriteActionsProps) => {
-    
+
     const deleteFavorite = useCallback(async (id: string, setConfirmDeleteFavId: (id: string | null) => void) => {
         try {
             await Services.DeleteFavorite(id);
@@ -83,7 +83,7 @@ export const useFavoriteActions = ({
     const createFavorite = useCallback(async (options: CreateFavoriteOptions) => {
         const { name: rawName, mode, duplicateSourceId, importFid, selectedMyFavId } = options;
         const name = (rawName || "").trim() || "新歌单";
-        
+
         try {
             if (mode === "blank") {
                 await Services.SaveFavorite({ id: "", title: name, songIds: [] } as any);

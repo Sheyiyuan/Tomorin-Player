@@ -18,7 +18,7 @@ import MainLayout from "./components/MainLayout";
 import ControlsPanel from "./components/ControlsPanel";
 
 // Hooks
-import { useAudioPlayer, usePlaylist, useAudioInterval } from "./hooks/player";
+import { useAudioPlayer, usePlaylist, useAudioInterval, usePlaylistActions } from "./hooks/player";
 import { useSongs, useFavorites, useSongCache } from "./hooks/data";
 import { useAuth, useBVResolver, useFavoriteActions } from "./hooks/features";
 import { useHitokoto } from "./hooks/ui";
@@ -102,14 +102,14 @@ const App: React.FC = () => {
     const [setting, setSetting] = useState<PlayerSetting | null>(null);
     const [lyric, setLyric] = useState<LyricMapping | null>(null);
     const [status, setStatus] = useState<string>("加载中...");
-    
+
     // 搜索相关
     const [searchQuery, setSearchQuery] = useState("");
     const [globalSearchTerm, setGlobalSearchTerm] = useState("");
     const [selectedFavId, setSelectedFavId] = useState<string | null>(null);
     const [remoteResults, setRemoteResults] = useState<Song[]>([]);
     const [remoteLoading, setRemoteLoading] = useState(false);
-    
+
     // 设置相关
     const [cacheSize, setCacheSize] = useState(0);
 
@@ -155,6 +155,24 @@ const App: React.FC = () => {
         setStatus,
         isLoggedIn,
         themeColor,
+        openModal,
+        closeModal,
+    });
+
+    const currentFav = selectedFavId ? (favorites.find((f: Favorite) => f.id === selectedFavId) ?? null) : null;
+
+    const playlistActions = usePlaylistActions({
+        queue,
+        setQueue,
+        currentIndex,
+        setCurrentIndex,
+        setCurrentSong,
+        setIsPlaying,
+        currentFav,
+        favorites,
+        setFavorites,
+        setStatus,
+        setConfirmRemoveSongId,
         openModal,
         closeModal,
     });
@@ -1163,9 +1181,8 @@ const App: React.FC = () => {
         searchQuery === "" || s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.singer.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const currentFav = selectedFavId ? (favorites.find((f) => f.id === selectedFavId) ?? null) : null;
     const currentFavSongs = currentFav
-        ? songs.filter((s) => currentFav.songIds.some((ref) => ref.songId === s.id))
+        ? songs.filter((s) => currentFav.songIds.some((ref: any) => ref.songId === s.id))
         : [];
 
     const globalSearchResults: GlobalSearchResult[] = useMemo(() => {
@@ -1610,79 +1627,17 @@ const App: React.FC = () => {
         }
     };
 
-    const handleAddSongToFavorite = (song: Song) => {
-        setCurrentSong(song);
-        openModal("addFavoriteModal");
-    };
+    const handleAddSongToFavorite = playlistActions.addSongToFavorite;
 
-    const handleRemoveSongFromPlaylist = async (song: Song) => {
-        if (!currentFav) return;
-        try {
-            const updatedFav = {
-                ...currentFav,
-                songIds: currentFav.songIds.filter(ref => ref.songId !== song.id),
-            };
-            await Services.SaveFavorite(updatedFav as any);
-            const refreshedFavs = await Services.ListFavorites();
-            setFavorites(refreshedFavs);
-            setConfirmRemoveSongId(null);
-            notifications.show({ title: '已移出歌单', message: song.name, color: 'green' });
-        } catch (e: any) {
-            notifications.show({ title: '移出失败', message: e?.message ?? String(e), color: 'red' });
-        }
-    };
+    const handleRemoveSongFromPlaylist = playlistActions.removeSongFromPlaylist;
 
-    const handleAddToFavoriteFromModal = (fav: Favorite) => {
-        setStatus(`已添加到歌单: ${fav.title}`);
-        closeModal("addFavoriteModal");
-    };
+    const handleAddToFavoriteFromModal = playlistActions.addToFavoriteFromModal;
 
-    const handlePlaylistSelect = (song: Song, index: number) => {
-        setCurrentIndex(index);
-        setCurrentSong(song);
-        closeModal("playlistModal");
-    };
+    const handlePlaylistSelect = playlistActions.playlistSelect;
 
-    const handlePlaylistReorder = (fromIndex: number, toIndex: number) => {
-        const newQueue = [...queue];
-        const [movedItem] = newQueue.splice(fromIndex, 1);
-        newQueue.splice(toIndex, 0, movedItem);
-        setQueue(newQueue);
+    const handlePlaylistReorder = playlistActions.playlistReorder;
 
-        // 更新当前播放索引
-        if (currentIndex === fromIndex) {
-            setCurrentIndex(toIndex);
-        } else if (fromIndex < currentIndex && toIndex >= currentIndex) {
-            setCurrentIndex(currentIndex - 1);
-        } else if (fromIndex > currentIndex && toIndex <= currentIndex) {
-            setCurrentIndex(currentIndex + 1);
-        }
-    };
-
-    const handlePlaylistRemove = (index: number) => {
-        const newQueue = queue.filter((_, i) => i !== index);
-        setQueue(newQueue);
-
-        // 如果删除的是当前播放的歌曲
-        if (index === currentIndex) {
-            if (newQueue.length === 0) {
-                setCurrentSong(null);
-                setIsPlaying(false);
-            } else if (index >= newQueue.length) {
-                // 删除的是最后一首，播放前一首
-                const newIndex = newQueue.length - 1;
-                setCurrentIndex(newIndex);
-                setCurrentSong(newQueue[newIndex]);
-            } else {
-                // 播放同一位置的下一首
-                setCurrentSong(newQueue[index]);
-            }
-        } else if (index < currentIndex) {
-            // 删除的在当前播放之前，索引减1
-            setCurrentIndex(currentIndex - 1);
-        }
-        // 如果删除的在当前播放之后，索引不变
-    };
+    const handlePlaylistRemove = playlistActions.playlistRemove;
 
     const handleSearchResultClick = (result: GlobalSearchResult) => {
         if (result.kind === "song") {

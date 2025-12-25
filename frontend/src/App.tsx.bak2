@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Palette, Search, Settings as SettingsIcon } from "lucide-react";
-import { ActionIcon, AspectRatio, Badge, Box, Button, Flex, Group, Image, Modal, NumberInput, Paper, RangeSlider, ScrollArea, Select, Slider, Stack, Text, TextInput, useComputedColorScheme, useMantineColorScheme } from "@mantine/core";
+import { ActionIcon, AspectRatio, Badge, Box, Button, Flex, Group, Image, Modal, NumberInput, Paper, RangeSlider, ScrollArea, Select, Slider, Stack, Text, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import * as Services from "../wailsjs/go/services/Service";
 import { Favorite, LyricMapping, PlayerSetting, Song, Theme, SongClass } from "./types";
@@ -14,6 +14,16 @@ import AddToFavoriteModal from "./components/AddToFavoriteModal";
 import PlaylistModal from "./components/PlaylistModal";
 import LoginModal from "./components/LoginModal";
 
+// Hooks
+import { useAudioPlayer, usePlaylist, useAudioInterval } from "./hooks/player";
+import { useSongs, useFavorites, useSongCache } from "./hooks/data";
+import { useTheme, useAuth, useBVResolver } from "./hooks/features";
+import { useHitokoto } from "./hooks/ui";
+
+// Utils
+import { formatTime, formatTimeLabel, parseTimeLabel } from "./utils/time";
+import { APP_VERSION, PLACEHOLDER_COVER } from "./utils/constants";
+
 // Declare window.go for Wails runtime
 declare global {
     interface Window {
@@ -21,142 +31,97 @@ declare global {
     }
 }
 
-// 添加滚动文本动画样式
-const formatTime = (seconds: number): string => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    return `${h > 0 ? h + ":" : ""}${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-};
-
-const formatTimeLabel = (value: number | string): string => {
-    const n = Number(value) || 0;
-    return formatTime(n);
-};
-
-const parseTimeLabel = (value: string): number => {
-    if (!value) return 0;
-    const parts = value.split(":").map((p) => Number(p) || 0);
-    if (parts.length === 1) return parts[0];
-    if (parts.length === 2) return parts[0] * 60 + parts[1];
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
-};
-
 const App: React.FC = () => {
-    const audioRef = useRef<HTMLAudioElement | null>(null);
+    // ========== Hooks ==========
+    // 播放器相关
+    const playlist = usePlaylist();
+    const { queue, currentIndex, currentSong, playMode, setQueue, setCurrentIndex, setCurrentSong, setPlayMode } = playlist;
 
-    const [songs, setSongs] = useState<Song[]>([]);
-    const [favorites, setFavorites] = useState<Favorite[]>([]);
-    const [queue, setQueue] = useState<Song[]>([]);
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [currentSong, setCurrentSong] = useState<Song | null>(null);
+    const audioPlayer = useAudioPlayer(currentSong);
+    const { audioRef, state: audioState, actions: audioActions, setIsPlaying, setProgress, setDuration } = audioPlayer;
+    const { isPlaying, progress, duration, volume } = audioState;
+    const { play, pause, seek, setVolume } = audioActions;
+
+    const interval = useAudioInterval(currentSong, duration, progress);
+    const { intervalRef, intervalStart, intervalEnd, intervalLength, progressInInterval } = interval;
+
+    // 数据管理
+    const songsHook = useSongs();
+    const { songs, setSongs, loadSongs, refreshSongs } = songsHook;
+
+    const favoritesHook = useFavorites();
+    const { favorites, setFavorites, loadFavorites, refreshFavorites } = favoritesHook;
+
+    const songCache = useSongCache();
+    const { updateSongWithCache } = songCache;
+
+    // 功能模块
+    const theme = useTheme();
+    const {
+        themes, currentThemeId, themeColor, backgroundColor, backgroundOpacity,
+        backgroundImageUrl, panelColor, panelOpacity, computedColorScheme,
+        setThemes, setCurrentThemeId, setThemeColor, setBackgroundColor,
+        setBackgroundOpacity, setBackgroundImageUrl, setPanelColor, setPanelOpacity,
+        applyTheme, setBackgroundImageUrlSafe
+    } = theme;
+
+    const auth = useAuth();
+    const { isLoggedIn, userInfo, loginModalOpened, setIsLoggedIn, setUserInfo, setLoginModalOpened, checkLoginStatus, getUserInfo } = auth;
+
+    const bvResolver = useBVResolver();
+    const {
+        bvPreview, bvModalOpen, bvSongName, bvSinger, bvTargetFavId, resolvingBV,
+        sliceStart, sliceEnd, isSlicePreviewing, slicePreviewPosition,
+        setBvPreview, setBvModalOpen, setBvSongName, setBvSinger, setBvTargetFavId,
+        setSliceStart, setSliceEnd, setIsSlicePreviewing, setSlicePreviewPosition,
+        resolveBV, resetBVState
+    } = bvResolver;
+
+    const hitokoto = useHitokoto();
+
+    // ========== 保留的 Refs 和局部状态 ==========
+    const playingRef = useRef<string | null>(null);
+    const playbackRetryRef = useRef<Map<string, number>>(new Map());
+    const prevSongIdRef = useRef<string | null>(null);
+    const sliceAudioRef = useRef<HTMLAudioElement | null>(null);
+    const settingsLoadedRef = useRef(false);
+
     const [setting, setSetting] = useState<PlayerSetting | null>(null);
     const [lyric, setLyric] = useState<LyricMapping | null>(null);
     const [status, setStatus] = useState<string>("加载中...");
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [duration, setDuration] = useState(0);
-    const [volume, setVolume] = useState(0.5);
-    const [playMode, setPlayMode] = useState<"order" | "random" | "single">("order");
     const [searchQuery, setSearchQuery] = useState("");
     const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
     const [globalSearchTerm, setGlobalSearchTerm] = useState("");
-    const [resolvingBV, setResolvingBV] = useState(false);
     const [selectedFavId, setSelectedFavId] = useState<string | null>(null);
     const [remoteResults, setRemoteResults] = useState<Song[]>([]);
     const [remoteLoading, setRemoteLoading] = useState(false);
     const [showPlaylistModal, setShowPlaylistModal] = useState(false);
     const [showFavoriteModal, setShowFavoriteModal] = useState(false);
-    const [loginModalOpened, setLoginModalOpened] = useState(false);
-    const [userInfo, setUserInfo] = useState<any>(null);
-    const [bvPreview, setBvPreview] = useState<{ bvid: string; title: string; cover: string; url: string; expiresAt: string; duration: number } | null>(null);
-    const [bvModalOpen, setBvModalOpen] = useState(false);
-    const [bvSongName, setBvSongName] = useState("");
-    const [bvSinger, setBvSinger] = useState("");
-    const [bvTargetFavId, setBvTargetFavId] = useState<string | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const [newFavName, setNewFavName] = useState("");
-    const [sliceStart, setSliceStart] = useState(0);
-    const [sliceEnd, setSliceEnd] = useState(0);
-    const [isSlicePreviewing, setIsSlicePreviewing] = useState(false);
-    const [slicePreviewPosition, setSlicePreviewPosition] = useState(0);
-    const sliceAudioRef = useRef<HTMLAudioElement | null>(null);
-    const APP_VERSION = "0.1.0";
-    const { setColorScheme } = useMantineColorScheme();
-    const computedColorScheme = useComputedColorScheme("light");
+    const [cacheSize, setCacheSize] = useState(0);
+    const [createFavModalOpen, setCreateFavModalOpen] = useState(false);
+    const [createFavName, setCreateFavName] = useState("新歌单");
+    const [createFavMode, setCreateFavMode] = useState<"blank" | "duplicate" | "importMine" | "importFid">("blank");
+    const [duplicateSourceId, setDuplicateSourceId] = useState<string | null>(null);
+    const [importFid, setImportFid] = useState("");
+    const [confirmDeleteFavId, setConfirmDeleteFavId] = useState<string | null>(null);
+    const [editFavModalOpen, setEditFavModalOpen] = useState(false);
+    const [editingFavId, setEditingFavId] = useState<string | null>(null);
+    const [editingFavName, setEditingFavName] = useState("");
 
-    const [themeColor, setThemeColor] = useState<string>("#228be6");
-    const [backgroundColor, setBackgroundColor] = useState<string>(computedColorScheme === "dark" ? "#0b1021" : "#f8fafc");
-    const [backgroundOpacity, setBackgroundOpacity] = useState<number>(1);
-    const [backgroundImageUrl, setBackgroundImageUrl] = useState<string>("");
-    const [panelColor, setPanelColor] = useState<string>(computedColorScheme === "dark" ? "#1f2937" : "#ffffff");
-    const [panelOpacity, setPanelOpacity] = useState<number>(0.92);
+    // 下载相关状态
+    const [isDownloaded, setIsDownloaded] = useState<boolean>(false);
+    const [downloadModalOpen, setDownloadModalOpen] = useState<boolean>(false);
+    const [confirmDeleteDownloaded, setConfirmDeleteDownloaded] = useState<boolean>(false);
+    const [downloadedSongIds, setDownloadedSongIds] = useState<Set<string>>(new Set());
+    const [managingSong, setManagingSong] = useState<Song | null>(null);
+    const [confirmRemoveSongId, setConfirmRemoveSongId] = useState<string | null>(null);
 
-    const CUSTOM_THEME_CACHE_KEY = "tomorin.customThemes";
-
-    const loadCachedCustomThemes = (): Theme[] | null => {
-        if (typeof window === "undefined") return null;
-        try {
-            const raw = localStorage.getItem(CUSTOM_THEME_CACHE_KEY);
-            if (!raw) return null;
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) return parsed as Theme[];
-            return null;
-        } catch (err) {
-            console.warn("读取主题缓存失败", err);
-            return null;
-        }
-    };
-
-    const saveCachedCustomThemes = (themesToCache: Theme[]) => {
-        if (typeof window === "undefined") return;
-        try {
-            localStorage.setItem(CUSTOM_THEME_CACHE_KEY, JSON.stringify(themesToCache));
-        } catch (err) {
-            console.warn("写入主题缓存失败", err);
-        }
-    };
-
-    const getCustomThemesFromState = (allThemes: Theme[]) => allThemes.filter((t) => !t.isDefault && !t.isReadOnly);
-
-    // 前端定义的默认主题（只读）
-    const defaultThemes: Theme[] = React.useMemo(() => [
-        {
-            id: "light",
-            name: "亮色",
-            colorScheme: "light",
-            themeColor: "#228be6",
-            backgroundColor: "#f8fafc",
-            backgroundOpacity: 1,
-            backgroundImage: "",
-            panelColor: "#ffffff",
-            panelOpacity: 0.92,
-            isDefault: true,
-            isReadOnly: true,
-        },
-        {
-            id: "dark",
-            name: "暗色",
-            colorScheme: "dark",
-            themeColor: "#228be6",
-            backgroundColor: "#0b1021",
-            backgroundOpacity: 1,
-            backgroundImage: "",
-            panelColor: "#1f2937",
-            panelOpacity: 0.92,
-            isDefault: true,
-            isReadOnly: true,
-        },
-    ], []);
-
-    // 新增：主题管理状态
-    const [themes, setThemes] = useState<Theme[]>(defaultThemes);
-    const [currentThemeId, setCurrentThemeId] = useState<string>("light");
+    // 主题编辑器状态
     const [showThemeModal, setShowThemeModal] = useState(false);
     const [showNewThemeModal, setShowNewThemeModal] = useState(false);
     const [editingThemeId, setEditingThemeId] = useState<string | null>(null);
     const [newThemeName, setNewThemeName] = useState<string>("");
-
     const [colorSchemeDraft, setColorSchemeDraft] = useState<"light" | "dark">("light");
     const [themeColorDraft, setThemeColorDraft] = useState<string>("#228be6");
     const [backgroundColorDraft, setBackgroundColorDraft] = useState<string>(computedColorScheme === "dark" ? "#0b1021" : "#f8fafc");
@@ -165,19 +130,12 @@ const App: React.FC = () => {
     const [panelOpacityDraft, setPanelOpacityDraft] = useState<number>(0.92);
     const [panelColorDraft, setPanelColorDraft] = useState<string>("#ffffff");
     const [savingTheme, setSavingTheme] = useState(false);
-
-    // Skip disk persistence when we know state changes are already persisted via theme APIs
     const skipPersistRef = useRef(false);
-
-    // Avoid redundant background updates when URL hasn't changed
-    const setBackgroundImageUrlSafe = useCallback((url: string) => {
-        setBackgroundImageUrl(prev => (prev === url ? prev : url));
-    }, []);
+    const fileDraftInputRef = useRef<HTMLInputElement | null>(null);
+    
     const setBackgroundImageUrlDraftSafe = useCallback((url: string) => {
         setBackgroundImageUrlDraft(prev => (prev === url ? prev : url));
     }, []);
-    const fileDraftInputRef = useRef<HTMLInputElement | null>(null);
-    const settingsLoadedRef = useRef(false);
 
     const placeholderCover = React.useMemo(
         () =>
@@ -187,21 +145,63 @@ const App: React.FC = () => {
         []
     );
 
-    // 本地测试用的假时长（秒）
-    const testDurations: Record<string, number> = {
-        "test-1": 123,
-        "test-2": 256,
-        "test-3": 407,
-    };
-
-    // 播放区间相关派生值，提前声明避免后续 Hook 中的 TDZ 问题
+    // 播放区间相关派生值（仅派生，不修改歌曲数据）
     const maxSkipLimit = duration > 0 ? duration : 1;
     const rawIntervalStart = currentSong?.skipStartTime ?? 0;
-    const rawIntervalEnd = currentSong?.skipEndTime ?? duration;
-    const intervalStart = Math.max(0, rawIntervalStart);
-    const intervalEnd = Math.max(intervalStart, rawIntervalEnd || duration || 0);
+    const rawIntervalEndRaw = currentSong?.skipEndTime ?? 0; // 0 作为“播放到结尾”的哨兵值
+    const intervalStart = Math.min(Math.max(rawIntervalStart, 0), duration || 0);
+    const rawIntervalEndEffective = rawIntervalEndRaw === 0 ? (duration || 0) : rawIntervalEndRaw;
+    const intervalEnd = Math.min(Math.max(rawIntervalEndEffective, intervalStart), duration || 0);
     const intervalLength = Math.max(0, intervalEnd - intervalStart);
-    const progressInInterval = Math.max(0, Math.min(intervalLength || duration, progress - intervalStart));
+    const progressInInterval = Math.max(0, Math.min(intervalLength || (duration || 0), progress - intervalStart));
+
+    // 同步区间值到 ref，确保音频事件处理中总能获取最新值
+    useEffect(() => {
+        intervalRef.current = { start: intervalStart, end: intervalEnd, length: intervalLength };
+    }, [intervalStart, intervalEnd, intervalLength]);
+
+    // 检查当前歌曲是否已下载
+    useEffect(() => {
+        (async () => {
+            try {
+                if (currentSong?.id) {
+                    const downloaded = await Services.IsSongDownloaded(currentSong.id);
+                    setIsDownloaded(!!downloaded);
+                } else {
+                    setIsDownloaded(false);
+                }
+            } catch (e) {
+                console.warn("检查下载状态失败", e);
+                setIsDownloaded(false);
+            }
+        })();
+    }, [currentSong]);
+
+    // 批量检查所有歌曲的下载状态
+    useEffect(() => {
+        (async () => {
+            if (songs.length === 0) {
+                setDownloadedSongIds(new Set());
+                return;
+            }
+            try {
+                const results = await Promise.all(
+                    songs.map(async (song) => {
+                        try {
+                            const downloaded = await Services.IsSongDownloaded(song.id);
+                            return downloaded ? song.id : null;
+                        } catch {
+                            return null;
+                        }
+                    })
+                );
+                const downloadedIds = new Set(results.filter((id): id is string => id !== null));
+                setDownloadedSongIds(downloadedIds);
+            } catch (e) {
+                console.warn("批量检查下载状态失败", e);
+            }
+        })();
+    }, [songs]);
 
     type GlobalSearchResult = { kind: "song"; song: Song } | { kind: "favorite"; favorite: Favorite };
 
@@ -311,8 +311,9 @@ const App: React.FC = () => {
         }
 
         // 检查登录状态并尝试恢复
-        Services.IsLoggedIn().then(isLoggedIn => {
-            if (isLoggedIn && !userInfo) {
+        Services.IsLoggedIn().then(loggedIn => {
+            setIsLoggedIn(loggedIn);
+            if (loggedIn && !userInfo) {
                 // 已登录但没有加载用户信息，尝试获取
                 Services.GetUserInfo()
                     .then(info => {
@@ -321,7 +322,10 @@ const App: React.FC = () => {
                     })
                     .catch(err => console.warn("自动获取用户信息失败:", err));
             }
-        }).catch(err => console.warn("检查登录状态失败:", err));
+        }).catch(err => {
+            setIsLoggedIn(false);
+            console.warn("检查登录状态失败:", err);
+        });
 
         // 启动时始终从后端读取配置（不再优先本地缓存）
         const themesPromise = Services.GetThemes();
@@ -359,120 +363,188 @@ const App: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // 获取随机一言
+    useEffect(() => {
+        const fetchHitokoto = async () => {
+            try {
+                const response = await fetch("/hitokoto.json");
+                const data: string[] = await response.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    const randomIndex = Math.floor(Math.random() * data.length);
+                    setHitokoto(data[randomIndex]);
+                } else {
+                    setHitokoto("生活就像海洋，只有意志坚强的人才能到达彼岸。");
+                }
+            } catch (e) {
+                console.warn("获取一言失败", e);
+                setHitokoto("生活就像海洋，只有意志坚强的人才能到达彼岸。");
+            }
+        };
+        fetchHitokoto();
+    }, []);
+
+    // 当设置打开时，刷新缓存大小
+    useEffect(() => {
+        if (settingsOpen) {
+            (async () => {
+                try {
+                    const size = await Services.GetAudioCacheSize();
+                    setCacheSize(size);
+                } catch (e) {
+                    console.warn("获取缓存大小失败", e);
+                }
+            })();
+        }
+    }, [settingsOpen]);
+
     useEffect(() => {
         (async () => {
             try {
                 setStatus("正在加载...");
-                console.log("初始化测试数据...");
 
                 // 检查登录状态
                 const loggedIn = await Services.IsLoggedIn();
+                setIsLoggedIn(loggedIn);
                 if (!loggedIn) {
-                    console.log("未登录，提示用户登录");
                     setLoginModalOpened(true);
                 } else {
-                    // 已登录，获取用户信息
                     try {
                         const info = await Services.GetUserInfo();
                         setUserInfo(info);
-                        console.log("用户信息:", info);
-                        // 保存到 localStorage
                         localStorage.setItem("tomorin.userInfo", JSON.stringify(info));
                     } catch (e) {
                         console.warn("获取用户信息失败:", e);
                     }
                 }
 
-                // 总是使用测试数据
-                const testData = [
-                    {
-                        id: "test-1",
-                        name: "测试歌曲1",
-                        singer: "测试艺术家1",
-                        cover: "",
-                        streamUrl: "https://example.com/test1.mp3",
-                        skipStartTime: 0,
-                        skipEndTime: 0,
-                    },
-                    {
-                        id: "test-2",
-                        name: "测试歌曲2",
-                        singer: "测试艺术家2",
-                        cover: "",
-                        streamUrl: "https://example.com/test2.mp3",
-                        skipStartTime: 0,
-                        skipEndTime: 0,
-                    },
-                    {
-                        id: "test-3",
-                        name: "测试歌曲3",
-                        singer: "测试艺术家3",
-                        cover: "",
-                        streamUrl: "https://example.com/test3.mp3",
-                        skipStartTime: 0,
-                        skipEndTime: 0,
-                    },
-                ];
-                const finalSongs = testData.map(d => new SongClass(d));
+                // 确保数据库有默认歌单
+                try {
+                    await Services.Seed();
+                } catch (seedErr) {
+                    console.warn("Seed 失败", seedErr);
+                }
 
-                const testFavorites = [
-                    {
-                        id: "fav-1",
-                        title: "收藏的弹幕音乐",
-                        songIds: [
-                            { songId: "test-1" },
-                            { songId: "test-2" },
-                        ],
-                    } as any,
-                    {
-                        id: "fav-2",
-                        title: "夜间歌单",
-                        songIds: [
-                            { songId: "test-2" },
-                        ],
-                    } as any,
-                    {
-                        id: "fav-3",
-                        title: "周末精选",
-                        songIds: [
-                            { songId: "test-1" },
-                            { songId: "test-3" },
-                        ],
-                    } as any,
-                    {
-                        id: "fav-4",
-                        title: "运动歌单",
-                        songIds: [
-                            { songId: "test-3" },
-                        ],
-                    } as any,
-                ];
+                const [songList, favList] = await Promise.all([
+                    Services.ListSongs(),
+                    Services.ListFavorites(),
+                ]);
 
-                console.log("设置歌曲", finalSongs);
-                console.log("设置歌单", testFavorites);
-                setSongs(finalSongs);
-                setFavorites(testFavorites);
+                // 从 localStorage 恢复缓存的播放时间设置
+                const songsWithCache = songList.map(song => {
+                    try {
+                        const cacheKey = `tomorin.song.${song.id}`;
+                        const cached = localStorage.getItem(cacheKey);
+                        if (cached) {
+                            const cacheData = JSON.parse(cached);
+                            // 使用缓存的值覆盖数据库的值（缓存更新更及时）
+                            return {
+                                ...song,
+                                skipStartTime: cacheData.skipStartTime ?? song.skipStartTime,
+                                skipEndTime: cacheData.skipEndTime ?? song.skipEndTime,
+                            };
+                        }
+                    } catch (err) {
+                        console.warn(`恢复歌曲 ${song.id} 缓存失败:`, err);
+                    }
+                    return song;
+                });
+
+                setSongs(songsWithCache);
+                setFavorites(favList);
+
                 if (!setting) {
                     setSetting({ defaultVolume: 0.5 } as any);
                     setVolume(0.5);
                 }
-                if (finalSongs.length) {
-                    setQueue(finalSongs);
-                    setCurrentIndex(0);
-                    setCurrentSong(finalSongs[0]);
-                    const mockDur = testDurations[finalSongs[0].id];
-                    if (mockDur) {
-                        setDuration(mockDur);
+
+                // 尝试恢复播放列表和播放位置
+                try {
+                    const savedPlaylist = await Services.GetPlaylist();
+                    if (savedPlaylist && savedPlaylist.queue) {
+                        const queueIds = JSON.parse(savedPlaylist.queue || "[]");
+                        if (queueIds.length > 0) {
+                            // 根据保存的 ID 列表重建播放列表（使用带缓存的歌曲）
+                            const restoredQueue = queueIds
+                                .map((id: string) => songsWithCache.find((s) => s.id === id))
+                                .filter(Boolean);
+
+                            if (restoredQueue.length > 0) {
+                                setQueue(restoredQueue);
+                                const validIndex = Math.min(savedPlaylist.currentIndex || 0, restoredQueue.length - 1);
+                                setCurrentIndex(validIndex);
+                                setCurrentSong(restoredQueue[validIndex]);
+                                setStatus("播放列表已恢复");
+                                return;
+                            }
+                        }
                     }
-                    console.log("设置当前歌曲", finalSongs[0]);
+                } catch (playlistErr) {
+                    console.warn("恢复播放列表失败", playlistErr);
                 }
-                setStatus("就绪");
+
+                // 尝试恢复上次播放的歌单和歌曲（向后兼容）
+                try {
+                    const history = await Services.GetPlayHistory();
+                    if (history && history.songId) {
+                        // 尝试找到上次播放的歌曲
+                        const lastSong = songsWithCache.find((s) => s.id === history.songId);
+                        if (lastSong) {
+                            // 如果有记录的歌单ID，尝试使用该歌单
+                            if (history.favoriteId) {
+                                const favIdx = favList.findIndex((f) => f.id === history.favoriteId);
+                                if (favIdx >= 0) {
+                                    setSelectedFavId(history.favoriteId);
+                                    // 该歌单的歌曲通过别的地方加载
+                                }
+                            }
+                            // 直接跳到上次播放的歌曲
+                            const songIdx = songsWithCache.findIndex((s) => s.id === history.songId);
+                            if (songIdx >= 0) {
+                                setQueue(songsWithCache);
+                                setCurrentIndex(songIdx);
+                                setCurrentSong(lastSong);
+                                return;
+                            }
+                        }
+                    }
+                } catch (historyErr) {
+                    console.warn("恢复播放历史失败", historyErr);
+                }
+
+                // 如果没有恢复历史，则使用默认行为
+                if (songsWithCache.length) {
+                    setQueue(songsWithCache);
+                    setCurrentIndex(0);
+                    setCurrentSong(songsWithCache[0]);
+                }
+                setStatus(songsWithCache.length ? "就绪" : "请添加歌曲");
             } catch (e: any) {
                 console.error(e);
                 setStatus(`错误: ${e?.message ?? String(e)}`);
             }
         })();
     }, [setting]);
+
+    // 自动保存播放列表到后端
+    useEffect(() => {
+        // 避免在初始化时立即保存
+        if (queue.length === 0) return;
+
+        const savePlaylist = async () => {
+            try {
+                const queueIds = queue.map((song) => song.id);
+                const queueJSON = JSON.stringify(queueIds);
+                await Services.SavePlaylist(queueJSON, currentIndex);
+                console.log("播放列表已保存");
+            } catch (err) {
+                console.warn("保存播放列表失败", err);
+            }
+        };
+
+        // 使用防抖避免频繁保存
+        const timeoutId = setTimeout(savePlaylist, 1000);
+        return () => clearTimeout(timeoutId);
+    }, [queue, currentIndex]);
 
     useEffect(() => {
         if (!currentSong) return;
@@ -486,44 +558,131 @@ const App: React.FC = () => {
         }
     }, [currentSong]);
 
-    // 如果是测试歌曲，使用本地假时长
-    useEffect(() => {
-        if (!currentSong) return;
-        const mockDur = testDurations[currentSong.id];
-        if (mockDur) {
-            setDuration(mockDur);
-            setProgress(0);
-        }
-    }, [currentSong]);
-
     useEffect(() => {
         const audio = (audioRef.current ||= new Audio());
+        audio.crossOrigin = "anonymous";
         audio.volume = volume;
+
+        const handleError = (e: ErrorEvent | Event) => {
+            console.error("音频加载错误:", e);
+            const errorMsg = audio.error ? `${audio.error.code}: ${audio.error.message}` : "未知错误";
+            console.warn("音频错误详情", {
+                code: audio.error?.code,
+                message: audio.error?.message,
+                networkState: audio.networkState,
+                readyState: audio.readyState,
+                currentSrc: audio.currentSrc,
+            });
+
+            // AbortError 通常表示播放被中止或快速切歌，不需要处理
+            if (audio.error && audio.error.code === 1) {
+                console.log("播放被中止（快速切歌），跳过重试");
+                return;
+            }
+
+            // 如果是本地文件 404，说明文件已被删除，应该清除本地 URL 并重新获取
+            const isLocalUrl = currentSong?.streamUrl?.includes('127.0.0.1:9999/local');
+            if (isLocalUrl && currentSong?.bvid) {
+                console.log("本地文件加载失败，清除本地 URL 并重新获取网络地址...");
+                setStatus("本地文件不可用，正在重新获取...");
+                // 清除本地 URL
+                const clearedSong = {
+                    ...currentSong,
+                    streamUrl: '',
+                    streamUrlExpiresAt: new Date().toISOString(),
+                };
+                Services.UpsertSongs([clearedSong as any]).then(() => {
+                    Services.ListSongs().then(setSongs);
+                }).catch(console.error);
+                // 延迟后重试播放
+                setTimeout(() => {
+                    if (currentSong && playingRef.current === currentSong.id) {
+                        playSong(currentSong, queue);
+                    }
+                }, 500);
+                return;
+            }
+
+            // 如果是网络错误（通常是 403），尝试刷新 URL，但限制重试次数
+            if (audio.error && audio.error.code === 2 && currentSong?.bvid) {
+                const count = (playbackRetryRef.current.get(currentSong.id) ?? 0) + 1;
+                playbackRetryRef.current.set(currentSong.id, count);
+                console.log(`检测到网络错误（可能是 403），第 ${count} 次尝试刷新播放地址...`);
+                if (count > 3) {
+                    const msg = "播放地址刷新失败，请稍后重试";
+                    setStatus(msg);
+                    setIsPlaying(false);
+                    notifications.show({ title: "播放失败", message: msg, color: "red" });
+                    return;
+                }
+                setStatus("播放地址失效，正在刷新...");
+                // 延迟一下再刷新，避免立即重试
+                setTimeout(() => {
+                    if (currentSong && playingRef.current === currentSong.id) {
+                        playSong(currentSong, queue);
+                    }
+                }, 500);
+                return;
+            }
+
+            // 如果是源不支持/URL 无效，直接停止并提示，避免循环
+            if (audio.error && audio.error.code === 4) {
+                const msg = "音频源不可用或格式不支持";
+                setStatus(msg);
+                setIsPlaying(false);
+                notifications.show({ title: "播放失败", message: msg, color: "red" });
+                return;
+            }
+
+            setStatus(`音频错误: ${errorMsg}`);
+            notifications.show({ title: "音频加载失败", message: errorMsg, color: "red" });
+        };
+
+        audio.addEventListener("error", handleError);
 
         const onTime = () => {
             const t = audio.currentTime;
-            if (t < intervalStart) {
-                audio.currentTime = intervalStart;
-                setProgress(intervalStart);
+            const { start, end } = intervalRef.current;
+            if (t < start) {
+                audio.currentTime = start;
+                setProgress(start);
                 return;
             }
-            if (t > intervalEnd) {
+            if (t > end) {
                 audio.pause();
                 setIsPlaying(false);
-                audio.currentTime = intervalStart;
-                setProgress(intervalEnd);
+                audio.currentTime = start;
+                setProgress(end);
                 return;
             }
             setProgress(t);
         };
-        const onLoaded = () => setDuration(audio.duration || 0);
+        const onLoaded = () => {
+            const loadedDuration = audio.duration || 0;
+            setDuration(loadedDuration);
+
+            // 如果当前歌曲的 skipEndTime 为 0，自动设置为实际时长
+            if (currentSong && loadedDuration > 0 && currentSong.skipEndTime === 0) {
+                const updatedSong = {
+                    ...currentSong,
+                    skipEndTime: loadedDuration,
+                } as any;
+                setCurrentSong(updatedSong);
+
+                // 自动保存到数据库
+                Services.UpsertSongs([updatedSong]).catch((err) => {
+                    console.warn("自动保存结束时间失败:", err);
+                });
+            }
+        };
         const onEnded = () => {
             // 如果在区间内播放完，直接停；否则按队列跳下一首
-            if (audio.currentTime >= intervalEnd) {
+            const { start, end } = intervalRef.current;
+            if (audio.currentTime >= end) {
                 audio.pause();
                 setIsPlaying(false);
-                audio.currentTime = intervalStart;
-                setProgress(intervalStart);
+                audio.currentTime = start;
+                setProgress(start);
                 return;
             }
             if (queue.length > 0 && currentIndex < queue.length - 1) {
@@ -538,56 +697,115 @@ const App: React.FC = () => {
         audio.addEventListener("loadedmetadata", onLoaded);
         audio.addEventListener("ended", onEnded);
         return () => {
+            audio.removeEventListener("error", handleError);
             audio.removeEventListener("timeupdate", onTime);
             audio.removeEventListener("loadedmetadata", onLoaded);
             audio.removeEventListener("ended", onEnded);
         };
-    }, [queue, currentIndex, volume, intervalStart, intervalEnd]);
+    }, [queue, currentIndex, volume]);
 
-    // 当加载到时长后，如果尚未设置播放区间，默认填满整个曲目
+    // 当歌曲切换时，更新参考 ID（简化逻辑，避免复杂的自动重置）
     useEffect(() => {
-        if (!currentSong) return;
-        if (!duration || duration <= 0) return;
-        if ((currentSong.skipStartTime ?? 0) === 0 && (currentSong.skipEndTime ?? 0) === 0) {
-            setCurrentSong({
-                ...currentSong,
-                skipStartTime: 0,
-                skipEndTime: duration,
-            } as any);
-        }
-    }, [currentSong, duration]);
+        prevSongIdRef.current = currentSong?.id ?? null;
+    }, [currentSong?.id]);
 
-    // 如果时长变化，确保区间不超过时长
+    // 监听 currentSong 变化：设置音频源和重置进度
     useEffect(() => {
-        if (!currentSong) return;
-        if (!duration || duration <= 0) return;
-        const start = Math.min(currentSong.skipStartTime ?? 0, duration);
-        const rawEnd = currentSong.skipEndTime ?? duration;
-        const end = Math.min(Math.max(rawEnd, start), duration);
-        if (start !== currentSong.skipStartTime || end !== currentSong.skipEndTime) {
-            setCurrentSong({
-                ...currentSong,
-                skipStartTime: start,
-                skipEndTime: end,
-            } as any);
+        const audio = audioRef.current;
+        if (!audio || !currentSong) {
+            if (audio) {
+                audio.pause();
+                audio.src = "";
+            }
+            return;
         }
-    }, [currentSong, duration]);
 
+        // 更换歌曲时重置该歌曲的重试计数，防止旧状态泄漏
+        playbackRetryRef.current.delete(currentSong.id);
+
+        // 检查 URL 是否存在和有效
+        if (!currentSong.streamUrl) {
+            setStatus("当前歌曲缺少播放地址，正在尝试获取...");
+            // 尝试刷新 URL
+            if (currentSong.bvid) {
+                playSong(currentSong, queue);
+            } else {
+                setIsPlaying(false);
+                audio.pause();
+            }
+            return;
+        }
+
+        // 检查 URL 是否过期（本地文件除外）
+        const isLocalUrl = currentSong.streamUrl?.includes('127.0.0.1:9999/local');
+        if (!isLocalUrl) {
+            const exp = (currentSong as any).streamUrlExpiresAt;
+            const isExpired = exp && new Date(exp).getTime() <= Date.now() + 60_000;
+            if (isExpired && currentSong.bvid) {
+                console.log("URL 已过期，正在刷新...");
+                setStatus("播放地址已过期，正在刷新...");
+                playSong(currentSong, queue);
+                return;
+            }
+        }
+
+        // 防止并发播放：如果正在播放其他歌曲，先停止
+        if (playingRef.current && playingRef.current !== currentSong.id) {
+            console.log(`停止播放 ${playingRef.current}，切换到 ${currentSong.id}`);
+            audio.pause();
+            audio.src = "";
+        }
+
+        console.log("设置音频源:", currentSong.streamUrl);
+        playingRef.current = currentSong.id;
+        audio.src = currentSong.streamUrl;
+        audio.currentTime = 0; // 新歌曲时重置进度
+        const onPlaying = () => {
+            if (currentSong?.id) {
+                playbackRetryRef.current.delete(currentSong.id);
+            }
+        };
+        audio.addEventListener("playing", onPlaying, { once: true });
+    }, [currentSong?.id, currentSong?.streamUrl, currentSong?.bvid, queue]);
+
+    // 监听 isPlaying 变化：控制播放/暂停
     useEffect(() => {
         const audio = audioRef.current;
         if (!audio || !currentSong) return;
-        if (!currentSong.streamUrl) {
-            setStatus("当前歌曲缺少播放地址 streamUrl");
-            setIsPlaying(false);
-            audio.pause();
-            return;
-        }
-        audio.src = currentSong.streamUrl;
-        audio.currentTime = 0;
+
         if (isPlaying) {
-            audio.play().catch((e) => setStatus(`无法播放: ${e}`));
+            // 等待音频可以播放后再播放
+            const onCanPlay = () => {
+                audio.removeEventListener("canplay", onCanPlay);
+                audio.play().catch((e) => {
+                    console.error("播放失败:", e);
+                    const count = (playbackRetryRef.current.get(currentSong.id) ?? 0) + 1;
+                    playbackRetryRef.current.set(currentSong.id, count);
+                    if (count >= 3) {
+                        setIsPlaying(false);
+                        setStatus(`无法播放: ${e}`);
+                        notifications.show({ title: "播放失败", message: String(e), color: "red" });
+                    }
+                });
+            };
+            audio.addEventListener("canplay", onCanPlay, { once: true });
+            // 如果已经可以播放，直接播放
+            if (audio.readyState >= 2) {
+                audio.play().catch((e) => {
+                    console.error("播放失败:", e);
+                    const count = (playbackRetryRef.current.get(currentSong.id) ?? 0) + 1;
+                    playbackRetryRef.current.set(currentSong.id, count);
+                    if (count >= 3) {
+                        setIsPlaying(false);
+                        setStatus(`无法播放: ${e}`);
+                        notifications.show({ title: "播放失败", message: String(e), color: "red" });
+                    }
+                });
+            }
+        } else {
+            audio.pause();
         }
-    }, [currentSong, isPlaying]);
+    }, [isPlaying, currentSong]);
 
     const playSong = async (song: Song, list?: Song[]) => {
         const targetList = list ?? queue;
@@ -596,47 +814,93 @@ const App: React.FC = () => {
         setCurrentIndex(idx >= 0 ? idx : 0);
 
         let toPlay = song;
+        // 优先使用本地缓存：如果存在本地文件，直接走本地代理URL
+        try {
+            const localUrl = await Services.GetLocalAudioURL(song.id);
+            if (localUrl) {
+                console.log("找到本地缓存文件，使用本地 URL:", localUrl);
+                toPlay = {
+                    ...song,
+                    streamUrl: localUrl,
+                    // 本地文件不需要过期，给一个很远的未来时间
+                    streamUrlExpiresAt: new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString(),
+                    updatedAt: new Date().toISOString()
+                } as any;
+                // 不保存到数据库，只是临时使用，避免保存过时的本地 URL 引用
+                setCurrentSong(toPlay);
+                setIsPlaying(true);
+                // 保存播放历史
+                const currentFavId = selectedFavId || "";
+                if (toPlay.id) {
+                    Services.SavePlayHistory(currentFavId, toPlay.id).catch((e) => {
+                        console.warn("保存播放历史失败", e);
+                    });
+                }
+                return;
+            }
+        } catch (e) {
+            console.warn('检查本地缓存失败', e);
+        }
         const exp: any = (song as any).streamUrlExpiresAt;
-        const expired = !song.streamUrl || (exp && new Date(exp).getTime() <= Date.now() + 30_000);
+        // 检查是否需要刷新URL：无URL、已过期、或不是代理URL（本地文件除外）
+        const isLocalUrl = song.streamUrl?.includes('127.0.0.1:9999/local');
+        const isProxyUrl = song.streamUrl?.includes('127.0.0.1:9999/audio');
+        const expired = !isLocalUrl && (!song.streamUrl || !isProxyUrl || (exp && new Date(exp).getTime() <= Date.now() + 60_000));
+
         if (expired && song.bvid) {
             try {
-                // 尝试使用新的 GetPlayURL 方法（需要登录）
-                try {
-                    const playInfo = await Services.GetPlayURL(song.bvid, 0);
-                    if (playInfo && playInfo.proxyUrl) {
-                        toPlay = {
-                            ...song,
-                            streamUrl: playInfo.proxyUrl,
-                            streamUrlExpiresAt: playInfo.expiresAt,
-                            updatedAt: new Date().toISOString()
-                        } as any;
-                    } else {
-                        // 降级到旧方法
-                        const info = await Services.ResolveBiliAudio(song.bvid);
-                        toPlay = { ...song, streamUrl: info.url, streamUrlExpiresAt: info.expiresAt, updatedAt: new Date().toISOString() } as any;
-                    }
-                } catch (e) {
-                    // 如果 GetPlayURL 失败，尝试旧方法
-                    console.log("GetPlayURL 失败，尝试 ResolveBiliAudio", e);
-                    const info = await Services.ResolveBiliAudio(song.bvid);
-                    toPlay = { ...song, streamUrl: info.url, streamUrlExpiresAt: info.expiresAt, updatedAt: new Date().toISOString() } as any;
+                console.log("URL 过期或缺失，正在获取新的播放地址:", song.bvid);
+                setStatus(`正在获取播放地址: ${song.name}`);
+                const playInfo = await Services.GetPlayURL(song.bvid, 0);
+                console.log("获取到播放信息:", playInfo);
+
+                if (!playInfo || !playInfo.ProxyURL) {
+                    console.error("playInfo缺少ProxyURL:", playInfo);
+                    throw new Error("无法获取代理播放地址");
                 }
+
+                toPlay = {
+                    ...song,
+                    streamUrl: playInfo.ProxyURL,
+                    streamUrlExpiresAt: playInfo.ExpiresAt,
+                    updatedAt: new Date().toISOString()
+                } as any;
+                console.log("已更新 streamUrl:", playInfo.ProxyURL);
+                console.log("过期时间:", playInfo.ExpiresAt);
+
                 await Services.UpsertSongs([toPlay as any]);
                 const refreshed = await Services.ListSongs();
                 setSongs(refreshed);
+                setStatus("就绪");
             } catch (e) {
-                notifications.show({ title: '解析失败', message: e instanceof Error ? e.message : '未知错误', color: 'red' });
+                const errorMsg = e instanceof Error ? e.message : '未知错误';
+                console.error("获取播放地址失败:", errorMsg);
+                notifications.show({ title: '获取播放地址失败', message: errorMsg, color: 'red' });
+                setStatus(`错误: ${errorMsg}`);
+                setIsPlaying(false);
+                return; // 停止播放
             }
         }
 
         setCurrentSong(toPlay);
         setIsPlaying(true);
+
+        // 保存播放历史：记录当前歌单（如果存在）和歌曲
+        const currentFavId = selectedFavId || "";
+        if (toPlay.id) {
+            Services.SavePlayHistory(currentFavId, toPlay.id).catch((e) => {
+                console.warn("保存播放历史失败", e);
+            });
+        }
     };
 
     const playNext = () => {
         if (playMode === "single") {
             const audio = audioRef.current;
-            if (audio) audio.currentTime = 0;
+            if (audio) {
+                audio.currentTime = 0;
+                audio.play().catch(console.error);
+            }
         } else if (queue.length > 0) {
             let nextIdx = currentIndex + 1;
             if (playMode === "random") {
@@ -645,7 +909,11 @@ const App: React.FC = () => {
                 nextIdx = 0;
             }
             setCurrentIndex(nextIdx);
-            setCurrentSong(queue[nextIdx]);
+            const nextSong = queue[nextIdx];
+            setCurrentSong(nextSong);
+            // 自动播放下一首
+            setIsPlaying(true);
+            playSong(nextSong, queue);
         }
     };
 
@@ -654,7 +922,11 @@ const App: React.FC = () => {
             let prevIdx = currentIndex - 1;
             if (prevIdx < 0) prevIdx = queue.length - 1;
             setCurrentIndex(prevIdx);
-            setCurrentSong(queue[prevIdx]);
+            const prevSong = queue[prevIdx];
+            setCurrentSong(prevSong);
+            // 自动播放上一首
+            setIsPlaying(true);
+            playSong(prevSong, queue);
         }
     };
 
@@ -694,42 +966,37 @@ const App: React.FC = () => {
         quality = 0.7
     ): Promise<string> => {
         return new Promise((resolve, reject) => {
-            const img = new Image();
+            // 避免 Mantine 的 Image 组件遮蔽全局 Image 构造函数
+            const img = new window.Image();
             const url = URL.createObjectURL(file);
             img.onload = () => {
-                const { width, height } = img;
-                let targetW = width;
-                let targetH = height;
-                if (width > maxWidth || height > maxHeight) {
-                    const ratio = Math.min(maxWidth / width, maxHeight / height);
-                    targetW = Math.round(width * ratio);
-                    targetH = Math.round(height * ratio);
-                }
-                const canvas = document.createElement("canvas");
-                canvas.width = targetW;
-                canvas.height = targetH;
-                const ctx = canvas.getContext("2d");
-                if (!ctx) {
-                    URL.revokeObjectURL(url);
-                    reject(new Error("无法创建画布上下文"));
-                    return;
-                }
-                ctx.drawImage(img, 0, 0, targetW, targetH);
-                canvas.toBlob(
-                    (blob) => {
+                try {
+                    const { width, height } = img;
+                    let targetW = width;
+                    let targetH = height;
+                    if (width > maxWidth || height > maxHeight) {
+                        const ratio = Math.min(maxWidth / width, maxHeight / height);
+                        targetW = Math.round(width * ratio);
+                        targetH = Math.round(height * ratio);
+                    }
+                    const canvas = document.createElement("canvas");
+                    canvas.width = targetW;
+                    canvas.height = targetH;
+                    const ctx = canvas.getContext("2d");
+                    if (!ctx) {
                         URL.revokeObjectURL(url);
-                        if (!blob) {
-                            reject(new Error("导出 WebP 失败"));
-                            return;
-                        }
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result as string);
-                        reader.onerror = () => reject(new Error("读取压缩图片失败"));
-                        reader.readAsDataURL(blob);
-                    },
-                    "image/webp",
-                    quality
-                );
+                        reject(new Error("无法创建画布上下文"));
+                        return;
+                    }
+                    ctx.drawImage(img, 0, 0, targetW, targetH);
+                    // 使用 toDataURL 而不是 toBlob，直接返回 DataURL
+                    const dataUrl = canvas.toDataURL("image/jpeg", quality);
+                    URL.revokeObjectURL(url);
+                    resolve(dataUrl);
+                } catch (err) {
+                    URL.revokeObjectURL(url);
+                    reject(new Error(`图片压缩失败: ${String(err)}`));
+                }
             };
             img.onerror = () => {
                 URL.revokeObjectURL(url);
@@ -816,11 +1083,218 @@ const App: React.FC = () => {
         setCurrentSong(updated as any);
     };
 
-    const createFavorite = async () => {
-        const title = prompt("歌单名") || "我的歌单";
-        const fav = { id: "", title, songIds: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-        await Services.SaveFavorite(fav as any);
-        setFavorites(await Services.ListFavorites());
+    const createFavorite = () => {
+        setCreateFavName("新歌单");
+        setCreateFavMode("blank");
+        setDuplicateSourceId(null);
+        setImportFid("");
+        setCreateFavModalOpen(true);
+    };
+
+    const handleDeleteFavorite = async (id: string) => {
+        try {
+            await Services.DeleteFavorite(id);
+            const refreshed = await Services.ListFavorites();
+            setFavorites(refreshed);
+            if (selectedFavId === id) {
+                setSelectedFavId(null);
+            }
+            setConfirmDeleteFavId(null);
+            notifications.show({ title: "已删除歌单", color: "green" });
+        } catch (error) {
+            notifications.show({ title: "删除失败", message: String(error), color: "red" });
+        }
+    };
+
+    const handleEditFavorite = (fav: Favorite) => {
+        setEditingFavId(fav.id);
+        setEditingFavName(fav.title);
+        setEditFavModalOpen(true);
+    };
+
+    const handleSaveEditFavorite = async () => {
+        if (!editingFavId) return;
+        const name = editingFavName.trim() || "未命名歌单";
+        try {
+            const target = favorites.find((f) => f.id === editingFavId);
+            if (!target) {
+                notifications.show({ title: "未找到歌单", color: "red" });
+                return;
+            }
+            const updated = { ...target, title: name };
+            await Services.SaveFavorite(updated as any);
+            const refreshed = await Services.ListFavorites();
+            setFavorites(refreshed);
+            setEditFavModalOpen(false);
+            notifications.show({ title: "已保存", color: "green" });
+        } catch (error) {
+            notifications.show({ title: "保存失败", message: String(error), color: "red" });
+        }
+    };
+
+    const handleSubmitCreateFavorite = async () => {
+        const name = (createFavName || "").trim() || "新歌单";
+        try {
+            if (createFavMode === "blank") {
+                await Services.SaveFavorite({ id: "", title: name, songIds: [] } as any);
+            } else if (createFavMode === "duplicate") {
+                if (!duplicateSourceId) {
+                    notifications.show({ title: "请选择要复制的歌单", color: "orange" });
+                    return;
+                }
+                const source = favorites.find((f) => f.id === duplicateSourceId);
+                if (!source) {
+                    notifications.show({ title: "未找到源歌单", color: "red" });
+                    return;
+                }
+                const cloned = {
+                    id: "",
+                    title: name,
+                    songIds: source.songIds.map((ref) => ({ id: 0, songId: ref.songId, favoriteId: "" })),
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                };
+                await Services.SaveFavorite(cloned as any);
+            } else if (createFavMode === "importMine" || createFavMode === "importFid") {
+                let collectionId: number | null = null;
+
+                if (createFavMode === "importMine") {
+                    if (!isLoggedIn) {
+                        notifications.show({ title: "需要登录", color: "blue" });
+                        setLoginModalOpened(true);
+                        return;
+                    }
+                    if (!selectedMyFavId) {
+                        notifications.show({ title: "请选择收藏夹", color: "orange" });
+                        return;
+                    }
+                    collectionId = selectedMyFavId;
+                } else {
+                    if (!importFid.trim()) {
+                        notifications.show({ title: "请输入 fid", color: "orange" });
+                        return;
+                    }
+                    const parsed = Number(importFid.trim());
+                    if (!Number.isFinite(parsed) || parsed <= 0) {
+                        notifications.show({ title: "fid 格式不正确", color: "red" });
+                        return;
+                    }
+                    collectionId = parsed;
+                }
+
+                const toastId = notifications.show({
+                    title: "正在导入...",
+                    color: themeColor,
+                    loading: true,
+                    autoClose: false,
+                });
+
+                try {
+                    setStatus("正在导入收藏夹...");
+                    const bvids = await Services.GetFavoriteCollectionBVIDs(collectionId!);
+
+                    if (!bvids || bvids.length === 0) {
+                        notifications.update({
+                            id: toastId,
+                            title: "收藏夹为空",
+                            color: "yellow",
+                            loading: false,
+                            autoClose: 2000,
+                        });
+                        return;
+                    }
+
+                    // 准备新增歌曲
+                    const newSongs: Song[] = [];
+                    for (const info of bvids) {
+                        const existing = songs.find((s) => s.bvid === info.bvid);
+                        if (!existing) {
+                            newSongs.push({
+                                id: info.bvid,
+                                bvid: info.bvid,
+                                name: info.title || info.bvid,
+                                singer: "",
+                                singerId: "",
+                                cover: info.cover,
+                                streamUrl: "",
+                                streamUrlExpiresAt: new Date().toISOString(),
+                                lyric: "",
+                                lyricOffset: 0,
+                                skipStartTime: 0,
+                                skipEndTime: 0, // 将在首次播放时自动更新为实际时长
+                                createdAt: new Date().toISOString(),
+                                updatedAt: new Date().toISOString(),
+                            } as any);
+                        }
+                    }
+
+                    if (newSongs.length > 0) {
+                        await Services.UpsertSongs(newSongs);
+                    }
+
+                    const refreshedSongs = await Services.ListSongs();
+                    setSongs(refreshedSongs);
+
+                    // 组装歌单 songIds
+                    const allSongIds = bvids.map((info) => {
+                        const found = refreshedSongs.find((s) => s.bvid === info.bvid);
+                        return found ? found.id : info.bvid;
+                    });
+
+                    const newFav = {
+                        id: "",
+                        title: name,
+                        songIds: allSongIds.map((songId) => ({ id: 0, songId, favoriteId: "" })),
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                    };
+
+                    await Services.SaveFavorite(newFav as any);
+
+                    const refreshedFavs = await Services.ListFavorites();
+                    setFavorites(refreshedFavs);
+
+                    const created = refreshedFavs.find((f) => f.title === name) || refreshedFavs[refreshedFavs.length - 1];
+                    if (created) {
+                        setSelectedFavId(created.id);
+                    }
+
+                    notifications.update({
+                        id: toastId,
+                        title: `导入完成 (${bvids.length} 首)`,
+                        color: "green",
+                        loading: false,
+                        autoClose: 2000,
+                    });
+                    setCreateFavModalOpen(false);
+                } catch (e: any) {
+                    console.error("[App] 导入收藏夹失败:", e);
+                    const errorMsg = e?.message || String(e);
+                    const simpleMsg = errorMsg.length > 30 ? errorMsg.substring(0, 30) + "..." : errorMsg;
+                    notifications.update({
+                        id: toastId,
+                        title: `导入失败: ${simpleMsg}`,
+                        color: "red",
+                        loading: false,
+                        autoClose: 4000,
+                    });
+                } finally {
+                    setStatus("");
+                }
+
+                return;
+            }
+
+            const refreshedFavs = await Services.ListFavorites();
+            setFavorites(refreshedFavs);
+            const created = refreshedFavs.find((f) => f.title === name) || refreshedFavs[refreshedFavs.length - 1];
+            if (created) {
+                setSelectedFavId(created.id);
+            }
+            setCreateFavModalOpen(false);
+        } catch (error) {
+            notifications.show({ title: "创建失败", message: String(error), color: "red" });
+        }
     };
 
     const addCurrentToFavorite = async (favId: string) => {
@@ -835,10 +1309,52 @@ const App: React.FC = () => {
         setFavorites(await Services.ListFavorites());
     };
 
+    const playSingleSong = async (song: Song, songFavorite?: Favorite) => {
+        // 如果当前播放列表为空
+        if (queue.length === 0) {
+            // 添加歌曲所在歌单到播放列表
+            let songList: Song[] = [];
+            if (songFavorite) {
+                const idSet = new Set(songFavorite.songIds.map((s) => s.songId));
+                songList = songs.filter((s) => idSet.has(s.id));
+            }
+            // 如果没有歌单或歌单为空，只播放单曲
+            if (songList.length === 0) {
+                songList = [song];
+            }
+            setQueue(songList);
+            const idx = songList.findIndex((s) => s.id === song.id);
+            setCurrentIndex(idx >= 0 ? idx : 0);
+            await playSong(song, songList);
+        } else {
+            // 播放列表不为空，插入到当前播放歌曲的下一首
+            const newQueue = [...queue];
+            const insertIdx = currentIndex + 1;
+            // 检查歌曲是否已在列表中，避免重复
+            const existIdx = newQueue.findIndex((s) => s.id === song.id);
+            if (existIdx >= 0 && existIdx !== insertIdx) {
+                // 歌曲已在列表中但不在插入位置，移除后重新插入
+                newQueue.splice(existIdx, 1);
+                newQueue.splice(insertIdx, 0, song);
+            } else if (existIdx < 0) {
+                // 歌曲不在列表中，直接插入
+                newQueue.splice(insertIdx, 0, song);
+            }
+            setQueue(newQueue);
+            setCurrentIndex(insertIdx);
+            setCurrentSong(song);
+            setIsPlaying(true);
+            await playSong(song, newQueue);
+        }
+    };
+
     const playFavorite = (fav: Favorite) => {
         const idSet = new Set(fav.songIds.map((s) => s.songId));
         const list = songs.filter((s) => idSet.has(s.id));
         if (list.length === 0) return;
+        // 播放歌单时，替换整个播放列表
+        setQueue(list);
+        setCurrentIndex(0);
         playSong(list[0], list);
     };
 
@@ -1039,27 +1555,150 @@ const App: React.FC = () => {
 
     const handleIntervalChange = (start: number, end: number) => {
         if (!currentSong) return;
-        setCurrentSong({
+        const updated = {
             ...currentSong,
             skipStartTime: start,
             skipEndTime: end,
-        } as any);
+        } as any;
+
+        // 1. 立即同步更新 currentSong
+        setCurrentSong(updated);
+
+        // 2. 立即同步更新 songs 列表
+        setSongs(prevSongs =>
+            prevSongs.map(s => s.id === updated.id ? updated : s)
+        );
+
+        // 3. 立即同步更新 queue
+        setQueue(prevQueue =>
+            prevQueue.map(s => s.id === updated.id ? updated : s)
+        );
+
+        // 4. 立即写入 localStorage 缓存
+        try {
+            const cacheKey = `tomorin.song.${updated.id}`;
+            localStorage.setItem(cacheKey, JSON.stringify({
+                skipStartTime: updated.skipStartTime,
+                skipEndTime: updated.skipEndTime,
+                updatedAt: new Date().toISOString()
+            }));
+        } catch (err) {
+            console.warn("写入缓存失败:", err);
+        }
+
+        // 5. 防抖异步持久化到数据库（500ms 后保存）
+        const saveKey = `interval_${updated.id}`;
+        const existingTimer = saveTimerRef.current.get(saveKey);
+        if (existingTimer) {
+            clearTimeout(existingTimer);
+        }
+
+        const timer = setTimeout(() => {
+            Services.UpsertSongs([updated]).catch((err) => {
+                console.error("保存播放区间失败:", err);
+            });
+            saveTimerRef.current.delete(saveKey);
+        }, 500);
+
+        saveTimerRef.current.set(saveKey, timer);
     };
 
     const handleSkipStartChange = (value: number) => {
         if (!currentSong) return;
-        setCurrentSong({
+        const updated = {
             ...currentSong,
             skipStartTime: value,
-        } as any);
+        } as any;
+
+        // 1. 立即同步更新 currentSong
+        setCurrentSong(updated);
+
+        // 2. 立即同步更新 songs 列表
+        setSongs(prevSongs =>
+            prevSongs.map(s => s.id === updated.id ? updated : s)
+        );
+
+        // 3. 立即同步更新 queue
+        setQueue(prevQueue =>
+            prevQueue.map(s => s.id === updated.id ? updated : s)
+        );
+
+        // 4. 立即写入 localStorage 缓存
+        try {
+            const cacheKey = `tomorin.song.${updated.id}`;
+            localStorage.setItem(cacheKey, JSON.stringify({
+                skipStartTime: updated.skipStartTime,
+                skipEndTime: updated.skipEndTime,
+                updatedAt: new Date().toISOString()
+            }));
+        } catch (err) {
+            console.warn("写入缓存失败:", err);
+        }
+
+        // 5. 防抖异步持久化到数据库（500ms 后保存）
+        const saveKey = `start_${updated.id}`;
+        const existingTimer = saveTimerRef.current.get(saveKey);
+        if (existingTimer) {
+            clearTimeout(existingTimer);
+        }
+
+        const timer = setTimeout(() => {
+            Services.UpsertSongs([updated]).catch((err) => {
+                console.error("保存起始时间失败:", err);
+            });
+            saveTimerRef.current.delete(saveKey);
+        }, 500);
+
+        saveTimerRef.current.set(saveKey, timer);
     };
 
     const handleSkipEndChange = (value: number) => {
         if (!currentSong) return;
-        setCurrentSong({
+        const updated = {
             ...currentSong,
             skipEndTime: value,
-        } as any);
+        } as any;
+
+        // 1. 立即同步更新 currentSong
+        setCurrentSong(updated);
+
+        // 2. 立即同步更新 songs 列表
+        setSongs(prevSongs =>
+            prevSongs.map(s => s.id === updated.id ? updated : s)
+        );
+
+        // 3. 立即同步更新 queue
+        setQueue(prevQueue =>
+            prevQueue.map(s => s.id === updated.id ? updated : s)
+        );
+
+        // 4. 立即写入 localStorage 缓存
+        try {
+            const cacheKey = `tomorin.song.${updated.id}`;
+            localStorage.setItem(cacheKey, JSON.stringify({
+                skipStartTime: updated.skipStartTime,
+                skipEndTime: updated.skipEndTime,
+                updatedAt: new Date().toISOString()
+            }));
+        } catch (err) {
+            console.warn("写入缓存失败:", err);
+        }
+
+        // 5. 防抖异步持久化到数据库（500ms 后保存）
+        const saveKey = `end_${updated.id}`;
+        const existingTimer = saveTimerRef.current.get(saveKey);
+        if (existingTimer) {
+            clearTimeout(existingTimer);
+        }
+
+        const timer = setTimeout(() => {
+            Services.UpsertSongs([updated]).catch((err) => {
+                console.error("保存结束时间失败:", err);
+            });
+            saveTimerRef.current.delete(saveKey);
+        }, 500);
+
+        saveTimerRef.current.set(saveKey, timer);
     };
 
     const handleStreamUrlChange = (value: string) => {
@@ -1068,11 +1707,128 @@ const App: React.FC = () => {
 
     const handlePlayModeToggle = () => setPlayMode(playMode === "order" ? "random" : playMode === "random" ? "single" : "order");
 
-    const handleDownload = () => {
-        if (currentSong?.streamUrl) {
-            setStatus(`正在下载: ${currentSong.name}`);
-        } else {
-            setStatus("当前歌曲无下载链接");
+    const handleDownload = async () => {
+        if (!currentSong) {
+            notifications.show({ title: '无法操作', message: '未选择歌曲', color: 'red' });
+            return;
+        }
+        await handleDownloadSong(currentSong);
+    };
+
+    const handleDownloadSong = async (song: Song) => {
+        if (!song) {
+            notifications.show({ title: '无法操作', message: '未选择歌曲', color: 'red' });
+            return;
+        }
+        const isAlreadyDownloaded = downloadedSongIds.has(song.id);
+        // 已下载则打开管理弹窗，未下载则直接下载
+        if (isAlreadyDownloaded) {
+            setManagingSong(song);
+            setConfirmDeleteDownloaded(false);
+            setDownloadModalOpen(true);
+            return;
+        }
+        try {
+            setStatus(`正在下载: ${song.name}`);
+            const savedPath = await Services.DownloadSong(song.id);
+            notifications.show({ title: '下载完成', message: `已保存到: ${savedPath}`, color: 'green' });
+            setStatus('下载完成');
+            // 更新下载状态
+            setDownloadedSongIds(prev => new Set([...prev, song.id]));
+            if (currentSong?.id === song.id) {
+                setIsDownloaded(true);
+            }
+        } catch (e: any) {
+            const msg = e?.message ?? String(e);
+            notifications.show({ title: '下载失败', message: msg, color: 'red' });
+            setStatus(`下载失败: ${msg}`);
+        }
+    };
+
+    const handleDownloadAllFavorite = async (fav: Favorite) => {
+        if (!fav || fav.songIds.length === 0) {
+            notifications.show({ title: '无法操作', message: '歌单为空', color: 'red' });
+            return;
+        }
+        // 过滤出未下载的歌曲
+        const songsToDownload = currentFavSongs.filter(s => !downloadedSongIds.has(s.id));
+        if (songsToDownload.length === 0) {
+            notifications.show({ title: '提示', message: '所有歌曲都已下载', color: 'blue' });
+            return;
+        }
+        setStatus(`开始批量下载 ${songsToDownload.length} 首歌曲...`);
+        let successCount = 0;
+        let failCount = 0;
+        for (const song of songsToDownload) {
+            try {
+                setStatus(`正在下载: ${song.name} (${successCount + failCount + 1}/${songsToDownload.length})`);
+                await Services.DownloadSong(song.id);
+                setDownloadedSongIds(prev => new Set([...prev, song.id]));
+                successCount++;
+            } catch (e: any) {
+                failCount++;
+                console.error(`下载失败: ${song.name}`, e);
+            }
+        }
+        setStatus(`下载完成: 成功 ${successCount} 首，失败 ${failCount} 首`);
+        notifications.show({
+            title: '批量下载完成',
+            message: `成功 ${successCount} 首，失败 ${failCount} 首`,
+            color: failCount === 0 ? 'green' : 'yellow',
+        });
+    };
+
+
+    const handleOpenDownloadedFile = async () => {
+        if (!managingSong) return;
+        try {
+            await Services.OpenDownloadedFile(managingSong.id);
+        } catch (e: any) {
+            notifications.show({ title: '打开失败', message: e?.message ?? String(e), color: 'red' });
+        }
+    };
+
+    const handleDeleteDownloadedFile = async () => {
+        if (!managingSong) return;
+        try {
+            await Services.DeleteDownloadedSong(managingSong.id);
+            // 更新下载状态
+            setDownloadedSongIds(prev => {
+                const next = new Set(prev);
+                next.delete(managingSong.id);
+                return next;
+            });
+            if (currentSong?.id === managingSong.id) {
+                setIsDownloaded(false);
+            }
+            setDownloadModalOpen(false);
+            setConfirmDeleteDownloaded(false);
+            setManagingSong(null);
+            notifications.show({ title: '已删除下载文件', color: 'green' });
+        } catch (e: any) {
+            notifications.show({ title: '删除失败', message: e?.message ?? String(e), color: 'red' });
+        }
+    };
+
+    const handleAddSongToFavorite = (song: Song) => {
+        setCurrentSong(song);
+        setShowFavoriteModal(true);
+    };
+
+    const handleRemoveSongFromPlaylist = async (song: Song) => {
+        if (!currentFav) return;
+        try {
+            const updatedFav = {
+                ...currentFav,
+                songIds: currentFav.songIds.filter(ref => ref.songId !== song.id),
+            };
+            await Services.SaveFavorite(updatedFav as any);
+            const refreshedFavs = await Services.ListFavorites();
+            setFavorites(refreshedFavs);
+            setConfirmRemoveSongId(null);
+            notifications.show({ title: '已移出歌单', message: song.name, color: 'green' });
+        } catch (e: any) {
+            notifications.show({ title: '移出失败', message: e?.message ?? String(e), color: 'red' });
         }
     };
 
@@ -1087,9 +1843,50 @@ const App: React.FC = () => {
         setShowPlaylistModal(false);
     };
 
+    const handlePlaylistReorder = (fromIndex: number, toIndex: number) => {
+        const newQueue = [...queue];
+        const [movedItem] = newQueue.splice(fromIndex, 1);
+        newQueue.splice(toIndex, 0, movedItem);
+        setQueue(newQueue);
+
+        // 更新当前播放索引
+        if (currentIndex === fromIndex) {
+            setCurrentIndex(toIndex);
+        } else if (fromIndex < currentIndex && toIndex >= currentIndex) {
+            setCurrentIndex(currentIndex - 1);
+        } else if (fromIndex > currentIndex && toIndex <= currentIndex) {
+            setCurrentIndex(currentIndex + 1);
+        }
+    };
+
+    const handlePlaylistRemove = (index: number) => {
+        const newQueue = queue.filter((_, i) => i !== index);
+        setQueue(newQueue);
+
+        // 如果删除的是当前播放的歌曲
+        if (index === currentIndex) {
+            if (newQueue.length === 0) {
+                setCurrentSong(null);
+                setIsPlaying(false);
+            } else if (index >= newQueue.length) {
+                // 删除的是最后一首，播放前一首
+                const newIndex = newQueue.length - 1;
+                setCurrentIndex(newIndex);
+                setCurrentSong(newQueue[newIndex]);
+            } else {
+                // 播放同一位置的下一首
+                setCurrentSong(newQueue[index]);
+            }
+        } else if (index < currentIndex) {
+            // 删除的在当前播放之前，索引减1
+            setCurrentIndex(currentIndex - 1);
+        }
+        // 如果删除的在当前播放之后，索引不变
+    };
+
     const handleSearchResultClick = (result: GlobalSearchResult) => {
         if (result.kind === "song") {
-            playSong(result.song, songs);
+            playSingleSong(result.song);
         } else {
             setSelectedFavId(result.favorite.id);
             playFavorite(result.favorite);
@@ -1148,8 +1945,9 @@ const App: React.FC = () => {
 
         try {
             // Check if logged in
-            const isLoggedIn = await Services.IsLoggedIn();
-            if (!isLoggedIn) {
+            const loggedIn = await Services.IsLoggedIn();
+            setIsLoggedIn(loggedIn);
+            if (!loggedIn) {
                 notifications.update({
                     id: toastId,
                     title: '需要登录',
@@ -1234,7 +2032,9 @@ const App: React.FC = () => {
         if (!bvPreview) return;
         const targetFavId = bvTargetFavId || favorites[0]?.id || null;
         const start = Math.max(0, sliceStart);
-        const end = Math.max(start, sliceEnd || start);
+        // 如果用户设置了片段，使用片段的 end；否则使用歌曲总时长
+        const songDuration = bvPreview.duration || 0;
+        const end = sliceEnd > 0 ? Math.max(start, sliceEnd) : songDuration;
 
         try {
             const newSong = new SongClass({
@@ -1402,7 +2202,34 @@ const App: React.FC = () => {
                 currentIndex={currentIndex}
                 themeColorHighlight={themeColorLight}
                 onSelect={handlePlaylistSelect}
+                onReorder={handlePlaylistReorder}
+                onRemove={handlePlaylistRemove}
             />
+
+            <Modal
+                opened={editFavModalOpen}
+                onClose={() => setEditFavModalOpen(false)}
+                title="编辑歌单"
+                centered
+                size="sm"
+            >
+                <Stack gap="md">
+                    <TextInput
+                        label="歌单名称"
+                        value={editingFavName}
+                        onChange={(e) => setEditingFavName(e.currentTarget.value)}
+                        placeholder="输入歌单名称"
+                    />
+                    <Group justify="flex-end" gap="sm">
+                        <Button variant="subtle" color={themeColor} onClick={() => setEditFavModalOpen(false)}>
+                            取消
+                        </Button>
+                        <Button color={themeColor} onClick={handleSaveEditFavorite}>
+                            保存
+                        </Button>
+                    </Group>
+                </Stack>
+            </Modal>
 
             <LoginModal
                 opened={loginModalOpened}
@@ -1460,6 +2287,22 @@ const App: React.FC = () => {
                             } catch { }
                             notifications.show({ title: "已清除主题缓存", message: "已重置到默认主题", color: "green" });
                         }}>清除主题缓存</Button>
+                        <Button variant="default" onClick={async () => {
+                            try {
+                                await Services.OpenDownloadsFolder();
+                            } catch (e: any) {
+                                notifications.show({ title: "打开失败", message: e?.message ?? String(e), color: "red" });
+                            }
+                        }}>在文件管理器中打开下载目录</Button>
+                        <Button variant="default" onClick={async () => {
+                            try {
+                                await Services.ClearAudioCache();
+                                setCacheSize(0);
+                                notifications.show({ title: "已清除音乐缓存", message: "已删除所有离线音乐文件", color: "green" });
+                            } catch (e) {
+                                notifications.show({ title: "清除缓存失败", message: e instanceof Error ? e.message : "未知错误", color: "red" });
+                            }
+                        }}>清除音乐缓存 ({(cacheSize / 1024 / 1024).toFixed(2)} MB)</Button>
                         <Button color={themeColor} onClick={async () => {
                             try {
                                 await Services.Logout();
@@ -1467,30 +2310,145 @@ const App: React.FC = () => {
                             try {
                                 localStorage.clear();
                             } catch { }
+                            setCacheSize(0);
                             setUserInfo(null);
                             notifications.show({ title: "已清除所有缓存", message: "请重新配置与登录", color: "green" });
                         }}>清除所有缓存</Button>
                     </Group>
 
-                    <Text fw={600}>数据</Text>
-                    <Group>
-                        <Button color="red" variant="light" onClick={async () => {
-                            try {
-                                await Services.ClearLibrary();
-                                const refreshedSongs = await Services.ListSongs();
-                                const refreshedFavs = await Services.ListFavorites();
-                                setSongs(refreshedSongs);
-                                setFavorites(refreshedFavs);
-                                setQueue([]);
-                                setCurrentIndex(0);
-                                setCurrentSong(null);
-                                notifications.show({ title: "已清空歌单与歌曲", message: "默认歌单已重建", color: "green" });
-                            } catch (err) {
-                                notifications.show({ title: "清空失败", message: err instanceof Error ? err.message : '未知错误', color: "red" });
-                            }
-                        }}>
-                            清空歌单与歌曲
-                        </Button>
+                </Stack>
+            </Modal>
+
+            {/* 下载管理弹窗 */}
+            <Modal
+                opened={downloadModalOpen}
+                onClose={() => { setDownloadModalOpen(false); setConfirmDeleteDownloaded(false); setManagingSong(null); }}
+                size="sm"
+                centered
+                title="下载文件管理"
+                overlayProps={{ blur: 10, opacity: 0.35 }}
+            >
+                <Stack gap="md">
+                    <Text fw={600}>{managingSong?.name || '未选择歌曲'}</Text>
+                    <Group justify="space-between">
+                        <Button variant="default" onClick={handleOpenDownloadedFile}>在文件管理器中打开</Button>
+                        <Group gap="xs">
+                            {!confirmDeleteDownloaded ? (
+                                <Button variant="light" color="red" onClick={() => setConfirmDeleteDownloaded(true)}>删除下载文件</Button>
+                            ) : (
+                                <Button color="red" onClick={handleDeleteDownloadedFile}>确认删除</Button>
+                            )}
+                        </Group>
+                    </Group>
+                </Stack>
+            </Modal>
+
+            <Modal
+                opened={createFavModalOpen}
+                onClose={() => setCreateFavModalOpen(false)}
+                title="新建歌单"
+                centered
+                size="md"
+                overlayProps={{ blur: 10, opacity: 0.35 }}
+            >
+                <Stack gap="sm">
+                    <TextInput
+                        label="歌单名称"
+                        value={createFavName}
+                        onChange={(e) => setCreateFavName(e.currentTarget.value)}
+                        placeholder="输入歌单名"
+                    />
+                    <Select
+                        label="创建方式"
+                        data={[
+                            { value: "blank", label: "新建空白歌单" },
+                            { value: "duplicate", label: "复制已有歌单" },
+                            { value: "importMine", label: "导入登录收藏夹 (需登录)" },
+                            { value: "importFid", label: "通过 fid 导入公开收藏夹" },
+                        ]}
+                        value={createFavMode}
+                        onChange={(val) => setCreateFavMode((val as any) || "blank")}
+                    />
+                    {createFavMode === "duplicate" && (
+                        <Select
+                            label="选择要复制的歌单"
+                            placeholder={favorites.length ? "选择歌单" : "暂无歌单"}
+                            data={favorites.map((f) => ({ value: f.id, label: `${f.title} (${f.songIds.length} 首)` }))}
+                            value={duplicateSourceId}
+                            onChange={(val) => setDuplicateSourceId(val)}
+                            searchable
+                            clearable
+                        />
+                    )}
+                    {createFavMode === "importFid" && (
+                        <TextInput
+                            label="收藏夹 fid"
+                            placeholder="输入 fid"
+                            value={importFid}
+                            onChange={(e) => setImportFid(e.currentTarget.value)}
+                        />
+                    )}
+                    {createFavMode === "importMine" && (
+                        <Text size="xs" c="dimmed">需要已登录 B 站账号。当前实现暂未接入后端接口。</Text>
+                    )}
+                    <Group justify="flex-end" mt="sm">
+                        <Button variant="default" onClick={() => setCreateFavModalOpen(false)}>取消</Button>
+                        <Button color={themeColor} onClick={handleSubmitCreateFavorite}>确认</Button>
+                    </Group>
+                </Stack>
+            </Modal>
+
+            <Modal
+                opened={createFavModalOpen}
+                onClose={() => setCreateFavModalOpen(false)}
+                title="新建歌单"
+                centered
+                size="md"
+                overlayProps={{ blur: 10, opacity: 0.35 }}
+            >
+                <Stack gap="sm">
+                    <TextInput
+                        label="歌单名称"
+                        value={createFavName}
+                        onChange={(e) => setCreateFavName(e.currentTarget.value)}
+                        placeholder="输入歌单名"
+                    />
+                    <Select
+                        label="创建方式"
+                        data={[
+                            { value: "blank", label: "新建空白歌单" },
+                            { value: "duplicate", label: "复制已有歌单" },
+                            { value: "importMine", label: "导入登录收藏夹 (需登录)" },
+                            { value: "importFid", label: "通过 fid 导入公开收藏夹" },
+                        ]}
+                        value={createFavMode}
+                        onChange={(val) => setCreateFavMode((val as any) || "blank")}
+                    />
+                    {createFavMode === "duplicate" && (
+                        <Select
+                            label="选择要复制的歌单"
+                            placeholder={favorites.length ? "选择歌单" : "暂无歌单"}
+                            data={favorites.map((f) => ({ value: f.id, label: `${f.title} (${f.songIds.length} 首)` }))}
+                            value={duplicateSourceId}
+                            onChange={(val) => setDuplicateSourceId(val)}
+                            searchable
+                            clearable
+                        />
+                    )}
+                    {createFavMode === "importFid" && (
+                        <TextInput
+                            label="收藏夹 fid"
+                            placeholder="输入 fid"
+                            value={importFid}
+                            onChange={(e) => setImportFid(e.currentTarget.value)}
+                        />
+                    )}
+                    {createFavMode === "importMine" && (
+                        <Text size="xs" c="dimmed">需要已登录 B 站账号。当前实现暂未接入后端接口。</Text>
+                    )}
+                    <Group justify="flex-end" mt="sm">
+                        <Button variant="default" onClick={() => setCreateFavModalOpen(false)}>取消</Button>
+                        <Button color={themeColor} onClick={handleSubmitCreateFavorite}>确认</Button>
                     </Group>
                 </Stack>
             </Modal>
@@ -1805,20 +2763,18 @@ const App: React.FC = () => {
 
             <Flex direction="column" h="100%" gap="sm" p="sm" style={{ overflow: "hidden" }}>
                 <Group justify="space-between" align="center">
-                    <Group gap="xs" align="center">
-                        <ActionIcon
-                            variant="default"
-                            size="lg"
-                            onClick={() => {
-                                setGlobalSearchTerm("");
-                                setGlobalSearchOpen(true);
-                            }}
-                            title="搜索视频 (BV 号或链接)"
-                        >
-                            <Search size={16} />
-                        </ActionIcon>
-                        <Text size="sm" c="dimmed">{status}</Text>
-                    </Group>
+                    <ActionIcon
+                        variant="default"
+                        size="lg"
+                        onClick={() => {
+                            setGlobalSearchTerm("");
+                            setGlobalSearchOpen(true);
+                        }}
+                        title="搜索视频 (BV 号或链接)"
+                    >
+                        <Search size={16} />
+                    </ActionIcon>
+                    <Text size="sm" c="dimmed" style={{ textAlign: "center", flex: 1 }}>{hitokoto}</Text>
                     <Group gap="xs">
                         {userInfo ? (
                             <Group gap="xs">
@@ -1917,17 +2873,43 @@ const App: React.FC = () => {
                         onPlaySong={playSong}
                         onAddSong={addSong}
                         themeColor={themeColor}
+                        downloadedSongIds={downloadedSongIds}
+                        onDownloadSong={handleDownloadSong}
+                        onAddSongToFavorite={handleAddSongToFavorite}
+                        onRemoveSongFromPlaylist={handleRemoveSongFromPlaylist}
+                        confirmRemoveSongId={confirmRemoveSongId}
+                        onToggleConfirmRemove={setConfirmRemoveSongId}
+                        onPlayAll={() => {
+                            if (currentFav) {
+                                playFavorite(currentFav);
+                            }
+                        }}
+                        onDownloadAll={() => {
+                            if (currentFav) {
+                                handleDownloadAllFavorite(currentFav);
+                            }
+                        }}
                     />
 
                     <FavoriteListCard
                         panelBackground={panelBackground}
                         favorites={favorites}
                         selectedFavId={selectedFavId}
-                        onSelectFavorite={setSelectedFavId}
+                        onSelectFavorite={(id) => {
+                            setSelectedFavId(id);
+                            setConfirmDeleteFavId(null);
+                        }}
                         onPlayFavorite={playFavorite}
-                        onPlaySongInFavorite={playSong}
+                        onPlaySongInFavorite={(song) => {
+                            const fav = currentFav || favorites.find(f => f.songIds.some(ref => ref.songId === song.id));
+                            playSingleSong(song, fav);
+                        }}
                         onAddCurrentToFavorite={addCurrentToFavorite}
                         onCreateFavorite={createFavorite}
+                        onEditFavorite={handleEditFavorite}
+                        onDeleteFavorite={handleDeleteFavorite}
+                        onToggleConfirmDelete={setConfirmDeleteFavId}
+                        confirmDeleteFavId={confirmDeleteFavId}
                         currentSong={currentSong}
                         themeColor={themeColor}
                     />
@@ -1962,6 +2944,7 @@ const App: React.FC = () => {
                         onAddToFavorite={() => setShowFavoriteModal(true)}
                         onShowPlaylist={() => setShowPlaylistModal(true)}
                         onDownload={handleDownload}
+                        isDownloaded={isDownloaded}
                         volume={volume}
                         changeVolume={changeVolume}
                         songsCount={songs.length}

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Palette, Search, Settings as SettingsIcon } from "lucide-react";
-import { ActionIcon, AspectRatio, Badge, Box, Button, Flex, Group, Image, Modal, NumberInput, Paper, RangeSlider, ScrollArea, Select, Slider, Stack, Text, TextInput, useComputedColorScheme, useMantineColorScheme } from "@mantine/core";
+import { ActionIcon, AspectRatio, Badge, Box, Button, Flex, Group, Image, Modal, NumberInput, Paper, RangeSlider, ScrollArea, Select, Slider, Stack, Text, TextInput } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import * as Services from "../wailsjs/go/services/Service";
 import { Favorite, LyricMapping, PlayerSetting, Song, Theme, SongClass } from "./types";
@@ -13,6 +13,17 @@ import PlayerBar from "./components/PlayerBar";
 import AddToFavoriteModal from "./components/AddToFavoriteModal";
 import PlaylistModal from "./components/PlaylistModal";
 import LoginModal from "./components/LoginModal";
+import { TopBar } from "./components/TopBar";
+
+// Hooks
+import { useAudioPlayer, usePlaylist, useAudioInterval } from "./hooks/player";
+import { useSongs, useFavorites, useSongCache } from "./hooks/data";
+import { useTheme, useAuth, useBVResolver } from "./hooks/features";
+import { useHitokoto } from "./hooks/ui";
+
+// Utils
+import { formatTime, formatTimeLabel, parseTimeLabel } from "./utils/time";
+import { APP_VERSION, PLACEHOLDER_COVER } from "./utils/constants";
 
 // Declare window.go for Wails runtime
 declare global {
@@ -21,69 +32,74 @@ declare global {
     }
 }
 
-// 添加滚动文本动画样式
-const formatTime = (seconds: number): string => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    return `${h > 0 ? h + ":" : ""}${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-};
-
-const formatTimeLabel = (value: number | string): string => {
-    const n = Number(value) || 0;
-    return formatTime(n);
-};
-
-const parseTimeLabel = (value: string): number => {
-    if (!value) return 0;
-    const parts = value.split(":").map((p) => Number(p) || 0);
-    if (parts.length === 1) return parts[0];
-    if (parts.length === 2) return parts[0] * 60 + parts[1];
-    return parts[0] * 3600 + parts[1] * 60 + parts[2];
-};
-
 const App: React.FC = () => {
-    const audioRef = useRef<HTMLAudioElement | null>(null);
-    const intervalRef = useRef({ start: 0, end: 0, length: 0 });
-    const playingRef = useRef<string | null>(null); // 追踪当前正在播放的歌曲 ID，避免并发播放
-    const playbackRetryRef = useRef<Map<string, number>>(new Map()); // 控制同一首歌的重试次数，避免循环弹窗
-    const prevSongIdRef = useRef<string | null>(null); // 追踪上一个歌曲ID，用于区分初始化和实际切歌
-    const saveTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map()); // 防抖保存定时器
+    // ========== Hooks ==========
+    // 播放器相关
+    const playlist = usePlaylist();
+    const { queue, currentIndex, currentSong, playMode, setQueue, setCurrentIndex, setCurrentSong, setPlayMode } = playlist;
 
-    const [songs, setSongs] = useState<Song[]>([]);
-    const [favorites, setFavorites] = useState<Favorite[]>([]);
-    const [queue, setQueue] = useState<Song[]>([]);
-    const [currentIndex, setCurrentIndex] = useState(0);
-    const [currentSong, setCurrentSong] = useState<Song | null>(null);
+    const audioPlayer = useAudioPlayer(currentSong);
+    const { audioRef, state: audioState, actions: audioActions, setIsPlaying, setProgress, setDuration } = audioPlayer;
+    const { isPlaying, progress, duration, volume } = audioState;
+    const { play, pause, seek, setVolume } = audioActions;
+
+    const interval = useAudioInterval(currentSong, duration, progress);
+    const { intervalRef, intervalStart, intervalEnd, intervalLength, progressInInterval } = interval;
+
+    // 数据管理
+    const songsHook = useSongs();
+    const { songs, setSongs, loadSongs, refreshSongs } = songsHook;
+
+    const favoritesHook = useFavorites();
+    const { favorites, setFavorites, loadFavorites, refreshFavorites } = favoritesHook;
+
+    const songCache = useSongCache();
+    const { updateSongWithCache } = songCache;
+
+    // 功能模块
+    const theme = useTheme();
+    const {
+        themes, currentThemeId, themeColor, backgroundColor, backgroundOpacity,
+        backgroundImageUrl, panelColor, panelOpacity, computedColorScheme,
+        setThemes, setCurrentThemeId, setThemeColor, setBackgroundColor,
+        setBackgroundOpacity, setBackgroundImageUrl, setPanelColor, setPanelOpacity,
+        applyTheme, setBackgroundImageUrlSafe
+    } = theme;
+
+    const auth = useAuth();
+    const { isLoggedIn, userInfo, loginModalOpened, setIsLoggedIn, setUserInfo, setLoginModalOpened, checkLoginStatus, getUserInfo } = auth;
+
+    const bvResolver = useBVResolver();
+    const {
+        bvPreview, bvModalOpen, bvSongName, bvSinger, bvTargetFavId, resolvingBV,
+        sliceStart, sliceEnd, isSlicePreviewing, slicePreviewPosition,
+        setBvPreview, setBvModalOpen, setBvSongName, setBvSinger, setBvTargetFavId,
+        setSliceStart, setSliceEnd, setIsSlicePreviewing, setSlicePreviewPosition,
+        resolveBV, resetBVState
+    } = bvResolver;
+
+    const hitokoto = useHitokoto();
+
+    // ========== 保留的 Refs 和局部状态 ==========
+    const playingRef = useRef<string | null>(null);
+    const playbackRetryRef = useRef<Map<string, number>>(new Map());
+    const prevSongIdRef = useRef<string | null>(null);
+    const sliceAudioRef = useRef<HTMLAudioElement | null>(null);
+    const settingsLoadedRef = useRef(false);
+
     const [setting, setSetting] = useState<PlayerSetting | null>(null);
     const [lyric, setLyric] = useState<LyricMapping | null>(null);
     const [status, setStatus] = useState<string>("加载中...");
-    const [hitokoto, setHitokoto] = useState<string>("");
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [duration, setDuration] = useState(0);
-    const [volume, setVolume] = useState(0.5);
-    const [playMode, setPlayMode] = useState<"order" | "random" | "single">("order");
     const [searchQuery, setSearchQuery] = useState("");
     const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
     const [globalSearchTerm, setGlobalSearchTerm] = useState("");
-    const [resolvingBV, setResolvingBV] = useState(false);
     const [selectedFavId, setSelectedFavId] = useState<string | null>(null);
     const [remoteResults, setRemoteResults] = useState<Song[]>([]);
     const [remoteLoading, setRemoteLoading] = useState(false);
     const [showPlaylistModal, setShowPlaylistModal] = useState(false);
     const [showFavoriteModal, setShowFavoriteModal] = useState(false);
-    const [loginModalOpened, setLoginModalOpened] = useState(false);
-    const [userInfo, setUserInfo] = useState<any>(null);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [bvPreview, setBvPreview] = useState<{ bvid: string; title: string; cover: string; url: string; expiresAt: string; duration: number } | null>(null);
-    const [bvModalOpen, setBvModalOpen] = useState(false);
-    const [bvSongName, setBvSongName] = useState("");
-    const [bvSinger, setBvSinger] = useState("");
-    const [bvTargetFavId, setBvTargetFavId] = useState<string | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [cacheSize, setCacheSize] = useState(0);
-    const [newFavName, setNewFavName] = useState("");
     const [createFavModalOpen, setCreateFavModalOpen] = useState(false);
     const [createFavName, setCreateFavName] = useState("新歌单");
     const [createFavMode, setCreateFavMode] = useState<"blank" | "duplicate" | "importMine" | "importFid">("blank");
@@ -93,21 +109,6 @@ const App: React.FC = () => {
     const [editFavModalOpen, setEditFavModalOpen] = useState(false);
     const [editingFavId, setEditingFavId] = useState<string | null>(null);
     const [editingFavName, setEditingFavName] = useState("");
-    const [sliceStart, setSliceStart] = useState(0);
-    const [sliceEnd, setSliceEnd] = useState(0);
-    const [isSlicePreviewing, setIsSlicePreviewing] = useState(false);
-    const [slicePreviewPosition, setSlicePreviewPosition] = useState(0);
-    const sliceAudioRef = useRef<HTMLAudioElement | null>(null);
-    const APP_VERSION = "0.1.0";
-    const { setColorScheme } = useMantineColorScheme();
-    const computedColorScheme = useComputedColorScheme("light");
-
-    const [themeColor, setThemeColor] = useState<string>("#228be6");
-    const [backgroundColor, setBackgroundColor] = useState<string>(computedColorScheme === "dark" ? "#0b1021" : "#f8fafc");
-    const [backgroundOpacity, setBackgroundOpacity] = useState<number>(1);
-    const [backgroundImageUrl, setBackgroundImageUrl] = useState<string>("");
-    const [panelColor, setPanelColor] = useState<string>(computedColorScheme === "dark" ? "#1f2937" : "#ffffff");
-    const [panelOpacity, setPanelOpacity] = useState<number>(0.92);
 
     // 下载相关状态
     const [isDownloaded, setIsDownloaded] = useState<boolean>(false);
@@ -117,71 +118,11 @@ const App: React.FC = () => {
     const [managingSong, setManagingSong] = useState<Song | null>(null);
     const [confirmRemoveSongId, setConfirmRemoveSongId] = useState<string | null>(null);
 
-    const CUSTOM_THEME_CACHE_KEY = "tomorin.customThemes";
-
-    const loadCachedCustomThemes = (): Theme[] | null => {
-        if (typeof window === "undefined") return null;
-        try {
-            const raw = localStorage.getItem(CUSTOM_THEME_CACHE_KEY);
-            if (!raw) return null;
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) return parsed as Theme[];
-            return null;
-        } catch (err) {
-            console.warn("读取主题缓存失败", err);
-            return null;
-        }
-    };
-
-    const saveCachedCustomThemes = (themesToCache: Theme[]) => {
-        if (typeof window === "undefined") return;
-        try {
-            localStorage.setItem(CUSTOM_THEME_CACHE_KEY, JSON.stringify(themesToCache));
-        } catch (err) {
-            console.warn("写入主题缓存失败", err);
-        }
-    };
-
-    const getCustomThemesFromState = (allThemes: Theme[]) => allThemes.filter((t) => !t.isDefault && !t.isReadOnly);
-
-    // 前端定义的默认主题（只读）
-    const defaultThemes: Theme[] = React.useMemo(() => [
-        {
-            id: "light",
-            name: "亮色",
-            colorScheme: "light",
-            themeColor: "#228be6",
-            backgroundColor: "#f8fafc",
-            backgroundOpacity: 1,
-            backgroundImage: "",
-            panelColor: "#ffffff",
-            panelOpacity: 0.92,
-            isDefault: true,
-            isReadOnly: true,
-        },
-        {
-            id: "dark",
-            name: "暗色",
-            colorScheme: "dark",
-            themeColor: "#228be6",
-            backgroundColor: "#0b1021",
-            backgroundOpacity: 1,
-            backgroundImage: "",
-            panelColor: "#1f2937",
-            panelOpacity: 0.92,
-            isDefault: true,
-            isReadOnly: true,
-        },
-    ], []);
-
-    // 新增：主题管理状态
-    const [themes, setThemes] = useState<Theme[]>(defaultThemes);
-    const [currentThemeId, setCurrentThemeId] = useState<string>("light");
+    // 主题编辑器状态
     const [showThemeModal, setShowThemeModal] = useState(false);
     const [showNewThemeModal, setShowNewThemeModal] = useState(false);
     const [editingThemeId, setEditingThemeId] = useState<string | null>(null);
     const [newThemeName, setNewThemeName] = useState<string>("");
-
     const [colorSchemeDraft, setColorSchemeDraft] = useState<"light" | "dark">("light");
     const [themeColorDraft, setThemeColorDraft] = useState<string>("#228be6");
     const [backgroundColorDraft, setBackgroundColorDraft] = useState<string>(computedColorScheme === "dark" ? "#0b1021" : "#f8fafc");
@@ -190,37 +131,15 @@ const App: React.FC = () => {
     const [panelOpacityDraft, setPanelOpacityDraft] = useState<number>(0.92);
     const [panelColorDraft, setPanelColorDraft] = useState<string>("#ffffff");
     const [savingTheme, setSavingTheme] = useState(false);
-
-    // Skip disk persistence when we know state changes are already persisted via theme APIs
     const skipPersistRef = useRef(false);
+    const fileDraftInputRef = useRef<HTMLInputElement | null>(null);
 
-    // Avoid redundant background updates when URL hasn't changed
-    const setBackgroundImageUrlSafe = useCallback((url: string) => {
-        setBackgroundImageUrl(prev => (prev === url ? prev : url));
-    }, []);
     const setBackgroundImageUrlDraftSafe = useCallback((url: string) => {
         setBackgroundImageUrlDraft(prev => (prev === url ? prev : url));
     }, []);
-    const fileDraftInputRef = useRef<HTMLInputElement | null>(null);
-    const settingsLoadedRef = useRef(false);
 
-    const placeholderCover = React.useMemo(
-        () =>
-            `data:image/svg+xml;utf8,${encodeURIComponent(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" fill="none"><rect width="240" height="240" rx="16" fill="%23e5e7eb"/><path d="M64 168L104 120L136 152L176 104" stroke="%239ca3af" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/><circle cx="86" cy="90" r="14" fill="%239ca3af"/></svg>'
-            )}`,
-        []
-    );
-
-    // 播放区间相关派生值（仅派生，不修改歌曲数据）
+    // 播放区间相关派生值（从 useAudioInterval hook 获取）
     const maxSkipLimit = duration > 0 ? duration : 1;
-    const rawIntervalStart = currentSong?.skipStartTime ?? 0;
-    const rawIntervalEndRaw = currentSong?.skipEndTime ?? 0; // 0 作为“播放到结尾”的哨兵值
-    const intervalStart = Math.min(Math.max(rawIntervalStart, 0), duration || 0);
-    const rawIntervalEndEffective = rawIntervalEndRaw === 0 ? (duration || 0) : rawIntervalEndRaw;
-    const intervalEnd = Math.min(Math.max(rawIntervalEndEffective, intervalStart), duration || 0);
-    const intervalLength = Math.max(0, intervalEnd - intervalStart);
-    const progressInInterval = Math.max(0, Math.min(intervalLength || (duration || 0), progress - intervalStart));
 
     // 同步区间值到 ref，确保音频事件处理中总能获取最新值
     useEffect(() => {
@@ -1009,14 +928,6 @@ const App: React.FC = () => {
             audio.pause();
             setIsPlaying(false);
         }
-    };
-
-    const seek = (value: number) => {
-        const audio = audioRef.current;
-        if (!audio) return;
-        const clamped = Math.min(intervalEnd, Math.max(intervalStart, value));
-        audio.currentTime = clamped;
-        setProgress(clamped);
     };
 
     const changeVolume = (v: number) => {
@@ -2829,89 +2740,30 @@ const App: React.FC = () => {
             </Modal>
 
             <Flex direction="column" h="100%" gap="sm" p="sm" style={{ overflow: "hidden" }}>
-                <Group justify="space-between" align="center">
-                    <ActionIcon
-                        variant="default"
-                        size="lg"
-                        onClick={() => {
-                            setGlobalSearchTerm("");
-                            setGlobalSearchOpen(true);
-                        }}
-                        title="搜索视频 (BV 号或链接)"
-                    >
-                        <Search size={16} />
-                    </ActionIcon>
-                    <Text size="sm" c="dimmed" style={{ textAlign: "center", flex: 1 }}>{hitokoto}</Text>
-                    <Group gap="xs">
-                        {userInfo ? (
-                            <Group gap="xs">
-                                <img
-                                    src={userInfo.face}
-                                    alt={userInfo.username}
-                                    style={{
-                                        width: 28,
-                                        height: 28,
-                                        borderRadius: "50%",
-                                        border: "2px solid " + themeColor
-                                    }}
-                                    title={`${userInfo.username} (Lv.${userInfo.level})`}
-                                />
-                                <Text size="sm" fw={500}>{userInfo.username}</Text>
-                                <Button
-                                    size="xs"
-                                    variant="subtle"
-                                    color="red"
-                                    onClick={async () => {
-                                        await Services.Logout();
-                                        setUserInfo(null);
-                                        localStorage.removeItem("tomorin.userInfo");
-                                        setStatus("已退出登录");
-                                        notifications.show({
-                                            title: "已退出",
-                                            message: "您已成功退出登录",
-                                            color: "blue",
-                                        });
-                                    }}
-                                >
-                                    退出
-                                </Button>
-                            </Group>
-                        ) : (
-                            <Button
-                                size="xs"
-                                variant="light"
-                                onClick={() => setLoginModalOpened(true)}
-                                title="登录 B 站账号以获取高质量音频"
-                            >
-                                登录
-                            </Button>
-                        )}
-                        <ActionIcon
-                            variant="default"
-                            size="lg"
-                            onClick={() => {
-                                setThemeColorDraft(themeColor);
-                                setBackgroundColorDraft(backgroundColor);
-                                setBackgroundOpacityDraft(backgroundOpacity);
-                                setBackgroundImageUrlDraftSafe(backgroundImageUrl);
-                                setPanelColorDraft(panelColor);
-                                setPanelOpacityDraft(panelOpacity);
-                                setShowThemeModal(true);
-                            }}
-                            title="主题设置"
-                        >
-                            <Palette size={16} />
-                        </ActionIcon>
-                        <ActionIcon
-                            variant="default"
-                            size="lg"
-                            onClick={() => setSettingsOpen(true)}
-                            title="设置"
-                        >
-                            <SettingsIcon size={16} />
-                        </ActionIcon>
-                    </Group>
-                </Group>
+                <TopBar
+                    userInfo={userInfo}
+                    hitokoto={hitokoto}
+                    themeColor={themeColor}
+                    onSearchClick={() => {
+                        setGlobalSearchTerm("");
+                        setGlobalSearchOpen(true);
+                    }}
+                    onThemeClick={() => {
+                        setThemeColorDraft(themeColor);
+                        setBackgroundColorDraft(backgroundColor);
+                        setBackgroundOpacityDraft(backgroundOpacity);
+                        setBackgroundImageUrlDraftSafe(backgroundImageUrl);
+                        setPanelColorDraft(panelColor);
+                        setPanelOpacityDraft(panelOpacity);
+                        setShowThemeModal(true);
+                    }}
+                    onSettingsClick={() => setSettingsOpen(true)}
+                    onLoginClick={() => setLoginModalOpened(true)}
+                    onLogout={() => {
+                        setUserInfo(null);
+                        setStatus("已退出登录");
+                    }}
+                />
 
                 <Flex flex={1} gap="md" miw={0} style={{ minHeight: 0 }}>
                     <SongDetailCard
@@ -2919,7 +2771,7 @@ const App: React.FC = () => {
                         panelBackground={panelBackground}
                         themeColor={themeColor}
                         computedColorScheme={computedColorScheme}
-                        placeholderCover={placeholderCover}
+                        placeholderCover={PLACEHOLDER_COVER}
                         maxSkipLimit={maxSkipLimit}
                         formatTime={formatTime}
                         formatTimeLabel={formatTimeLabel}

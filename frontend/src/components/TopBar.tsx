@@ -3,6 +3,7 @@ import { ActionIcon, Button, Group, Text } from "@mantine/core";
 import { Palette, Search, Settings as SettingsIcon } from "lucide-react";
 import { notifications } from "@mantine/notifications";
 import * as Services from "../../wailsjs/go/services/Service";
+import { useThemeContext } from "../context";
 
 interface UserInfo {
     username: string;
@@ -13,7 +14,6 @@ interface UserInfo {
 interface TopBarProps {
     userInfo: UserInfo | null;
     hitokoto: string;
-    themeColor: string;
     onSearchClick: () => void;
     onThemeClick: () => void;
     onSettingsClick: () => void;
@@ -24,13 +24,14 @@ interface TopBarProps {
 export const TopBar: React.FC<TopBarProps> = ({
     userInfo,
     hitokoto,
-    themeColor,
     onSearchClick,
     onThemeClick,
     onSettingsClick,
     onLoginClick,
     onLogout,
 }) => {
+    const { state: themeState } = useThemeContext();
+    const { themeColor } = themeState;
     const handleLogout = async () => {
         try {
             await Services.Logout();

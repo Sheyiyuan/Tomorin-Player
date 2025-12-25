@@ -1,5 +1,8 @@
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useModalManager, ModalName, UseModalManagerReturn } from '../hooks/ui/useModalManager';
+import { useModalManager } from '../hooks/ui/useModalManager';
+
+type UseModalManagerReturn = ReturnType<typeof useModalManager>;
+type ModalName = keyof ReturnType<typeof useModalManager>["modals"];
 
 // ========== Context 创建 ==========
 const ModalContext = createContext<UseModalManagerReturn | undefined>(undefined);

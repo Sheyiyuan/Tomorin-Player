@@ -2749,7 +2749,6 @@ const App: React.FC = () => {
                 <TopBar
                     userInfo={userInfo}
                     hitokoto={hitokoto}
-                    themeColor={themeColor}
                     onSearchClick={() => {
                         setGlobalSearchTerm("");
                         setGlobalSearchOpen(true);

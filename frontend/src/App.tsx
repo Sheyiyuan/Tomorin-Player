@@ -398,7 +398,7 @@ const App: React.FC = () => {
                 const loggedIn = await Services.IsLoggedIn();
                 setIsLoggedIn(loggedIn);
                 if (!loggedIn) {
-                    setLoginModalOpened(true);
+                    openModal("loginModal");
                 } else {
                     try {
                         const info = await Services.GetUserInfo();
@@ -1145,7 +1145,7 @@ const App: React.FC = () => {
                 if (createFavMode === "importMine") {
                     if (!isLoggedIn) {
                         notifications.show({ title: "需要登录", color: "blue" });
-                        setLoginModalOpened(true);
+                        openModal("loginModal");
                         return;
                     }
                     if (!selectedMyFavId) {
@@ -1940,7 +1940,7 @@ const App: React.FC = () => {
                     loading: false,
                     autoClose: 3000,
                 });
-                setLoginModalOpened(true);
+                openModal("loginModal");
                 setGlobalSearchTerm('');
                 return;
             }
@@ -2216,10 +2216,10 @@ const App: React.FC = () => {
             </Modal>
 
             <LoginModal
-                opened={loginModalOpened}
-                onClose={() => setLoginModalOpened(false)}
+                opened={modals.loginModal}
+                onClose={() => closeModal("loginModal")}
                 onLoginSuccess={async () => {
-                    setLoginModalOpened(false);
+                    closeModal("loginModal");
                     try {
                         const info = await Services.GetUserInfo();
                         setUserInfo(info);

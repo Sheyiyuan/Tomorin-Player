@@ -18,7 +18,7 @@ import MainLayout from "./components/MainLayout";
 import ControlsPanel from "./components/ControlsPanel";
 
 // Hooks
-import { useAudioPlayer, usePlaylist, useAudioInterval, usePlaylistActions } from "./hooks/player";
+import { useAudioPlayer, usePlaylist, useAudioInterval, usePlaylistActions, useSkipIntervalHandler } from "./hooks/player";
 import { useSongs, useFavorites, useSongCache } from "./hooks/data";
 import { useAuth, useBVResolver, useFavoriteActions, useThemeEditor, useSearchAndBV, useBVModal } from "./hooks/features";
 import { useHitokoto } from "./hooks/ui";
@@ -230,6 +230,19 @@ const App: React.FC = () => {
         setSongs,
         setFavorites,
         setSelectedFavId,
+    });
+
+    const skipIntervalHandler = useSkipIntervalHandler({
+        currentSong,
+        setCurrentSong,
+        setSongs,
+        setQueue,
+        saveTimerRef,
+        intervalStart,
+        intervalEnd,
+        intervalLength,
+        setIntervalStart,
+        setIntervalEnd,
     });
 
     // ========== 派生值和其他辅助函数 ==========
@@ -1306,153 +1319,10 @@ const App: React.FC = () => {
         console.log('背景图已设置为空字符串');
     };
 
-    const handleIntervalChange = (start: number, end: number) => {
-        if (!currentSong) return;
-        const updated = {
-            ...currentSong,
-            skipStartTime: start,
-            skipEndTime: end,
-        } as any;
-
-        // 1. 立即同步更新 currentSong
-        setCurrentSong(updated);
-
-        // 2. 立即同步更新 songs 列表
-        setSongs(prevSongs =>
-            prevSongs.map(s => s.id === updated.id ? updated : s)
-        );
-
-        // 3. 立即同步更新 queue
-        setQueue(prevQueue =>
-            prevQueue.map(s => s.id === updated.id ? updated : s)
-        );
-
-        // 4. 立即写入 localStorage 缓存
-        try {
-            const cacheKey = `tomorin.song.${updated.id}`;
-            localStorage.setItem(cacheKey, JSON.stringify({
-                skipStartTime: updated.skipStartTime,
-                skipEndTime: updated.skipEndTime,
-                updatedAt: new Date().toISOString()
-            }));
-        } catch (err) {
-            console.warn("写入缓存失败:", err);
-        }
-
-        // 5. 防抖异步持久化到数据库（500ms 后保存）
-        const saveKey = `interval_${updated.id}`;
-        const existingTimer = saveTimerRef.current.get(saveKey);
-        if (existingTimer) {
-            clearTimeout(existingTimer);
-        }
-
-        const timer = setTimeout(() => {
-            Services.UpsertSongs([updated]).catch((err) => {
-                console.error("保存播放区间失败:", err);
-            });
-            saveTimerRef.current.delete(saveKey);
-        }, 500);
-
-        saveTimerRef.current.set(saveKey, timer);
-    };
-
-    const handleSkipStartChange = (value: number) => {
-        if (!currentSong) return;
-        const updated = {
-            ...currentSong,
-            skipStartTime: value,
-        } as any;
-
-        // 1. 立即同步更新 currentSong
-        setCurrentSong(updated);
-
-        // 2. 立即同步更新 songs 列表
-        setSongs(prevSongs =>
-            prevSongs.map(s => s.id === updated.id ? updated : s)
-        );
-
-        // 3. 立即同步更新 queue
-        setQueue(prevQueue =>
-            prevQueue.map(s => s.id === updated.id ? updated : s)
-        );
-
-        // 4. 立即写入 localStorage 缓存
-        try {
-            const cacheKey = `tomorin.song.${updated.id}`;
-            localStorage.setItem(cacheKey, JSON.stringify({
-                skipStartTime: updated.skipStartTime,
-                skipEndTime: updated.skipEndTime,
-                updatedAt: new Date().toISOString()
-            }));
-        } catch (err) {
-            console.warn("写入缓存失败:", err);
-        }
-
-        // 5. 防抖异步持久化到数据库（500ms 后保存）
-        const saveKey = `start_${updated.id}`;
-        const existingTimer = saveTimerRef.current.get(saveKey);
-        if (existingTimer) {
-            clearTimeout(existingTimer);
-        }
-
-        const timer = setTimeout(() => {
-            Services.UpsertSongs([updated]).catch((err) => {
-                console.error("保存起始时间失败:", err);
-            });
-            saveTimerRef.current.delete(saveKey);
-        }, 500);
-
-        saveTimerRef.current.set(saveKey, timer);
-    };
-
-    const handleSkipEndChange = (value: number) => {
-        if (!currentSong) return;
-        const updated = {
-            ...currentSong,
-            skipEndTime: value,
-        } as any;
-
-        // 1. 立即同步更新 currentSong
-        setCurrentSong(updated);
-
-        // 2. 立即同步更新 songs 列表
-        setSongs(prevSongs =>
-            prevSongs.map(s => s.id === updated.id ? updated : s)
-        );
-
-        // 3. 立即同步更新 queue
-        setQueue(prevQueue =>
-            prevQueue.map(s => s.id === updated.id ? updated : s)
-        );
-
-        // 4. 立即写入 localStorage 缓存
-        try {
-            const cacheKey = `tomorin.song.${updated.id}`;
-            localStorage.setItem(cacheKey, JSON.stringify({
-                skipStartTime: updated.skipStartTime,
-                skipEndTime: updated.skipEndTime,
-                updatedAt: new Date().toISOString()
-            }));
-        } catch (err) {
-            console.warn("写入缓存失败:", err);
-        }
-
-        // 5. 防抖异步持久化到数据库（500ms 后保存）
-        const saveKey = `end_${updated.id}`;
-        const existingTimer = saveTimerRef.current.get(saveKey);
-        if (existingTimer) {
-            clearTimeout(existingTimer);
-        }
-
-        const timer = setTimeout(() => {
-            Services.UpsertSongs([updated]).catch((err) => {
-                console.error("保存结束时间失败:", err);
-            });
-            saveTimerRef.current.delete(saveKey);
-        }, 500);
-
-        saveTimerRef.current.set(saveKey, timer);
-    };
+    // ========== 播放区间处理函数（来自 useSkipIntervalHandler Hook）==========
+    const handleIntervalChange = skipIntervalHandler.handleIntervalChange;
+    const handleSkipStartChange = skipIntervalHandler.handleSkipStartChange;
+    const handleSkipEndChange = skipIntervalHandler.handleSkipEndChange;
 
     const handleStreamUrlChange = (value: string) => {
         updateStreamUrl(value);

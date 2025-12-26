@@ -29,7 +29,7 @@ export const useAudioSourceManager = ({
     setStatus,
     playSong,
 }: UseAudioSourceManagerProps) => {
-    // Effect 1: 处理歌曲源设置（仅依赖 currentSong，不依赖 isPlaying）
+    // Effect 1: 处理歌曲源设置（只依赖歌曲 ID 和播放 URL，避免元数据变化触发重载）
     useEffect(() => {
         const audio = audioRef.current;
         if (!audio || !currentSong) {
@@ -40,8 +40,20 @@ export const useAudioSourceManager = ({
             return;
         }
 
+        // 检查是否真的需要切换歌曲：只有歌曲 ID 或播放 URL 变化时才重新加载
+        const isSameSong = playingRef.current === currentSong.id;
+        const isSameUrl = audio.src === currentSong.streamUrl;
+
+        if (isSameSong && isSameUrl) {
+            // 同一首歌且 URL 未变，只是元数据更新（如名称、歌手、封面），不需要重新加载
+            console.log("歌曲元数据更新，跳过音频源重载");
+            return;
+        }
+
         // 更换歌曲时重置该歌曲的重试计数，防止旧状态泄漏
-        playbackRetryRef.current.delete(currentSong.id);
+        if (!isSameSong) {
+            playbackRetryRef.current.delete(currentSong.id);
+        }
 
         // 检查 URL 是否存在和有效
         if (!currentSong.streamUrl) {
@@ -77,7 +89,7 @@ export const useAudioSourceManager = ({
             audio.src = "";
         }
 
-        // 只在切换歌曲时设置音频源
+        // 只在切换歌曲或 URL 变化时设置音频源
         playingRef.current = currentSong.id;
         audio.src = currentSong.streamUrl;
         // 设置媒体属性以支持跨域和流式播放

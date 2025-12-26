@@ -444,7 +444,7 @@ const App: React.FC = () => {
         setFavorites,
         playSong,
     });
-    const { addSong, updateStreamUrl, addCurrentToFavorite } = songOperations;
+    const { addSong, updateStreamUrl, addCurrentToFavorite, updateSongInfo } = songOperations;
 
     // 播放列表自动保存
     usePlaylistPersistence({ queue, currentIndex });
@@ -760,6 +760,7 @@ const App: React.FC = () => {
         handleSkipStartChange,
         handleSkipEndChange,
         handleStreamUrlChange,
+        handleSongInfoUpdate: updateSongInfo,
         currentFav,
         currentFavSongs,
         searchQuery,
@@ -1036,21 +1037,21 @@ const App: React.FC = () => {
                 createFavMode={createFavMode}
                 duplicateSourceId={duplicateSourceId}
                 importFid={importFid}
-                
+
                 // 我的收藏夹
                 myCollections={favoriteActions.myFavoriteImport.myCollections}
                 isLoadingCollections={favoriteActions.myFavoriteImport.isLoading}
                 selectedMyCollectionId={favoriteActions.myFavoriteImport.selectedCollectionId}
-                
+
                 onNameChange={setCreateFavName}
                 onModeChange={(mode) => setCreateFavMode(mode)}
                 onDuplicateSourceChange={setDuplicateSourceId}
                 onImportFidChange={setImportFid}
-                
+
                 // 我的收藏夹操作
                 onMyCollectionSelect={favoriteActions.myFavoriteImport.setSelectedCollectionId}
                 onFetchMyCollections={favoriteActions.myFavoriteImport.fetchMyCollections}
-                
+
                 onSubmit={handleSubmitCreateFavorite}
             />
 

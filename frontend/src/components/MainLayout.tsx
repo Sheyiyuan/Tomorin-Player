@@ -20,6 +20,7 @@ interface MainLayoutProps {
     onSkipStartChange: (value: number) => void;
     onSkipEndChange: (value: number) => void;
     onStreamUrlChange: (url: string) => void;
+    onSongInfoUpdate?: (songId: string, updates: { name?: string; singer?: string; cover?: string }) => void;
 
     // CurrentPlaylistCard props
     currentFav: Favorite | null;
@@ -66,6 +67,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     onSkipStartChange,
     onSkipEndChange,
     onStreamUrlChange,
+    onSongInfoUpdate,
 
     // CurrentPlaylistCard props
     currentFav,
@@ -112,6 +114,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 onSkipStartChange={onSkipStartChange}
                 onSkipEndChange={onSkipEndChange}
                 onStreamUrlChange={onStreamUrlChange}
+                onSongInfoUpdate={onSongInfoUpdate}
             />
 
             <CurrentPlaylistCard

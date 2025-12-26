@@ -62,7 +62,7 @@ export function useMyFavoriteImport({ themeColor, songs, onStatusChange }: UseMy
         } catch (error) {
             console.error("获取收藏夹列表失败:", error);
             const errMsg = String(error);
-            
+
             if (errMsg.includes("登录") || errMsg.includes("权限")) {
                 notifications.show({
                     title: "需要登录",
@@ -114,7 +114,7 @@ export function useMyFavoriteImport({ themeColor, songs, onStatusChange }: UseMy
         isLoading,
         isImporting,
         selectedCollectionId,
-        
+
         // 方法
         setSelectedCollectionId,
         fetchMyCollections,

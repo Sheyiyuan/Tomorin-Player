@@ -183,13 +183,13 @@ React.useEffect(() => {
 
 ## 相关文件
 
-| 文件 | 说明 |
-|------|------|
-| `frontend/src/hooks/features/useMyFavoriteImport.ts` | 核心 Hook 实现 |
-| `frontend/src/hooks/features/useFavoriteActions.ts` | 集成到歌单操作 |
-| `frontend/src/components/CreateFavoriteModal.tsx` | UI 组件更新 |
-| `frontend/src/App.tsx` | 状态和方法传递 |
-| `internal/services/service.go` | 后端 API (已有) |
+| 文件                                                 | 说明            |
+| ---------------------------------------------------- | --------------- |
+| `frontend/src/hooks/features/useMyFavoriteImport.ts` | 核心 Hook 实现  |
+| `frontend/src/hooks/features/useFavoriteActions.ts`  | 集成到歌单操作  |
+| `frontend/src/components/CreateFavoriteModal.tsx`    | UI 组件更新     |
+| `frontend/src/App.tsx`                               | 状态和方法传递  |
+| `internal/services/service.go`                       | 后端 API (已有) |
 
 ## 测试建议
 

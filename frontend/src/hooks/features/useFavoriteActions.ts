@@ -58,31 +58,31 @@ export const useFavoriteActions = ({
     const deleteFavorite = useCallback(async (id: string, setConfirmDeleteFavId: (id: string | null) => void) => {
         try {
             await Services.DeleteFavorite(id);
-            
+
             // 删除歌单后清理未被引用的歌曲
             const deletedCount = await Services.DeleteUnreferencedSongs();
             console.log('[deleteFavorite] 清理了', deletedCount, '首未被引用的歌曲');
-            
+
             // 刷新歌单和歌曲列表
             const refreshed = await Services.ListFavorites();
             setFavorites(refreshed);
-            
+
             // 刷新歌曲列表（因为可能有歌曲被清理）
             const refreshedSongs = await Services.ListSongs();
             setSongs(refreshedSongs);
-            
+
             if (selectedFavId === id) {
                 setSelectedFavId(null);
             }
             setConfirmDeleteFavId(null);
-            
-            const message = deletedCount > 0 
+
+            const message = deletedCount > 0
                 ? `已删除歌单，并清理了 ${deletedCount} 首未被引用的歌曲`
                 : "已删除歌单";
-            notifications.show({ 
-                title: "删除成功", 
-                message, 
-                color: "green" 
+            notifications.show({
+                title: "删除成功",
+                message,
+                color: "green"
             });
         } catch (error) {
             notifications.show({ title: "删除失败", message: String(error), color: "red" });
@@ -292,7 +292,7 @@ export const useFavoriteActions = ({
         saveEditFavorite,
         createFavorite,
         addToFavorite,
-        
+
         // 导出我的收藏夹导入功能
         myFavoriteImport,
     };

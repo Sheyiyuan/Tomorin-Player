@@ -59,6 +59,31 @@ export const useSongOperations = ({
     }, [currentSong, setSongs, setCurrentSong]);
 
     /**
+     * 更新歌曲信息（名称、歌手、封面等）
+     */
+    const updateSongInfo = useCallback(async (songId: string, updates: { name?: string; singer?: string; cover?: string }) => {
+        const song = songs.find(s => s.id === songId);
+        if (!song) return;
+
+        const updated = {
+            ...song,
+            name: updates.name !== undefined ? updates.name : song.name,
+            singer: updates.singer !== undefined ? updates.singer : song.singer,
+            cover: updates.cover !== undefined ? updates.cover : song.cover,
+            updatedAt: new Date().toISOString(),
+        };
+
+        await Services.UpsertSongs([updated as any]);
+        const refreshed = await Services.ListSongs();
+        setSongs(refreshed);
+
+        // 如果更新的是当前播放的歌曲，也更新 currentSong
+        if (currentSong?.id === songId) {
+            setCurrentSong(updated as any);
+        }
+    }, [songs, currentSong, setSongs, setCurrentSong]);
+
+    /**
      * 将当前歌曲添加到收藏夹
      */
     const addCurrentToFavorite = useCallback(async (favId: string) => {
@@ -77,6 +102,7 @@ export const useSongOperations = ({
     return {
         addSong,
         updateStreamUrl,
+        updateSongInfo,
         addCurrentToFavorite,
     };
 };

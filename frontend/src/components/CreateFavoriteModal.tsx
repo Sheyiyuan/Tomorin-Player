@@ -18,22 +18,22 @@ interface CreateFavoriteModalProps {
     createFavMode: CreateFavMode;
     duplicateSourceId: string | null;
     importFid: string;
-    
+
     // 新增：我的收藏夹相关
     myCollections: MyCollectionOption[];
     isLoadingCollections: boolean;
     selectedMyCollectionId: number | null;
-    
+
     onClose: () => void;
     onNameChange: (value: string) => void;
     onModeChange: (mode: CreateFavMode) => void;
     onDuplicateSourceChange: (id: string | null) => void;
     onImportFidChange: (value: string) => void;
-    
+
     // 新增：我的收藏夹操作
     onMyCollectionSelect: (id: number | null) => void;
     onFetchMyCollections: () => void;
-    
+
     onSubmit: () => void;
 }
 
@@ -45,22 +45,22 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
     createFavMode,
     duplicateSourceId,
     importFid,
-    
+
     // 我的收藏夹
     myCollections,
     isLoadingCollections,
     selectedMyCollectionId,
-    
+
     onClose,
     onNameChange,
     onModeChange,
     onDuplicateSourceChange,
     onImportFidChange,
-    
+
     // 我的收藏夹操作
     onMyCollectionSelect,
     onFetchMyCollections,
-    
+
     onSubmit,
 }) => {
     // 当切换到导入我的收藏夹模式时,自动获取收藏夹列表
@@ -138,9 +138,9 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
                         ) : (
                             <Stack gap="xs">
                                 <Text size="sm" c="dimmed">暂无可用收藏夹</Text>
-                                <Button 
-                                    size="xs" 
-                                    variant="light" 
+                                <Button
+                                    size="xs"
+                                    variant="light"
                                     color={themeColor}
                                     onClick={onFetchMyCollections}
                                 >

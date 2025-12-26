@@ -1,5 +1,6 @@
-import React from "react";
-import { Box, Card, Flex, Group, Image, NumberInput, RangeSlider, ScrollArea, Stack, Text, TextInput } from "@mantine/core";
+import React, { useState } from "react";
+import { ActionIcon, Box, Button, Card, Flex, Group, Image, NumberInput, RangeSlider, ScrollArea, Stack, Text, TextInput, Tooltip } from "@mantine/core";
+import { IconEdit, IconCheck, IconX } from "@tabler/icons-react";
 import { Song } from "../types";
 
 export type SongDetailCardProps = {
@@ -16,6 +17,7 @@ export type SongDetailCardProps = {
     onSkipStartChange: (value: number) => void;
     onSkipEndChange: (value: number) => void;
     onStreamUrlChange: (value: string) => void;
+    onSongInfoUpdate?: (songId: string, updates: { name?: string; singer?: string; cover?: string }) => void;
 };
 
 const SongDetailCard: React.FC<SongDetailCardProps> = ({
@@ -32,7 +34,36 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
     onSkipStartChange,
     onSkipEndChange,
     onStreamUrlChange,
+    onSongInfoUpdate,
 }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState("");
+    const [editSinger, setEditSinger] = useState("");
+    const [editCover, setEditCover] = useState("");
+
+    const handleStartEdit = () => {
+        if (!song) return;
+        setEditName(song.name);
+        setEditSinger(song.singer);
+        setEditCover(song.cover || "");
+        setIsEditing(true);
+    };
+
+    const handleSaveEdit = () => {
+        if (!song || !onSongInfoUpdate) return;
+
+        onSongInfoUpdate(song.id, {
+            name: editName.trim() || song.name,
+            singer: editSinger.trim() || song.singer,
+            cover: editCover.trim() || song.cover,
+        });
+
+        setIsEditing(false);
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditing(false);
+    };
     return (
         <Card shadow="sm" padding="md" radius="md" w={300} withBorder h="100%" style={{ minHeight: 0, backgroundColor: panelBackground, display: "flex", flexDirection: "column" }}>
             {song ? (
@@ -60,10 +91,73 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
                         </Box>
 
                         <Stack gap={4}>
-                            <Text fw={700} size="lg" lineClamp={2}>{song.name}</Text>
-                            <Text c="dimmed" size="sm" lineClamp={1}>{song.singer}</Text>
-                            {song.bvid && (
-                                <Text size="xs" c="dimmed" lineClamp={1}>BV: {song.bvid}</Text>
+                            {isEditing ? (
+                                <>
+                                    <TextInput
+                                        label="歌曲名称"
+                                        value={editName}
+                                        onChange={(e) => setEditName(e.currentTarget.value)}
+                                        placeholder="请输入歌曲名称"
+                                        size="sm"
+                                    />
+                                    <TextInput
+                                        label="歌手"
+                                        value={editSinger}
+                                        onChange={(e) => setEditSinger(e.currentTarget.value)}
+                                        placeholder="请输入歌手名称"
+                                        size="sm"
+                                    />
+                                    <TextInput
+                                        label="封面 URL"
+                                        value={editCover}
+                                        onChange={(e) => setEditCover(e.currentTarget.value)}
+                                        placeholder="请输入封面图片链接"
+                                        size="sm"
+                                    />
+                                    <Group gap="xs" mt="xs">
+                                        <Button
+                                            size="xs"
+                                            color={themeColor}
+                                            leftSection={<IconCheck size={14} />}
+                                            onClick={handleSaveEdit}
+                                        >
+                                            保存
+                                        </Button>
+                                        <Button
+                                            size="xs"
+                                            variant="light"
+                                            color="gray"
+                                            leftSection={<IconX size={14} />}
+                                            onClick={handleCancelEdit}
+                                        >
+                                            取消
+                                        </Button>
+                                    </Group>
+                                </>
+                            ) : (
+                                <>
+                                    <Group gap="xs">
+                                        <Text fw={700} size="lg" lineClamp={2} style={{ flex: 1 }}>
+                                            {song.name}
+                                        </Text>
+                                        {onSongInfoUpdate && (
+                                            <Tooltip label="编辑歌曲信息">
+                                                <ActionIcon
+                                                    size="sm"
+                                                    variant="subtle"
+                                                    color={themeColor}
+                                                    onClick={handleStartEdit}
+                                                >
+                                                    <IconEdit size={16} />
+                                                </ActionIcon>
+                                            </Tooltip>
+                                        )}
+                                    </Group>
+                                    <Text c="dimmed" size="sm" lineClamp={1}>{song.singer}</Text>
+                                    {song.bvid && (
+                                        <Text size="xs" c="dimmed" lineClamp={1}>BV: {song.bvid}</Text>
+                                    )}
+                                </>
                             )}
                         </Stack>
 

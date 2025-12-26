@@ -35,6 +35,7 @@ interface UseAppPanelsPropsParams {
     handleSkipStartChange: (val: number) => void;
     handleSkipEndChange: (val: number) => void;
     handleStreamUrlChange: (val: string) => void;
+    handleSongInfoUpdate: (songId: string, updates: { name?: string; singer?: string; cover?: string }) => void;
     currentFav: Favorite | null;
     currentFavSongs: Song[];
     searchQuery: string;
@@ -112,6 +113,7 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             handleSkipStartChange,
             handleSkipEndChange,
             handleStreamUrlChange,
+            handleSongInfoUpdate,
             currentFav,
             currentFavSongs,
             searchQuery,
@@ -192,6 +194,7 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             onSkipStartChange: handleSkipStartChange,
             onSkipEndChange: handleSkipEndChange,
             onStreamUrlChange: handleStreamUrlChange,
+            onSongInfoUpdate: handleSongInfoUpdate,
             currentFav,
             currentFavSongs,
             searchQuery,

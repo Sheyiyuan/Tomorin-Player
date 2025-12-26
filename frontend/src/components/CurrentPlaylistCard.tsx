@@ -42,14 +42,22 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
     onPlayAll,
     onDownloadAll,
 }) => {
+    // 过滤当前歌单的歌曲，基于实时搜索词（名称或歌手）
+    const normalizedQuery = (searchQuery || "").trim().toLowerCase();
+    const displayedSongs = normalizedQuery
+        ? currentFavSongs.filter((s) =>
+            (s.name || "").toLowerCase().includes(normalizedQuery) ||
+            (s.singer || "").toLowerCase().includes(normalizedQuery)
+        )
+        : currentFavSongs;
+
     return (
         <Card flex={1} shadow="sm" padding="md" radius="md" withBorder miw={0} h="100%" style={{ minHeight: 0, backgroundColor: panelBackground, display: "flex", flexDirection: "column" }}>
             <Group justify="space-between" mb="sm">
                 <Text fw={600} size="sm">{currentFav?.title || "选择歌单"}</Text>
                 <Group gap="xs">
                     <Button size="xs" variant="light" color={themeColor} disabled={!currentFav} onClick={onPlayAll}>播放全部</Button>
-                    <Button size="xs" variant="light" color="blue" disabled={!currentFav} onClick={onDownloadAll}>下载全部</Button>
-                    <Button size="xs" variant="light" color={themeColor} disabled={!currentFav} onClick={onAddSong}>+ 添加</Button>
+                    <Button size="xs" variant="light" color={themeColor} disabled={!currentFav} onClick={onDownloadAll}>下载全部</Button>
                 </Group>
             </Group>
             <TextInput
@@ -62,7 +70,12 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
             <ScrollArea style={{ flex: 1, minHeight: 0 }}>
                 {currentFav ? (
                     <Stack gap="xs" pb="sm">
-                        {currentFavSongs.map((s) => {
+                        {displayedSongs.length === 0 && (
+                            <Flex align="center" justify="center" py="md">
+                                <Text c="dimmed" size="sm">未找到匹配的歌曲</Text>
+                            </Flex>
+                        )}
+                        {displayedSongs.map((s) => {
                             const isDownloaded = downloadedSongIds.has(s.id);
                             const isConfirmingRemove = confirmRemoveSongId === s.id;
                             return (
@@ -82,7 +95,7 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
                                     <Group gap={4} wrap="nowrap">
                                         <ActionIcon
                                             variant={isDownloaded ? "filled" : "default"}
-                                            color={isDownloaded ? "teal" : undefined}
+                                            color={themeColor}
                                             size="lg"
                                             onClick={(e) => {
                                                 e.stopPropagation();

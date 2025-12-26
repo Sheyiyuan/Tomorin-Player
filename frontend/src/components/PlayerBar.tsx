@@ -195,7 +195,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                         {isDownloaded && (
                             <ActionIcon
                                 variant="filled"
-                                color="teal"
+                                color={themeColor}
                                 size="lg"
                                 onClick={onManageDownload}
                                 title="管理下载文件"

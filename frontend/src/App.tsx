@@ -86,9 +86,9 @@ const App: React.FC = () => {
     const bvResolver = useBVResolver();
     const {
         bvPreview, bvModalOpen, bvSongName, bvSinger, bvTargetFavId, resolvingBV,
-        sliceStart, sliceEnd, isSlicePreviewing, slicePreviewPosition,
+        sliceStart, sliceEnd,
         setBvPreview, setBvModalOpen, setBvSongName, setBvSinger, setBvTargetFavId,
-        setResolvingBV, setSliceStart, setSliceEnd, setIsSlicePreviewing, setSlicePreviewPosition,
+        setResolvingBV, setSliceStart, setSliceEnd,
         resolveBV, resetBVState
     } = bvResolver;
 
@@ -99,7 +99,7 @@ const App: React.FC = () => {
     const playbackRetryRef = useRef<Map<string, number>>(new Map());
     const isHandlingErrorRef = useRef<Set<string>>(new Set());
     const prevSongIdRef = useRef<string | null>(null);
-    
+
     const skipPersistRef = useRef(false);
     const fileDraftInputRef = useRef<HTMLInputElement | null>(null);
     // 定时保存防抖器（key -> timerId）
@@ -273,7 +273,6 @@ const App: React.FC = () => {
         bvPreview,
         sliceStart,
         sliceEnd,
-        isSlicePreviewing,
         bvSongName,
         bvSinger,
         bvTargetFavId,
@@ -282,15 +281,12 @@ const App: React.FC = () => {
         songs,
         currentSong,
         themeColor,
-        sliceAudioRef,
         setBvModalOpen,
         setBvPreview,
         setBvSongName,
         setBvSinger,
         setSliceStart,
         setSliceEnd,
-        setIsSlicePreviewing,
-        setSlicePreviewPosition,
         setSongs,
         setFavorites,
         setSelectedFavId,
@@ -672,14 +668,9 @@ const App: React.FC = () => {
         const safeEnd = Math.max(safeStart, Math.min(endVal, limit));
         setSliceStart(safeStart);
         setSliceEnd(safeEnd);
-        const nextPos = Math.min(Math.max(slicePreviewPosition, safeStart), safeEnd || safeStart);
-        setSlicePreviewPosition(nextPos);
-        if (isSlicePreviewing && sliceAudioRef.current) {
-            sliceAudioRef.current.currentTime = nextPos;
-        }
     };
 
-    
+
 
     const handleSliceStartChange = (value: number | string) => {
         const v = Number(value) || 0;
@@ -688,11 +679,6 @@ const App: React.FC = () => {
         const safeEnd = Math.max(safeStart, Math.min(sliceEnd, limit));
         setSliceStart(safeStart);
         setSliceEnd(safeEnd);
-        const nextPos = Math.min(Math.max(slicePreviewPosition, safeStart), safeEnd || safeStart);
-        setSlicePreviewPosition(nextPos);
-        if (isSlicePreviewing && sliceAudioRef.current) {
-            sliceAudioRef.current.currentTime = nextPos;
-        }
     };
 
     const handleSliceEndChange = (value: number | string) => {
@@ -700,11 +686,6 @@ const App: React.FC = () => {
         const limit = bvPreview?.duration && bvPreview.duration > 0 ? bvPreview.duration : Math.max(v, sliceStart);
         const safeEnd = Math.max(sliceStart, Math.min(v, limit));
         setSliceEnd(safeEnd);
-        const nextPos = Math.min(Math.max(slicePreviewPosition, sliceStart), safeEnd || sliceStart);
-        setSlicePreviewPosition(nextPos);
-        if (isSlicePreviewing && sliceAudioRef.current) {
-            sliceAudioRef.current.currentTime = nextPos;
-        }
     };
 
     const handleCreateFavoriteInModal = async () => {
@@ -849,16 +830,16 @@ const App: React.FC = () => {
     };
 
     // ========== BV 模态框相关函数（来自 useBVModal Hook）==========
-    
+
     const handleConfirmBVAdd = bvModal.handleConfirmBVAdd;
 
-    
 
-    
 
-    
 
-    
+
+
+
+
 
     return (
         <Box

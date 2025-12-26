@@ -11,3 +11,4 @@ export * from './useLyricLoader';
 export * from './useGlobalSearch';
 export * from './useLoginHandlers';
 export * from './useFidImport';
+export * from './useMyFavoriteImport';

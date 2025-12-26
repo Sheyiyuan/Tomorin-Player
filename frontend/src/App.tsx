@@ -568,7 +568,7 @@ const App: React.FC = () => {
         mode: createFavMode,
         duplicateSourceId,
         importFid,
-        selectedMyFavId: null, // TODO: 需要添加这个状态
+        selectedMyFavId: favoriteActions.myFavoriteImport.selectedCollectionId,
     });
 
 
@@ -1036,10 +1036,21 @@ const App: React.FC = () => {
                 createFavMode={createFavMode}
                 duplicateSourceId={duplicateSourceId}
                 importFid={importFid}
+                
+                // 我的收藏夹
+                myCollections={favoriteActions.myFavoriteImport.myCollections}
+                isLoadingCollections={favoriteActions.myFavoriteImport.isLoading}
+                selectedMyCollectionId={favoriteActions.myFavoriteImport.selectedCollectionId}
+                
                 onNameChange={setCreateFavName}
                 onModeChange={(mode) => setCreateFavMode(mode)}
                 onDuplicateSourceChange={setDuplicateSourceId}
                 onImportFidChange={setImportFid}
+                
+                // 我的收藏夹操作
+                onMyCollectionSelect={favoriteActions.myFavoriteImport.setSelectedCollectionId}
+                onFetchMyCollections={favoriteActions.myFavoriteImport.fetchMyCollections}
+                
                 onSubmit={handleSubmitCreateFavorite}
             />
 

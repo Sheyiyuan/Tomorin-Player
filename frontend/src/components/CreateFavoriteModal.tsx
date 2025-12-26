@@ -1,8 +1,14 @@
 import React from "react";
-import { Button, Group, Modal, Select, Stack, Text, TextInput } from "@mantine/core";
+import { Button, Group, Modal, Select, Stack, Text, TextInput, Loader } from "@mantine/core";
 import type { Favorite } from "../types";
 
 type CreateFavMode = "blank" | "duplicate" | "importMine" | "importFid";
+
+interface MyCollectionOption {
+    id: number;
+    title: string;
+    count: number;
+}
 
 interface CreateFavoriteModalProps {
     opened: boolean;
@@ -12,11 +18,22 @@ interface CreateFavoriteModalProps {
     createFavMode: CreateFavMode;
     duplicateSourceId: string | null;
     importFid: string;
+    
+    // 新增：我的收藏夹相关
+    myCollections: MyCollectionOption[];
+    isLoadingCollections: boolean;
+    selectedMyCollectionId: number | null;
+    
     onClose: () => void;
     onNameChange: (value: string) => void;
     onModeChange: (mode: CreateFavMode) => void;
     onDuplicateSourceChange: (id: string | null) => void;
     onImportFidChange: (value: string) => void;
+    
+    // 新增：我的收藏夹操作
+    onMyCollectionSelect: (id: number | null) => void;
+    onFetchMyCollections: () => void;
+    
     onSubmit: () => void;
 }
 
@@ -28,13 +45,30 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
     createFavMode,
     duplicateSourceId,
     importFid,
+    
+    // 我的收藏夹
+    myCollections,
+    isLoadingCollections,
+    selectedMyCollectionId,
+    
     onClose,
     onNameChange,
     onModeChange,
     onDuplicateSourceChange,
     onImportFidChange,
+    
+    // 我的收藏夹操作
+    onMyCollectionSelect,
+    onFetchMyCollections,
+    
     onSubmit,
 }) => {
+    // 当切换到导入我的收藏夹模式时,自动获取收藏夹列表
+    React.useEffect(() => {
+        if (opened && createFavMode === "importMine" && myCollections.length === 0 && !isLoadingCollections) {
+            onFetchMyCollections();
+        }
+    }, [opened, createFavMode, myCollections.length, isLoadingCollections, onFetchMyCollections]);
     return (
         <Modal
             opened={opened}
@@ -82,7 +116,39 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
                     />
                 )}
                 {createFavMode === "importMine" && (
-                    <Text size="xs" c="dimmed">需要已登录 B 站账号。当前实现暂未接入后端接口。</Text>
+                    <>
+                        {isLoadingCollections ? (
+                            <Group justify="center" py="md">
+                                <Loader size="sm" color={themeColor} />
+                                <Text size="sm" c="dimmed">正在获取收藏夹列表...</Text>
+                            </Group>
+                        ) : myCollections.length > 0 ? (
+                            <Select
+                                label="选择收藏夹"
+                                placeholder="选择要导入的收藏夹"
+                                data={myCollections.map((c) => ({
+                                    value: String(c.id),
+                                    label: `${c.title} (${c.count} 个视频)`,
+                                }))}
+                                value={selectedMyCollectionId ? String(selectedMyCollectionId) : null}
+                                onChange={(val) => onMyCollectionSelect(val ? Number(val) : null)}
+                                searchable
+                                clearable
+                            />
+                        ) : (
+                            <Stack gap="xs">
+                                <Text size="sm" c="dimmed">暂无可用收藏夹</Text>
+                                <Button 
+                                    size="xs" 
+                                    variant="light" 
+                                    color={themeColor}
+                                    onClick={onFetchMyCollections}
+                                >
+                                    重新获取
+                                </Button>
+                            </Stack>
+                        )}
+                    </>
                 )}
                 <Group justify="flex-end" mt="sm">
                     <Button variant="default" onClick={onClose}>取消</Button>

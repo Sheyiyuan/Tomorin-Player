@@ -3,6 +3,7 @@ import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
 import { Favorite, Song } from '../../types';
 import { useFidImport } from './useFidImport';
+import { useMyFavoriteImport } from './useMyFavoriteImport';
 
 interface UseFavoriteActionsProps {
     favorites: Favorite[];
@@ -42,6 +43,13 @@ export const useFavoriteActions = ({
 
     // 使用 fid 导入 Hook
     const { importFromFid } = useFidImport({
+        themeColor,
+        songs,
+        onStatusChange: setStatus,
+    });
+
+    // 使用我的收藏夹导入 Hook
+    const myFavoriteImport = useMyFavoriteImport({
         themeColor,
         songs,
         onStatusChange: setStatus,
@@ -265,5 +273,8 @@ export const useFavoriteActions = ({
         saveEditFavorite,
         createFavorite,
         addToFavorite,
+        
+        // 导出我的收藏夹导入功能
+        myFavoriteImport,
     };
 };

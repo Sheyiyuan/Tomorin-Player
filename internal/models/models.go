@@ -17,7 +17,7 @@ type StreamSource struct {
 // Each song instance is unique, even if they share the same stream source.
 type Song struct {
 	ID                 string    `gorm:"primaryKey" json:"id"`
-	BVID               string    `json:"bvid"`
+	BVID               string    `gorm:"column:bvid" json:"bvid"`
 	Name               string    `json:"name"`
 	Singer             string    `json:"singer"`
 	SingerID           string    `json:"singerId"`

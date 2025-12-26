@@ -51,7 +51,17 @@ func run() error {
 	dbPath := filepath.Join(dataDir, "tomorin.db")
 
 	gormDB, err := db.Open(dbPath, func(gdb *gorm.DB) error {
-		return gdb.AutoMigrate(&models.Song{}, &models.Favorite{}, &models.SongRef{}, &models.PlayerSetting{}, &models.LyricMapping{}, &models.Playlist{})
+		// 标准迁移
+		if err := gdb.AutoMigrate(&models.Song{}, &models.Favorite{}, &models.SongRef{}, &models.PlayerSetting{}, &models.LyricMapping{}, &models.Playlist{}); err != nil {
+			return err
+		}
+		// 确保 songs 表有 bvid 列（兼容旧数据库）
+		if !gdb.Migrator().HasColumn(&models.Song{}, "bvid") {
+			if err := gdb.Migrator().AddColumn(&models.Song{}, "bvid"); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return err

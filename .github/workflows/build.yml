@@ -120,7 +120,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           # artifact 名称不能包含 '/'
-          name: tomorin-macos-${{ matrix.arch | replace('/', '-') }}
+          name: tomorin-macos-${{ matrix.arch }}
           path: build/bin/*.dmg
 
   build-linux:
@@ -231,7 +231,7 @@ jobs:
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: tomorin-linux-${{ matrix.arch | replace('/', '-') }}
+          name: tomorin-linux-${{ matrix.arch }}
           path: |
             build/bin/tomorin-player
             build/bin/*.deb

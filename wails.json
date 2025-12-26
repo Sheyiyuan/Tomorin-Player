@@ -6,7 +6,7 @@
         "name": "Sheyiyuan",
         "email": "sheyiyuantan90@qq.com"
     },
-    "version": "0.1.0",
+    "version": "1.0.0",
     "build": {
         "frontend": {
             "dir": "frontend",

@@ -1,77 +1,185 @@
+# Tomorin Player
 
-# Tomorin Player (Wails + React + Go)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Wails](https://img.shields.io/badge/Wails-v2-DF0039)
 
-使用 React + TypeScript 前端（Vite）和 Go + SQLite 后端，通过 Wails v2 构建的桌面应用。目标是重新实现 Azusa 播放器的桌面版本：包含播放列表、收藏夹、歌词偏移和基本播放控制功能。
+![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite&logoColor=white)
 
-## 前提条件
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white)
+![Mantine](https://img.shields.io/badge/Mantine-v8-339AF0?logo=mantine&logoColor=white)
 
-- Go 1.21 或更高版本
-- Node 18 或更高版本
-- `wails` CLI 工具 (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`)
+基于 B站 API 的音乐播放器，使用 Wails v2 构建桌面应用。
 
-## 安装
+**技术栈**: Go (后端) + React 18 + TypeScript (前端) + SQLite (数据库) + Mantine UI
+
+> 本项目受到 [Azusa Player](https://github.com/kenmingwang/azusa-player) 的启发
+
+## 功能特性
+
+### 账号与登录
+
+- B站扫码登录
+- 自动获取用户信息（头像、用户名）
+- 登录状态持久化
+
+### 歌单管理
+
+- 创建、编辑、删除歌单
+- 从 BV 号添加歌曲（支持分P选择、音频截取）
+- 导入 B站 收藏夹（通过 fid 或登录账号）
+- 歌单复制功能
+- 自动清理未被引用的歌曲
+
+### 音频播放
+
+- 基于 B站 API 的音频解析（无需 yt-dlp）
+- 播放地址自动缓存和过期刷新
+- 支持播放区间设置（跳过片头片尾）
+- 播放模式切换（列表循环/随机/单曲循环）
+- 进度控制、音量调节
+- 智能音频源管理（元数据更新不中断播放）
+
+### 搜索功能
+
+- 全局搜索（歌曲名、歌手、BV号）
+- 远程搜索（B站视频搜索）
+- BV 号快速解析
+- 实时搜索结果
+
+### 歌曲编辑
+
+- 编辑歌曲信息（名称、歌手、封面）
+- 自定义播放区间
+- 手动设置播放地址
+
+### 下载管理
+
+- 歌曲离线下载
+- 下载进度显示
+- 批量下载歌单
+- 本地文件管理
+
+### 主题系统
+
+- 内置多款主题（浅色/深色）
+- 自定义主题编辑器
+- 主题颜色、背景图、透明度调节
+- 主题导入/导出
+
+### 其他功能
+
+- 缓存管理
+- 音频缓存清理
+- 播放列表可视化编辑
+- 拖拽排序
+
+## 开发环境
+
+### 前置要求
+
+- **Go** 1.21+
+- **Node.js** 18+
+- **pnpm** (推荐) 或 npm
+- **Wails CLI**: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
+
+### 安装依赖
 
 ```bash
-# 安装后端依赖
-cd .
+# 后端依赖
 go mod tidy
 
-# 安装前端依赖
+# 前端依赖
 cd frontend
-npm install
+pnpm install
 ```
 
-## 开发模式运行
-
-需要两个终端窗口：
+### 开发模式
 
 ```bash
-# 终端 1：运行前端开发服务器
-cd frontend
-npm run dev
-
-# 终端 2：运行 Wails 开发环境（提供 Go 后端服务并加载前端开发服务器）
-cd ..
+# 启动开发服务器（热重载）
 wails dev
 ```
 
-## 构建桌面应用
+或者分别启动前后端：
 
 ```bash
+# 终端 1: 前端开发服务器
+cd frontend
+pnpm dev
+
+# 终端 2: Wails 后端
+wails dev
+```
+
+## 打包构建
+
+### macOS
+
+```bash
+# 构建 macOS 应用
 wails build
+
+# 输出位置
+# build/bin/Tomorin Player.app
+```
+
+### Windows
+
+```bash
+# 构建 Windows 应用
+wails build -platform windows/amd64
+
+# 输出位置
+# build/bin/Tomorin Player.exe
+```
+
+### Linux
+
+```bash
+# 构建 Linux 应用
+wails build -platform linux/amd64
+
+# 输出位置
+# build/bin/tomorin-player
+```
+
+### 构建选项
+
+```bash
+# 生产构建（压缩优化）
+wails build -clean
+
+# 跳过前端构建（加速）
+wails build -skipbindings
+
+# 自定义输出目录
+wails build -o custom-output-name
 ```
 
 ## 项目结构
 
-- `main.go` – Wails 启动程序、数据库初始化、后端服务绑定
-- `internal/` – 数据库辅助工具、数据模型、服务（播放列表、收藏夹、歌词、设置）
-- `frontend/` – React + TS 应用（基于 Vite）
-- `wails.json` – Wails 构建/开发配置文件
+```
+tomorin/
+├── main.go                 # Wails 入口
+├── internal/
+│   ├── db/                # 数据库初始化
+│   ├── models/            # 数据模型
+│   ├── services/          # 业务逻辑（播放、收藏夹、下载等）
+│   └── proxy/             # HTTP 代理配置
+├── frontend/
+│   ├── src/
+│   │   ├── components/    # React 组件
+│   │   ├── hooks/         # 自定义 Hooks
+│   │   ├── context/       # React Context
+│   │   ├── utils/         # 工具函数
+│   │   └── types.ts       # TypeScript 类型定义
+│   └── wailsjs/           # Wails 自动生成的绑定
+├── build/                 # 构建输出
+└── wails.json            # Wails 配置
+```
 
-## Spotlight 搜索（BV / 名称 / UP / fid）
+## 许可证
 
-- 左上搜索按钮触发 Spotlight 样式浮层，背景虚化
-- 支持 BV 号、视频标题、UP 主（singer / singerId）匹配本地歌曲
-- 支持收藏夹 fid（Favorite.id）匹配，点击后选中并按收藏夹播放
-- 回车可选择首条结果，点击结果立即播放或切换歌单
-
-## Bilibili 音频解析（yt-dlp + 缓存）
-
-- 后端 `Service.ResolveBiliAudio(bvidOrUrl)` 调用 yt-dlp 解析 bestaudio（优先 m4a），未过期则直接返回缓存
-- Song 增加 `streamUrlExpiresAt` 字段；解析成功自动写库并记录到期时间（从 URL 的 expire/deadline 参数推断，缺省 +2h）
-- 返回结构 `BiliAudio`：`url`、`expiresAt`、`fromCache`、`title`、`format`，便于前端按需刷新或提示
-- 需要本机可执行的 yt-dlp；未安装时返回错误
-
-## 下一步计划
-
-- 将真实音频播放和媒体会话接入前端
-- 移植 Bilibili 数据获取和歌词搜索逻辑并接入后端
-- 完善导入/导出 UI 和播放列表操作，以镜像扩展功能
-
-## 开发计划
-
-1. B 站音频解析服务：内嵌 yt-dlp 获取 bestaudio m4a，必要时通过 Go 代理添加 Referer；缓存直链并在过期时刷新。
-2. 多 P/收藏夹联动：支持分 P 选择、根据 fid 拉取收藏夹并批量入库；结果直接可被 Spotlight 搜索。
-3. 快捷键与无障碍：为 Spotlight 搜索绑定 Cmd/Ctrl+K，补充焦点管理与可达性提示。
-4. 播放稳健性：增加音频直链失效重试与降级提示，覆盖 Safari/Edge 兼容性。
-5. 自动化检查：补充前端单测/Smoke 测试覆盖搜索浮层交互与播放触发。
+MIT License

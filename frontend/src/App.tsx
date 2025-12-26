@@ -99,7 +99,7 @@ const App: React.FC = () => {
     const playbackRetryRef = useRef<Map<string, number>>(new Map());
     const isHandlingErrorRef = useRef<Set<string>>(new Set());
     const prevSongIdRef = useRef<string | null>(null);
-    const sliceAudioRef = useRef<HTMLAudioElement | null>(null);
+    
     const skipPersistRef = useRef(false);
     const fileDraftInputRef = useRef<HTMLInputElement | null>(null);
     // 定时保存防抖器（key -> timerId）
@@ -679,13 +679,7 @@ const App: React.FC = () => {
         }
     };
 
-    const handleSliceSliderChange = (value: number) => {
-        const safe = Math.min(Math.max(value, sliceStart), Math.max(sliceEnd || sliceStart, sliceStart));
-        setSlicePreviewPosition(safe);
-        if (sliceAudioRef.current) {
-            sliceAudioRef.current.currentTime = safe;
-        }
-    };
+    
 
     const handleSliceStartChange = (value: number | string) => {
         const v = Number(value) || 0;
@@ -855,54 +849,16 @@ const App: React.FC = () => {
     };
 
     // ========== BV 模态框相关函数（来自 useBVModal Hook）==========
-    const handleSlicePreviewPlay = bvModal.handleSlicePreviewPlay;
+    
     const handleConfirmBVAdd = bvModal.handleConfirmBVAdd;
 
-    useEffect(() => {
-        if (!bvPreview) return;
-        const duration = bvPreview.duration && bvPreview.duration > 0 ? bvPreview.duration : 0;
-        setSliceStart(0);
-        setSliceEnd(duration || 0);
-        setSlicePreviewPosition(0);
-        if (sliceAudioRef.current && bvPreview.url) {
-            sliceAudioRef.current.src = bvPreview.url;
-        }
-    }, [bvPreview]);
+    
 
-    useEffect(() => {
-        const audio = sliceAudioRef.current;
-        if (!audio) return;
-        const onTime = () => {
-            if (isSlicePreviewing && sliceEnd > 0 && audio.currentTime >= sliceEnd - 0.05) {
-                audio.pause();
-                setIsSlicePreviewing(false);
-            }
-            setSlicePreviewPosition(audio.currentTime || 0);
-        };
-        audio.addEventListener("timeupdate", onTime);
-        return () => {
-            audio.removeEventListener("timeupdate", onTime);
-        };
-    }, [isSlicePreviewing, sliceEnd]);
+    
 
-    useEffect(() => {
-        if (!isSlicePreviewing) return;
-        const audio = sliceAudioRef.current;
-        if (audio) {
-            audio.currentTime = Math.max(0, sliceStart);
-        }
-    }, [sliceStart, isSlicePreviewing]);
+    
 
-    useEffect(() => {
-        if (bvModalOpen) return;
-        const audio = sliceAudioRef.current;
-        if (audio) {
-            audio.pause();
-            audio.currentTime = 0;
-        }
-        setIsSlicePreviewing(false);
-        setSlicePreviewPosition(0);
-    }, [bvModalOpen]);
+    
 
     return (
         <Box
@@ -1082,15 +1038,10 @@ const App: React.FC = () => {
                 bvSinger={bvSinger}
                 sliceStart={sliceStart}
                 sliceEnd={sliceEnd}
-                slicePreviewPosition={slicePreviewPosition}
-                isSlicePreviewing={isSlicePreviewing}
-                sliceAudioRef={sliceAudioRef}
                 onClose={() => setBvModalOpen(false)}
                 onSliceRangeChange={handleSliceRangeChange}
-                onSliceSliderChange={handleSliceSliderChange}
                 onSliceStartChange={handleSliceStartChange}
                 onSliceEndChange={handleSliceEndChange}
-                onSlicePreviewPlay={handleSlicePreviewPlay}
                 onSelectFavorite={setBvTargetFavId}
                 onCreateFavorite={handleCreateFavoriteInModal}
                 onFavNameChange={setNewFavName}

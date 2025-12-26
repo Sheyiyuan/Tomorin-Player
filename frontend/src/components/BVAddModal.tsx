@@ -1,5 +1,5 @@
 import React from "react";
-import { AspectRatio, Button, Group, Image, Modal, NumberInput, RangeSlider, Select, Slider, Stack, Text, TextInput } from "@mantine/core";
+import { AspectRatio, Button, Group, Image, Modal, NumberInput, RangeSlider, Select, Stack, Text, TextInput } from "@mantine/core";
 import type { Favorite } from "../types";
 
 interface BVPreview {
@@ -21,15 +21,10 @@ interface BVAddModalProps {
     bvSinger: string;
     sliceStart: number;
     sliceEnd: number;
-    slicePreviewPosition: number;
-    isSlicePreviewing: boolean;
-    sliceAudioRef: React.RefObject<HTMLAudioElement>;
     onClose: () => void;
     onSliceRangeChange: (start: number, end: number) => void;
-    onSliceSliderChange: (value: number) => void;
     onSliceStartChange: (value: number | string) => void;
     onSliceEndChange: (value: number | string) => void;
-    onSlicePreviewPlay: () => void;
     onSelectFavorite: (id: string | null) => void;
     onCreateFavorite: () => void;
     onFavNameChange: (value: string) => void;
@@ -104,50 +99,38 @@ const BVAddModal: React.FC<BVAddModalProps> = ({
                         <Text size="sm" c="dimmed">时长: {formatTime(bvPreview.duration || 0)}</Text>
                     </Stack>
                     <Stack gap="xs">
-                        <Text fw={600}>切片预览</Text>
+                        <Text size="xs" c="dimmed">播放区间（只播放此段）</Text>
                         <RangeSlider
+                            value={[sliceStart, sliceEnd]}
+                            onChange={([startVal, endVal]) => onSliceRangeChange(startVal, endVal)}
                             min={0}
                             max={Math.max(bvPreview.duration || 0, sliceEnd || 0, 1)}
                             step={0.1}
-                            value={[sliceStart, sliceEnd]}
-                            onChange={([startVal, endVal]) => onSliceRangeChange(startVal, endVal)}
                             label={(value) => formatTime(Number(value))}
-                            color={themeColor}
+                            style={{ '--slider-color': themeColor } as any}
                         />
-                        <Slider
-                            min={sliceStart}
-                            max={Math.max(sliceEnd || sliceStart || 0, sliceStart + 0.1, 0.1)}
-                            step={0.1}
-                            value={slicePreviewPosition}
-                            onChange={onSliceSliderChange}
-                            label={(value) => formatTime(Number(value))}
-                            color={themeColor}
-                        />
-                        <Group gap="xs" align="flex-end">
+                        <Group gap="sm" grow>
                             <NumberInput
-                                label="开始 (秒)"
-                                min={0}
-                                max={Math.max(bvPreview.duration || 0, sliceEnd || 0, 1)}
-                                step={0.5}
+                                label="播放开始 (秒)"
                                 value={sliceStart}
                                 onChange={onSliceStartChange}
-                                formatter={(val) => (val === undefined || val === null ? "0" : `${val}`)}
-                            />
-                            <NumberInput
-                                label="结束 (秒)"
                                 min={0}
                                 max={Math.max(bvPreview.duration || 0, sliceEnd || 0, 1)}
-                                step={0.5}
+                                step={0.1}
+                                hideControls
+                                size="sm"
+                            />
+                            <NumberInput
+                                label="播放结束 (秒)"
                                 value={sliceEnd}
                                 onChange={onSliceEndChange}
-                                formatter={(val) => (val === undefined || val === null ? "0" : `${val}`)}
+                                min={0}
+                                max={Math.max(bvPreview.duration || 0, sliceEnd || 0, 1)}
+                                step={0.1}
+                                hideControls
+                                size="sm"
                             />
-                            <Button variant="light" onClick={onSlicePreviewPlay} disabled={!bvPreview.url} color={themeColor}>
-                                {isSlicePreviewing ? '停止预览' : '预览片段'}
-                            </Button>
                         </Group>
-                        <Text size="xs" c="dimmed">基于音频流实时预览，播放到结束时间自动停止。</Text>
-                        <audio ref={sliceAudioRef} style={{ display: "none" }} />
                     </Stack>
                     <Stack gap="xs">
                         <Select

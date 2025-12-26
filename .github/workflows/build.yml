@@ -1,0 +1,254 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          pnpm install
+
+      - name: Build Windows
+        run: |
+          $env:PATH = "$env:USERPROFILE\go\bin;$env:PATH"
+          wails build -platform windows/amd64 -clean
+
+      - name: Create installer (NSIS)
+        run: |
+          # 可选：使用 NSIS 创建安装程序
+          # 需要额外配置 NSIS 脚本
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tomorin-windows-amd64
+          path: build/bin/*.exe
+
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [darwin/amd64, darwin/arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          pnpm install
+
+      - name: Build macOS
+        run: |
+          export PATH="$HOME/go/bin:$PATH"
+          wails build -platform ${{ matrix.arch }} -clean
+
+      - name: Create DMG
+        run: |
+          # 安装 create-dmg
+          brew install create-dmg
+          
+          # 获取架构名称
+          ARCH=$(echo "${{ matrix.arch }}" | cut -d'/' -f2)
+          
+          # 创建 DMG
+          create-dmg \
+            --volname "Tomorin Player" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "Tomorin Player.app" 200 190 \
+            --hide-extension "Tomorin Player.app" \
+            --app-drop-link 600 185 \
+            "build/bin/Tomorin-Player-${ARCH}.dmg" \
+            "build/bin/Tomorin Player.app" || true
+          
+          # 如果创建失败，使用备用方法
+          if [ ! -f "build/bin/Tomorin-Player-${ARCH}.dmg" ]; then
+            hdiutil create -volname "Tomorin Player" -srcfolder "build/bin/Tomorin Player.app" -ov -format UDZO "build/bin/Tomorin-Player-${ARCH}.dmg"
+          fi
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tomorin-macos-${{ matrix.arch }}
+          path: build/bin/*.dmg
+
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [linux/amd64, linux/arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev gcc-aarch64-linux-gnu
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          pnpm install
+
+      - name: Build Linux
+        run: |
+          export PATH="$HOME/go/bin:$PATH"
+          wails build -platform ${{ matrix.arch }} -clean
+
+      - name: Install packaging tools
+        run: |
+          # 安装 fpm 用于创建 DEB 和 RPM 包
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential rpm
+          sudo gem install --no-document fpm
+
+      - name: Create DEB package
+        run: |
+          ARCH=$(echo "${{ matrix.arch }}" | cut -d'/' -f2)
+          VERSION="1.0.0"
+          
+          # 创建目录结构
+          mkdir -p package/usr/local/bin
+          mkdir -p package/usr/share/applications
+          mkdir -p package/usr/share/icons/hicolor/256x256/apps
+          
+          # 复制二进制文件
+          cp build/bin/tomorin-player package/usr/local/bin/
+          chmod +x package/usr/local/bin/tomorin-player
+          
+          # 创建 .desktop 文件
+          cat > package/usr/share/applications/tomorin-player.desktop <<EOF
+          [Desktop Entry]
+          Name=Tomorin Player
+          Exec=/usr/local/bin/tomorin-player
+          Icon=tomorin-player
+          Type=Application
+          Categories=AudioVideo;Audio;Player;
+          EOF
+          
+          # 使用 fpm 创建 DEB 包
+          fpm -s dir -t deb \
+            -n tomorin-player \
+            -v ${VERSION} \
+            -a ${ARCH} \
+            --description "B站音乐播放器" \
+            --url "https://github.com/yourusername/tomorin" \
+            --license "MIT" \
+            -C package \
+            usr
+          
+          mv *.deb build/bin/
+
+      - name: Create RPM package
+        run: |
+          ARCH=$(echo "${{ matrix.arch }}" | cut -d'/' -f2)
+          VERSION="1.0.0"
+          
+          # 使用 fpm 创建 RPM 包
+          fpm -s dir -t rpm \
+            -n tomorin-player \
+            -v ${VERSION} \
+            -a ${ARCH} \
+            --description "B站音乐播放器" \
+            --url "https://github.com/yourusername/tomorin" \
+            --license "MIT" \
+            -C package \
+            usr
+          
+          mv *.rpm build/bin/
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tomorin-linux-${{ matrix.arch }}
+          path: |
+            build/bin/tomorin-player
+            build/bin/*.deb
+            build/bin/*.rpm
+
+  release:
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/**/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

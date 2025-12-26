@@ -171,7 +171,9 @@ jobs:
       - name: Build Linux
         run: |
           export PATH="$HOME/go/bin:$PATH"
-          wails build -platform ${{ matrix.arch }} -clean
+          # 显式指定输出名，后续打包步骤使用该文件
+          wails build -platform ${{ matrix.arch }} -clean -o tomorin-player
+          ls -l build/bin
 
       - name: Install packaging tools
         run: |

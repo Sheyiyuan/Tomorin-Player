@@ -311,6 +311,39 @@ tomorin/
 
 ---
 
+## 更新日志
+
+### v1.1.0 (2024-12-20)
+
+**后端重构**
+- ✅ 将 service.go 分解为 11 个专业化域文件，提高代码可维护性
+    - `download.go` - 下载管理逻辑
+    - `favorites.go` - 歌单/收藏夹管理
+    - `songs.go` - 歌曲库管理
+    - `settings.go` - 设置管理
+    - `login.go` - 用户登录认证
+    - `bili_play.go` - B站音频播放相关
+    - `bili_favorite.go` - B站个人收藏导入
+    - `search.go` - 搜索功能
+    - `playlist.go` - 播放列表管理
+    - `lyrics.go` - 歌词管理
+    - `library.go` - 媒体库相关
+- ✅ 实现模块化错误处理和数据验证
+- ✅ 完整的单元测试覆盖（11 个测试模块）
+
+**前端类型安全**
+- ✅ 解决 TypeScript 严格模式类型错误
+    - 添加 Song/Favorite 类型转换函数
+    - 修复 protobuf Time 类型与字符串的不兼容
+    - 完善 UserInfo 字段映射
+- ✅ 前端 TypeScript 编译通过（0 errors）
+- ✅ 完整的类型覆盖确保运行时安全
+
+**已知问题修复**
+- ✅ BV 号解析失败问题修复
+- ✅ 页面样式完整性提升
+- ✅ 登录状态检查完善
+
 ## 许可证
 
 MIT License

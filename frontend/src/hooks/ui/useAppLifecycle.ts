@@ -3,6 +3,7 @@ import type { MutableRefObject } from "react";
 import * as Services from "../../../wailsjs/go/services/Service";
 import { DEFAULT_THEMES } from "../../utils/constants";
 import type { Theme, Favorite, Song } from "../../types";
+import { convertSongs, convertFavorites } from "../../types";
 import type { ModalStates } from './useModalManager';
 
 interface UseAppLifecycleParams {
@@ -193,7 +194,7 @@ export const useAppLifecycle = ({
                     Services.ListFavorites(),
                 ]);
 
-                const songsWithCache = songList.map((song) => {
+                const songsWithCache = convertSongs(songList).map((song) => {
                     try {
                         const cacheKey = `tomorin.song.${song.id}`;
                         const cached = localStorage.getItem(cacheKey);
@@ -211,8 +212,8 @@ export const useAppLifecycle = ({
                     return song;
                 });
 
-                setSongs(songsWithCache);
-                setFavorites(favList);
+                setSongs(convertSongs(songsWithCache));
+                setFavorites(convertFavorites(favList));
 
                 try {
                     const savedPlaylist = await Services.GetPlaylist();

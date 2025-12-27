@@ -66,7 +66,9 @@ export const useTheme = () => {
         setBackgroundImageUrl(theme.backgroundImage);
         setPanelColor(theme.panelColor);
         setPanelOpacity(theme.panelOpacity);
-        setColorScheme(theme.colorScheme);
+        if (theme.colorScheme && (theme.colorScheme === 'light' || theme.colorScheme === 'dark')) {
+            setColorScheme(theme.colorScheme as 'light' | 'dark');
+        }
     }, [setColorScheme]);
 
     // 安全设置背景图片（直接设置，不需要避免重复）

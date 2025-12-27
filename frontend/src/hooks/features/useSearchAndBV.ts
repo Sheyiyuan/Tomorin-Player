@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { notifications } from "@mantine/notifications";
 import * as Services from "../../../wailsjs/go/services/Service";
-import { Song, Favorite } from "../../types";
+import { Song, Favorite, convertSongs } from "../../types";
 import type { ModalStates } from '../ui/useModalManager';
 
 interface UseSearchAndBVProps {
@@ -73,7 +73,7 @@ export const useSearchAndBV = ({
                 const extractedBV = term.match(bvPattern)?.[0] || term;
                 try {
                     const list = await Services.SearchBVID(extractedBV);
-                    setRemoteResults(list || []);
+                    setRemoteResults(convertSongs(list || []));
                 } catch (err) {
                     console.warn("[remoteSearch] SearchBVID failed:", err);
                     // 静默失败，不显示错误提示，因为可能会在resolveBVAndAdd中再次尝试
@@ -83,7 +83,7 @@ export const useSearchAndBV = ({
                 // 关键字搜索：调用 SearchBiliVideos
                 try {
                     const list = await Services.SearchBiliVideos(term, 1, 10);
-                    setRemoteResults(list || []);
+                    setRemoteResults(convertSongs(list || []));
                 } catch (err) {
                     console.warn("[remoteSearch] SearchBiliVideos failed:", err);
                     notifications.show({
@@ -137,7 +137,7 @@ export const useSearchAndBV = ({
             try {
                 // BV 号解析不需要登陆，B站 API 是公开的
                 const searchResults = await Services.SearchBVID(bvid);
-                sortedResults = [...searchResults].sort((a, b) => {
+                sortedResults = [...convertSongs(searchResults || [])].sort((a, b) => {
                     const aRemote = !a.id || a.id.trim() === "";
                     const bRemote = !b.id || b.id.trim() === "";
                     if (aRemote === bRemote) return 0;
@@ -281,7 +281,7 @@ export const useSearchAndBV = ({
             // 尝试获取搜索结果
             try {
                 const searchResults = await Services.SearchBVID(bvid);
-                sortedResults = [...searchResults].sort((a, b) => {
+                sortedResults = [...convertSongs(searchResults || [])].sort((a, b) => {
                     const aRemote = !a.id || a.id.trim() === "";
                     const bRemote = !b.id || b.id.trim() === "";
                     if (aRemote === bRemote) return 0;

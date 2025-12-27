@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import type { Song, Favorite } from '../../types';
+import { convertSongs, convertFavorites } from '../../types';
 import * as Services from '../../../wailsjs/go/services/Service';
 
 interface UseSongOperationsProps {
@@ -39,10 +40,10 @@ export const useSongOperations = ({
             updatedAt: new Date().toISOString(),
         };
         await Services.UpsertSongs([newSong as any]);
-        const refreshed = await Services.ListSongs();
-        setSongs(refreshed);
-        if (!currentSong && refreshed.length) {
-            playSong(refreshed[0], refreshed);
+        const rawRefreshed = await Services.ListSongs();
+        setSongs(convertSongs(rawRefreshed || []));
+        if (!currentSong && rawRefreshed.length) {
+            playSong(convertSongs(rawRefreshed)[0], convertSongs(rawRefreshed));
         }
     }, [currentSong, setSongs, playSong]);
 
@@ -53,8 +54,8 @@ export const useSongOperations = ({
         if (!currentSong) return;
         const updated = { ...currentSong, streamUrl: url };
         await Services.UpsertSongs([updated as any]);
-        const refreshed = await Services.ListSongs();
-        setSongs(refreshed);
+        const rawRefreshed = await Services.ListSongs();
+        setSongs(convertSongs(rawRefreshed || []));
         setCurrentSong(updated as any);
     }, [currentSong, setSongs, setCurrentSong]);
 
@@ -74,8 +75,8 @@ export const useSongOperations = ({
         };
 
         await Services.UpsertSongs([updated as any]);
-        const refreshed = await Services.ListSongs();
-        setSongs(refreshed);
+        const rawRefreshed = await Services.ListSongs();
+        setSongs(convertSongs(rawRefreshed || []));
 
         // 如果更新的是当前播放的歌曲，也更新 currentSong
         if (currentSong?.id === songId) {
@@ -95,8 +96,8 @@ export const useSongOperations = ({
             songIds: [...target.songIds, { id: 0, songId: currentSong.id, favoriteId: favId }],
         };
         await Services.SaveFavorite(next as any);
-        const refreshed = await Services.ListFavorites();
-        setFavorites(refreshed);
+        const rawRefreshed = await Services.ListFavorites();
+        setFavorites(convertFavorites(rawRefreshed || []));
     }, [currentSong, favorites, setFavorites]);
 
     return {

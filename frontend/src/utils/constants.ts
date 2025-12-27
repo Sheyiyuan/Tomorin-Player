@@ -2,7 +2,7 @@
  * 应用常量定义
  */
 
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '1.1.0';
 
 export const DEFAULT_THEMES = [
     {
@@ -23,10 +23,10 @@ export const DEFAULT_THEMES = [
         name: '暗色',
         colorScheme: 'dark' as const,
         themeColor: '#f4004f',
-        backgroundColor: '#0b1021',
+        backgroundColor: '#210b13ff',
         backgroundOpacity: 1,
         backgroundImage: '',
-        panelColor: '#1f2937',
+        panelColor: '#371f25ff',
         panelOpacity: 0.92,
         isDefault: true,
         isReadOnly: true,

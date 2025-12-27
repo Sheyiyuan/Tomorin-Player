@@ -42,7 +42,7 @@ export default function LoginModal({ opened, onClose, onLoginSuccess }: LoginMod
 
                 setQrUrl(qrDataUrl);
                 setQrcodeKey(result.qrcode_key);
-                setExpireAt(new Date(result.expire_at));
+                setExpireAt(new Date(typeof result.expire_at === 'string' ? result.expire_at : new Date().toISOString()));
 
                 // 自动开始轮询
                 startPolling(result.qrcode_key);

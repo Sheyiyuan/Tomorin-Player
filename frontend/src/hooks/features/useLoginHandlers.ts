@@ -1,14 +1,8 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
+import { UserInfo } from '../../types';
 import type { ModalStates } from '../ui/useModalManager';
-
-interface UserInfo {
-    mid: string;
-    name: string;
-    username: string;
-    face: string;
-}
 
 interface UseLoginHandlersParams {
     closeModal: (name: keyof ModalStates) => void;
@@ -21,12 +15,19 @@ export const useLoginHandlers = ({ closeModal, setUserInfo, setStatus }: UseLogi
         closeModal('loginModal');
         try {
             const info = await Services.GetUserInfo();
-            setUserInfo(info);
-            localStorage.setItem('tomorin.userInfo', JSON.stringify(info));
-            setStatus(`已登录: ${info.username}`);
+            const mappedInfo: UserInfo = {
+                uid: info.uid || 0,
+                username: info.username || '',
+                face: info.face || '',
+                level: info.level || 0,
+                vipType: (info as any).vip_type || (info as any).vipType || 0,
+            };
+            setUserInfo(mappedInfo);
+            localStorage.setItem('tomorin.userInfo', JSON.stringify(mappedInfo));
+            setStatus(`已登录: ${mappedInfo.username}`);
             notifications.show({
                 title: '登录成功',
-                message: `欢迎回来，${info.username}！`,
+                message: `欢迎回来，${mappedInfo.username}！`,
                 color: 'green',
             });
         } catch (e) {

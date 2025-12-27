@@ -355,11 +355,13 @@ const AppModals: React.FC<AppModalsProps> = (props) => {
                 themeColor={themeColor}
                 appVersion={appVersion}
                 cacheSize={cacheSize}
+                exitBehavior="close"
                 onClearLoginCache={onClearLoginCache}
                 onClearThemeCache={onClearThemeCache}
                 onOpenDownloadsFolder={onOpenDownloadsFolder}
                 onClearMusicCache={onClearMusicCache}
                 onClearAllCache={onClearAllCache}
+                onExitBehaviorChange={() => { }}
             />
 
             <DownloadManagerModal

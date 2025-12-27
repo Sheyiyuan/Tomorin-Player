@@ -5,6 +5,7 @@
 
 import { useState, useCallback } from 'react';
 import type { Song } from '../../types';
+import { convertSongs } from '../../types';
 import * as Services from '../../../wailsjs/go/services/Service';
 import { storage, STORAGE_KEYS } from '../../utils/storage';
 
@@ -25,9 +26,10 @@ export const useSongs = () => {
     const loadSongs = useCallback(async () => {
         try {
             const songList = await Services.ListSongs();
+            const converted = convertSongs(songList);
 
             // 从 localStorage 恢复缓存的播放时间设置
-            const songsWithCache = songList.map(song => {
+            const songsWithCache = converted.map(song => {
                 try {
                     const cacheKey = `${STORAGE_KEYS.SONG_CACHE_PREFIX}${song.id}`;
                     const cached = storage.get<{
@@ -95,8 +97,9 @@ export const useSongs = () => {
     // 刷新歌曲列表
     const refreshSongs = useCallback(async () => {
         const refreshed = await Services.ListSongs();
-        setSongs(refreshed);
-        return refreshed;
+        const converted = convertSongs(refreshed);
+        setSongs(converted);
+        return converted;
     }, []);
 
     return {

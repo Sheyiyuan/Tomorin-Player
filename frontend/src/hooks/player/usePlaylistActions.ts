@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
-import { Song, Favorite } from '../../types';
+import { Song, Favorite, convertFavorites } from '../../types';
 import type { ModalStates } from '../ui/useModalManager';
 
 interface UsePlaylistActionsProps {
@@ -51,8 +51,8 @@ export const usePlaylistActions = ({
                 songIds: currentFav.songIds.filter((ref: any) => ref.songId !== song.id),
             };
             await Services.SaveFavorite(updatedFav as any);
-            const refreshedFavs = await Services.ListFavorites();
-            setFavorites(refreshedFavs);
+            const rawRefreshedFavs = await Services.ListFavorites();
+            setFavorites(convertFavorites(rawRefreshedFavs || []));
             setConfirmRemoveSongId(null);
             notifications.show({ title: '已移出歌单', message: song.name, color: 'green' });
         } catch (e: any) {

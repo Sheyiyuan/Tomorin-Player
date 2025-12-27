@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
-import { Song, Favorite } from '../../types';
+import { Song, Favorite, convertSongs, convertFavorites } from '../../types';
 import { SongClass } from '../../types';
 
 interface UseBVModalProps {
@@ -93,9 +93,10 @@ export const useBVModal = ({
                 throw new Error(`保存歌曲失败: ${err instanceof Error ? err.message : String(err)}`);
             }
 
-            let refreshed: typeof songs = [];
+            let refreshed: Song[] = [];
             try {
-                refreshed = await Services.ListSongs();
+                const data = await Services.ListSongs();
+                refreshed = convertSongs(data);
             } catch (err) {
                 throw new Error(`获取歌曲列表失败: ${err instanceof Error ? err.message : String(err)}`);
             }
@@ -120,7 +121,8 @@ export const useBVModal = ({
 
                     let refreshedFavs: typeof favorites = [];
                     try {
-                        refreshedFavs = await Services.ListFavorites();
+                        const raw = await Services.ListFavorites();
+                        refreshedFavs = convertFavorites(raw);
                     } catch (err) {
                         throw new Error(`获取歌单列表失败: ${err instanceof Error ? err.message : String(err)}`);
                     }

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import type { Song } from '../../types';
+import { convertSongs } from '../../types';
 import * as Services from '../../../wailsjs/go/services/Service';
 
 interface UsePlaySongProps {
@@ -129,8 +130,8 @@ export const usePlaySong = ({
                 // 尝试保存到数据库，但如果失败也不影响播放
                 try {
                     await Services.UpsertSongs([toPlay as any]);
-                    const refreshed = await Services.ListSongs();
-                    setSongs(refreshed);
+                    const rawRefreshed = await Services.ListSongs();
+                    setSongs(convertSongs(rawRefreshed || []));
                 } catch (dbErr) {
                     console.warn("保存到数据库失败（不影响播放）:", dbErr);
                     // 继续使用内存中的 toPlay 继续播放

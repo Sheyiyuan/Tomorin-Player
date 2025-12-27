@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
-import { Favorite, Song } from '../../types';
+import { Favorite, Song, convertFavorites, convertSongs } from '../../types';
 import { useFidImport } from './useFidImport';
 import { useMyFavoriteImport } from './useMyFavoriteImport';
 import type { ModalStates } from '../ui/useModalManager';
@@ -65,12 +65,12 @@ export const useFavoriteActions = ({
             console.log('[deleteFavorite] 清理了', deletedCount, '首未被引用的歌曲');
 
             // 刷新歌单和歌曲列表
-            const refreshed = await Services.ListFavorites();
-            setFavorites(refreshed);
+            const rawRefreshed = await Services.ListFavorites();
+            setFavorites(convertFavorites(rawRefreshed || []));
 
             // 刷新歌曲列表（因为可能有歌曲被清理）
-            const refreshedSongs = await Services.ListSongs();
-            setSongs(refreshedSongs);
+            const rawRefreshedSongs = await Services.ListSongs();
+            setSongs(convertSongs(rawRefreshedSongs || []));
 
             if (selectedFavId === id) {
                 setSelectedFavId(null);
@@ -107,8 +107,8 @@ export const useFavoriteActions = ({
             }
             const updated = { ...target, title: name };
             await Services.SaveFavorite(updated as any);
-            const refreshed = await Services.ListFavorites();
-            setFavorites(refreshed);
+            const rawRefreshed = await Services.ListFavorites();
+            setFavorites(convertFavorites(rawRefreshed || []));
             closeModal("editFavModal");
             notifications.show({ title: "已保存", message: "", color: "green" });
         } catch (error) {
@@ -193,18 +193,18 @@ export const useFavoriteActions = ({
                 // 保存新增歌曲到数据库
                 if (newSongs.length > 0) {
                     console.log('[createFavorite] 保存新增歌曲到数据库...');
-                    await Services.UpsertSongs(newSongs);
+                    await Services.UpsertSongs(newSongs as any);
                 }
 
                 // 刷新歌曲列表
                 console.log('[createFavorite] 刷新歌曲列表...');
-                const refreshedSongs = await Services.ListSongs();
-                setSongs(refreshedSongs);
+                const rawRefreshedSongs = await Services.ListSongs();
+                setSongs(convertSongs(rawRefreshedSongs || []));
 
                 // 组装歌单 songIds（包含新增和已存在的）
                 const allImportedSongs = [...newSongs, ...existingSongs];
                 const allSongIds = allImportedSongs.map(song => {
-                    const found = refreshedSongs.find((s: Song) => s.bvid === song.bvid);
+                    const found = rawRefreshedSongs.find((s: any) => s.bvid === song.bvid);
                     return found ? found.id : song.id;
                 });
                 console.log('[createFavorite] 组装歌单 songIds，共', allSongIds.length, '首');
@@ -223,11 +223,11 @@ export const useFavoriteActions = ({
 
                 // 刷新歌单列表并选中新建的歌单
                 console.log('[createFavorite] 刷新歌单列表...');
-                const refreshedFavs = await Services.ListFavorites();
-                setFavorites(refreshedFavs);
-                console.log('[createFavorite] 歌单列表刷新完成，共', refreshedFavs.length, '个歌单');
+                const rawRefreshedFavs = await Services.ListFavorites();
+                setFavorites(convertFavorites(rawRefreshedFavs || []));
+                console.log('[createFavorite] 歌单列表刷新完成，共', rawRefreshedFavs.length, '个歌单');
 
-                const created = refreshedFavs.find((f: Favorite) => f.title === finalName) || refreshedFavs[refreshedFavs.length - 1];
+                const created = rawRefreshedFavs.find((f: any) => f.title === finalName) || rawRefreshedFavs[rawRefreshedFavs.length - 1];
                 if (created) {
                     console.log('[createFavorite] 找到新创建的歌单:', created.id, created.title);
                     setSelectedFavId(created.id);
@@ -240,9 +240,9 @@ export const useFavoriteActions = ({
                 return;
             }
 
-            const refreshedFavs = await Services.ListFavorites();
-            setFavorites(refreshedFavs);
-            const created = refreshedFavs.find((f: Favorite) => f.title === name) || refreshedFavs[refreshedFavs.length - 1];
+            const rawRefreshedFavs = await Services.ListFavorites();
+            setFavorites(convertFavorites(rawRefreshedFavs || []));
+            const created = rawRefreshedFavs.find((f: any) => f.title === name) || rawRefreshedFavs[rawRefreshedFavs.length - 1];
             if (created) {
                 setSelectedFavId(created.id);
             }
@@ -273,8 +273,8 @@ export const useFavoriteActions = ({
 
         try {
             await Services.SaveFavorite(updated as any);
-            const refreshed = await Services.ListFavorites();
-            setFavorites(refreshed);
+            const rawRefreshed = await Services.ListFavorites();
+            setFavorites(convertFavorites(rawRefreshed || []));
             notifications.show({
                 title: "已添加到歌单",
                 message: "",

@@ -6,7 +6,7 @@
 import { useState, useCallback } from 'react';
 import * as Services from '../../../wailsjs/go/services/Service';
 import { notifications } from '@mantine/notifications';
-import { Song } from '../../types';
+import { Song, convertSongs } from '../../types';
 
 export interface BVPreview {
     bvid: string;
@@ -84,7 +84,7 @@ export const useBVResolver = () => {
 
             // 1. 搜索本地和远程
             const searchResults = await Services.SearchBVID(bvid);
-            setBvSearchResults(searchResults);
+            setBvSearchResults(convertSongs(searchResults || []));
 
             // 2. 获取音频信息以更新预览
             const result = await Services.ResolveBiliAudio(bvid);
@@ -93,7 +93,7 @@ export const useBVResolver = () => {
                 title: result.title,
                 cover: result.cover,
                 url: result.url,
-                expiresAt: result.expiresAt,
+                expiresAt: typeof result.expiresAt === 'string' ? result.expiresAt : (result.expiresAt?.toString?.() || ''),
                 duration: result.duration || 0,
                 isLocal: false, // 总是从B站获取最新音频
             });

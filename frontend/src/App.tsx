@@ -498,10 +498,16 @@ const App: React.FC = () => {
         setStatus,
         playbackRetryRef,
         isHandlingErrorRef,
-        upsertSongs: Services.UpsertSongs,
+        upsertSongs: async (arg1: any[]) => {
+            // Convert from frontend Song type to backend
+            return Services.UpsertSongs(arg1);
+        },
         playSong,
         playNext,
     });
+
+    // ========== 提前定义 myFavoriteImport，避免 TDZ ==========
+    const myFavoriteImport = favoriteActions.myFavoriteImport;
 
     // ========== 应用级 Handler 聚合（来自 useAppHandlers Hook）==========
     const handlers = useAppHandlers({
@@ -713,8 +719,6 @@ const App: React.FC = () => {
     }, [backgroundWithOpacity, backgroundImageUrl]);
 
     // ========== 设置弹窗动作 ==========
-
-    const myFavoriteImport = favoriteActions.myFavoriteImport;
 
     const appModalsProps: AppModalsProps = {
         modals,

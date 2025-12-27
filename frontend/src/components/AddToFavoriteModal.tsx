@@ -19,7 +19,7 @@ const AddToFavoriteModal: React.FC<AddToFavoriteModalProps> = ({ opened, onClose
                     <Text c="dimmed">没有歌单</Text>
                 ) : (
                     favorites.map((fav) => {
-                        const isInFav = currentSong && fav.songIds.some(ref => ref.songId === currentSong.id);
+                        const isInFav = currentSong && fav.songIds.some(ref => ref.songId === currentSong.id) ? true : false;
                         return (
                             <Button
                                 key={fav.id}

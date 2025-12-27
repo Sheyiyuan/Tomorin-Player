@@ -5,6 +5,7 @@
 
 import { useState, useCallback } from 'react';
 import type { Favorite } from '../../types';
+import { convertFavorites } from '../../types';
 import * as Services from '../../../wailsjs/go/services/Service';
 
 export interface UseFavoritesReturn {
@@ -24,7 +25,7 @@ export const useFavorites = () => {
     const loadFavorites = useCallback(async () => {
         try {
             const favList = await Services.ListFavorites();
-            setFavorites(favList);
+            setFavorites(convertFavorites(favList));
         } catch (error) {
             console.error('加载收藏夹列表失败:', error);
             throw error;
@@ -67,8 +68,9 @@ export const useFavorites = () => {
     // 刷新收藏夹列表
     const refreshFavorites = useCallback(async () => {
         const refreshed = await Services.ListFavorites();
-        setFavorites(refreshed);
-        return refreshed;
+        const converted = convertFavorites(refreshed);
+        setFavorites(converted);
+        return converted;
     }, []);
 
     return {

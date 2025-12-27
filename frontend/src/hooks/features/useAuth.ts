@@ -6,13 +6,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import * as Services from '../../../wailsjs/go/services/Service';
 import { storage, STORAGE_KEYS } from '../../utils/storage';
-
-export interface UserInfo {
-    mid: number;
-    name: string;
-    face: string;
-    [key: string]: any;
-}
+import { UserInfo } from '../../types';
 
 export interface UseAuthReturn {
     isLoggedIn: boolean;
@@ -50,8 +44,15 @@ export const useAuth = () => {
     const getUserInfo = useCallback(async () => {
         try {
             const info = await Services.GetUserInfo();
-            setUserInfo(info);
-            storage.set(STORAGE_KEYS.USER_INFO, info);
+            const mappedInfo: UserInfo = {
+                uid: info.uid || 0,
+                username: info.username || '',
+                face: info.face || '',
+                level: info.level || 0,
+                vipType: (info as any).vip_type || 0,
+            };
+            setUserInfo(mappedInfo);
+            storage.set(STORAGE_KEYS.USER_INFO, mappedInfo);
         } catch (error) {
             console.error('获取用户信息失败:', error);
             throw error;

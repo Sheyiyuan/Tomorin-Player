@@ -85,7 +85,7 @@ const App: React.FC = () => {
     const skipPersistRef = useRef(false);
     const fileDraftInputRef = useRef<HTMLInputElement | null>(null);
     // 定时保存防抖器（key -> timerId）
-    const saveTimerRef = useRef<Map<string, number>>(new Map());
+    const saveTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
     // ========== 模态框管理 ==========
     const { modals, openModal, closeModal } = useModalContext();

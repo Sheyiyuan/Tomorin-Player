@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
 import { Song, Favorite } from '../../types';
+import type { ModalStates } from '../ui/useModalManager';
 
 interface UsePlaylistActionsProps {
     queue: Song[];
@@ -15,8 +16,8 @@ interface UsePlaylistActionsProps {
     setFavorites: (favorites: Favorite[]) => void;
     setStatus: (status: string) => void;
     setConfirmRemoveSongId: (id: string | null) => void;
-    openModal: (name: string) => void;
-    closeModal: (name: string) => void;
+    openModal: (name: keyof ModalStates) => void;
+    closeModal: (name: keyof ModalStates) => void;
     playSong: (song: Song, list?: Song[]) => Promise<void>;
 }
 

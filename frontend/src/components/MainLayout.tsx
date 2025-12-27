@@ -14,8 +14,8 @@ interface MainLayoutProps {
     placeholderCover: string;
     maxSkipLimit: number;
     formatTime: (ms: number) => string;
-    formatTimeLabel: (label: string) => number;
-    parseTimeLabel: (ms: number) => string;
+    formatTimeLabel: (value: number | string) => string;
+    parseTimeLabel: (value: string) => number;
     onIntervalChange: (start: number, end: number) => void;
     onSkipStartChange: (value: number) => void;
     onSkipEndChange: (value: number) => void;
@@ -27,8 +27,8 @@ interface MainLayoutProps {
     currentFavSongs: Song[];
     searchQuery: string;
     onSearchChange: (query: string) => void;
-    onPlaySong: (song: Song, favorite: Favorite | null) => void;
-    onAddSong: (song: Song) => void;
+    onPlaySong: (song: Song) => void;
+    onAddSong: () => void;
     downloadedSongIds: Set<string>;
     onDownloadSong: (song: Song) => void;
     onAddSongToFavorite: (song: Song) => void;
@@ -43,10 +43,10 @@ interface MainLayoutProps {
     selectedFavId: string | null;
     onSelectFavorite: (id: string) => void;
     onPlayFavorite: (favorite: Favorite) => void;
-    onPlaySongInFavorite: (song: Song) => void;
-    onAddCurrentToFavorite: () => void;
-    onCreateFavorite: (title: string) => Promise<void>;
-    onEditFavorite: (id: string, title: string) => Promise<void>;
+    onPlaySongInFavorite: (song: Song, list: Song[]) => void;
+    onAddCurrentToFavorite: (favId: string) => void;
+    onCreateFavorite: () => void;
+    onEditFavorite: (fav: Favorite) => void;
     onDeleteFavorite: (id: string) => Promise<void>;
     onToggleConfirmDelete: (id: string | null) => void;
     confirmDeleteFavId: string | null;

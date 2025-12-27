@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
 import { Theme } from '../../types';
+import type { ModalStates } from '../ui/useModalManager';
 
 interface UseThemeEditorProps {
     themes: Theme[];
@@ -23,8 +24,8 @@ interface UseThemeEditorProps {
     setPanelColorDraft: (color: string) => void;
     setPanelOpacityDraft: (opacity: number) => void;
     setSavingTheme: (saving: boolean) => void;
-    openModal: (name: string) => void;
-    closeModal: (name: string) => void;
+    openModal: (name: keyof ModalStates) => void;
+    closeModal: (name: keyof ModalStates) => void;
 }
 
 export const useThemeEditor = ({

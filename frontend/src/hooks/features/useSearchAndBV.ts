@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { notifications } from "@mantine/notifications";
 import * as Services from "../../../wailsjs/go/services/Service";
 import { Song, Favorite } from "../../types";
+import type { ModalStates } from '../ui/useModalManager';
 
 interface UseSearchAndBVProps {
     themeColor: string;
@@ -21,8 +22,8 @@ interface UseSearchAndBVProps {
     playSingleSong: (song: Song) => void;
     playFavorite: (fav: Favorite) => void;
     setSelectedFavId: (id: string | null) => void;
-    openModal: (name: string) => void;
-    closeModal: (name: string) => void;
+    openModal: (name: keyof ModalStates) => void;
+    closeModal: (name: keyof ModalStates) => void;
 }
 
 type GlobalSearchResult = { kind: "song"; song: Song } | { kind: "favorite"; favorite: Favorite };

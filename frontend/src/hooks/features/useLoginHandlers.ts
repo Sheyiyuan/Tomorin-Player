@@ -1,10 +1,17 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
-import type { UserInfo } from '../../types';
+import type { ModalStates } from '../ui/useModalManager';
+
+interface UserInfo {
+    mid: string;
+    name: string;
+    username: string;
+    face: string;
+}
 
 interface UseLoginHandlersParams {
-    closeModal: (name: string) => void;
+    closeModal: (name: keyof ModalStates) => void;
     setUserInfo: (info: UserInfo | null) => void;
     setStatus: (msg: string) => void;
 }

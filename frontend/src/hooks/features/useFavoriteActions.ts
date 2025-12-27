@@ -4,6 +4,7 @@ import * as Services from '../../../wailsjs/go/services/Service';
 import { Favorite, Song } from '../../types';
 import { useFidImport } from './useFidImport';
 import { useMyFavoriteImport } from './useMyFavoriteImport';
+import type { ModalStates } from '../ui/useModalManager';
 
 interface UseFavoriteActionsProps {
     favorites: Favorite[];
@@ -15,8 +16,8 @@ interface UseFavoriteActionsProps {
     setStatus: (status: string) => void;
     isLoggedIn: boolean;
     themeColor: string;
-    openModal: (name: string) => void;
-    closeModal: (name: string) => void;
+    openModal: (name: keyof ModalStates) => void;
+    closeModal: (name: keyof ModalStates) => void;
 }
 
 interface CreateFavoriteOptions {

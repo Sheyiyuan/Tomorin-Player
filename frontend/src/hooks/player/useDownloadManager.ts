@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
 import { Song, Favorite } from '../../types';
+import type { ModalStates } from '../ui/useModalManager';
 
 interface UseDownloadManagerProps {
     currentSong: Song | null;
@@ -12,8 +13,8 @@ interface UseDownloadManagerProps {
     setDownloadedSongIds: (ids: Set<string> | ((prev: Set<string>) => Set<string>)) => void;
     setManagingSong: (song: Song | null) => void;
     setConfirmDeleteDownloaded: (confirm: boolean) => void;
-    openModal: (name: string) => void;
-    closeModal: (name: string) => void;
+    openModal: (name: keyof ModalStates) => void;
+    closeModal: (name: keyof ModalStates) => void;
 }
 
 export const useDownloadManager = ({

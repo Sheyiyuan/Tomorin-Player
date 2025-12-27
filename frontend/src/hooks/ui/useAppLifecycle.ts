@@ -3,6 +3,7 @@ import type { MutableRefObject } from "react";
 import * as Services from "../../../wailsjs/go/services/Service";
 import { DEFAULT_THEMES } from "../../utils/constants";
 import type { Theme, Favorite, Song } from "../../types";
+import type { ModalStates } from './useModalManager';
 
 interface UseAppLifecycleParams {
     userInfo: any;
@@ -23,7 +24,7 @@ interface UseAppLifecycleParams {
     settingsLoadedRef: MutableRefObject<boolean>;
     modalsSettingsModal: boolean;
     setCacheSize: (v: number) => void;
-    openModal: (name: string) => void;
+    openModal: (name: keyof ModalStates) => void;
     setStatus: (v: string) => void;
     setSongs: (list: Song[]) => void;
     setFavorites: (list: Favorite[]) => void;

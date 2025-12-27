@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 
-interface ModalStates {
+export interface ModalStates {
     loginModal: boolean;
     themeModal: boolean;
     themeEditorModal: boolean;

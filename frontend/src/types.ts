@@ -14,7 +14,8 @@ export type Playlist = models.Playlist;
 export type ExportData = services.ExportData;
 export type Theme = models.Theme;
 export type BiliAudio = models.BiliAudio;
-export type StreamSource = models.StreamSource;
+// StreamSource 不存在，注释掉
+// export type StreamSource = models.StreamSource;
 
 // Export classes for runtime use
 export const SongClass = models.Song;

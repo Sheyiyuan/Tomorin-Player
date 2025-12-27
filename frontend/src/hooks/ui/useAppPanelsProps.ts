@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import type { Favorite, Song } from "../../types";
+import type { ModalStates } from './useModalManager';
 
 interface UseAppPanelsPropsParams {
     // TopBar deps
     userInfo: any;
     hitokoto: string;
     setGlobalSearchTerm: (val: string) => void;
-    openModal: (name: string) => void;
+    openModal: (name: keyof ModalStates) => void;
     setThemeColorDraft: (val: string) => void;
     setBackgroundColorDraft: (val: string) => void;
     setBackgroundOpacityDraft: (val: number) => void;
@@ -54,8 +55,8 @@ interface UseAppPanelsPropsParams {
     selectedFavId: string | null;
     setSelectedFavId: (id: string | null) => void;
     setConfirmDeleteFavId: (id: string | null) => void;
-    playSingleSong: (song: Song, fav?: Favorite | null) => Promise<void>;
-    addCurrentToFavorite: () => Promise<void>;
+    playSingleSong: (song: Song, songFavorite?: Favorite) => Promise<void>;
+    addCurrentToFavorite: (favId: string) => Promise<void>;
     createFavorite: () => void;
     handleEditFavorite: (fav: Favorite) => void;
     handleDeleteFavorite: (id: string) => void;

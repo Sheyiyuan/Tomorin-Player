@@ -13,6 +13,9 @@ import BVAddModal from "./BVAddModal";
 import { Favorite, Song, Theme } from "../types";
 import { formatTime } from "../utils/time";
 
+// 导入 GlobalSearchResult 类型
+type GlobalSearchResult = { kind: "song"; song: Song } | { kind: "favorite"; favorite: Favorite };
+
 export interface AppModalsProps {
     // modal state flags
     modals: {
@@ -53,7 +56,7 @@ export interface AppModalsProps {
 
     // search / global
     globalSearchTerm: string;
-    globalSearchResults: Song[];
+    globalSearchResults: GlobalSearchResult[];
     remoteResults: Song[];
     remoteLoading: boolean;
     resolvingBV: boolean;
@@ -81,7 +84,7 @@ export interface AppModalsProps {
     importFid: string;
     myCollections: any[];
     isLoadingCollections: boolean;
-    selectedMyCollectionId: string | null;
+    selectedMyCollectionId: number | null;
 
     // handlers
     closeModal: (name: keyof AppModalsProps["modals"]) => void;
@@ -98,12 +101,12 @@ export interface AppModalsProps {
     onClearBackgroundImage: () => void;
     onPanelColorChange: (v: string) => void;
     onPanelOpacityChange: (v: number) => void;
-    onSubmitTheme: () => void;
+    onSubmitTheme: () => Promise<void>;
     onCancelThemeEdit: () => void;
     onBackgroundFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 
-    onAddToFavorite: (favId: string | null) => Promise<void> | void;
-    onPlaylistSelect: (idx: number) => void;
+    onAddToFavorite: (fav: Favorite) => Promise<void> | void;
+    onPlaylistSelect: (song: Song, index: number) => void;
     onPlaylistReorder: (from: number, to: number) => void;
     onPlaylistRemove: (idx: number) => void;
 
@@ -128,13 +131,13 @@ export interface AppModalsProps {
     onDuplicateSourceChange: (id: string | null) => void;
     onImportFidChange: (v: string) => void;
     onCreateFavNameChange: (v: string) => void;
-    onMyCollectionSelect: (id: string | null) => void;
+    onMyCollectionSelect: (id: number | null) => void;
     onFetchMyCollections: () => void;
 
     onGlobalTermChange: (v: string) => void;
     onResolveBVAndAdd: () => void | Promise<void>;
     onRemoteSearch: () => void | Promise<void>;
-    onResultClick: (song: Song) => void;
+    onResultClick: (result: GlobalSearchResult) => void;
     onAddFromRemote: (song: Song) => void;
 
     onSliceRangeChange: (start: number, end: number) => void;

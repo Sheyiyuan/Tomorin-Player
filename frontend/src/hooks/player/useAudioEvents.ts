@@ -9,6 +9,7 @@ interface UseAudioEventsProps {
     currentIndex: number;
     volume: number;
     playMode: 'loop' | 'random' | 'single';
+    isPlaying: boolean;
     intervalRef: React.MutableRefObject<{ start: number; end: number; length: number }>;
     setIsPlaying: (playing: boolean) => void;
     setProgress: (progress: number) => void;
@@ -30,6 +31,7 @@ export const useAudioEvents = ({
     currentIndex,
     volume,
     playMode,
+    isPlaying,
     intervalRef,
     setIsPlaying,
     setProgress,
@@ -43,6 +45,12 @@ export const useAudioEvents = ({
     playSong,
     playNext,
 }: UseAudioEventsProps) => {
+    // 使用 Ref 跟踪 isPlaying 状态，避免频繁重新注册事件
+    const isPlayingRef = useRef(isPlaying);
+    useEffect(() => {
+        isPlayingRef.current = isPlaying;
+    }, [isPlaying]);
+
     // 注册音频事件监听
     useEffect(() => {
         const audio = (audioRef.current ||= new Audio());
@@ -219,15 +227,14 @@ export const useAudioEvents = ({
             }
         };
 
-        // 音频可以播放处理 - 清理错误状态并自动播放
+        // 音频可以播放处理 - 清理错误状态并根据 isPlaying 状态决定是否自动播放
         const onCanPlay = () => {
             if (currentSong?.id) {
                 // 歌曲成功加载，清除错误处理标记
                 isHandlingErrorRef.current.delete(currentSong.id);
 
-                // 如果当前是播放状态，且音频已暂停，则自动播放
-                // 这确保了切换歌曲时的自动播放
-                if (audio.paused) {
+                // 只在 isPlaying 为 true 时才自动播放（用户点击了播放按钮或切换歌曲）
+                if (isPlayingRef.current && audio.paused) {
                     // 设置到区间起点
                     const { start } = intervalRef.current;
                     if (start > 0 && audio.currentTime < start) {

@@ -82,7 +82,8 @@ const App: React.FC = () => {
     const isHandlingErrorRef = useRef<Set<string>>(new Set());
     const prevSongIdRef = useRef<string | null>(null);
 
-    const skipPersistRef = useRef(false);
+    // 启动期间先阻止持久化，待设置加载完成后再打开
+    const skipPersistRef = useRef(true);
     const fileDraftInputRef = useRef<HTMLInputElement | null>(null);
     // 定时保存防抖器（key -> timerId）
     const saveTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -317,13 +318,10 @@ const App: React.FC = () => {
     useAudioSourceManager({
         audioRef,
         currentSong,
-        queue,
         playingRef,
         playbackRetryRef,
         isPlaying,
         setIsPlaying,
-        setStatus,
-        playSong,
     });
 
     // 搜索与 BV 解析（统一入口）
@@ -443,6 +441,7 @@ const App: React.FC = () => {
         setBackgroundImageUrlSafe,
         setPanelColor,
         setPanelOpacity,
+        skipPersistRef,
         settingsLoadedRef,
         modalsSettingsModal: modals.settingsModal,
         setCacheSize,
@@ -489,6 +488,7 @@ const App: React.FC = () => {
         currentIndex,
         volume,
         playMode,
+        isPlaying,
         intervalRef: intervalRef as React.MutableRefObject<{ start: number; end: number; length: number }>,
         setIsPlaying,
         setProgress,

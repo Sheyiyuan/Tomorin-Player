@@ -381,7 +381,7 @@ const App: React.FC = () => {
         setting,
         playMode,
         volume,
-        currentThemeId,
+        currentThemeId: currentThemeId || "",
         themeColor,
         backgroundColor,
         backgroundOpacity,
@@ -419,7 +419,7 @@ const App: React.FC = () => {
 
     const { handleLoginSuccess } = useLoginHandlers({
         closeModal,
-        setUserInfo,
+        setUserInfo: setUserInfo as any,
         setStatus,
     });
 
@@ -489,7 +489,7 @@ const App: React.FC = () => {
         currentIndex,
         volume,
         playMode,
-        intervalRef,
+        intervalRef: intervalRef as React.MutableRefObject<{ start: number; end: number; length: number }>,
         setIsPlaying,
         setProgress,
         setDuration,
@@ -824,8 +824,8 @@ const App: React.FC = () => {
 
             <AppPanels
                 topBarProps={topBarProps}
-                mainLayoutProps={mainLayoutProps}
-                controlsPanelProps={controlsPanelProps}
+                mainLayoutProps={mainLayoutProps as any}
+                controlsPanelProps={controlsPanelProps as any}
             />
         </Box>
     );

@@ -73,7 +73,7 @@ fpm -s dir -t rpm \
   --license "MIT" \
   --depends gtk3 \
   --depends "webkit2gtk4.1 | webkit2gtk4.0" \
-  -C "$ROOT" \
+  -C . \
   usr
 popd >/dev/null
 

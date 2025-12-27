@@ -50,7 +50,9 @@ jobs:
             REF_NAME="${GITHUB_REF_NAME}"
             VERSION="${REF_NAME#v}"
           else
-            VERSION="dev-$(date -u +%Y%m%d)"
+            DATE=$(date -u +%Y%m%d)
+            HASH=${GITHUB_SHA::7}
+            VERSION="0.0.0-dev-${DATE}-${HASH}"
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
       
@@ -117,7 +119,9 @@ jobs:
             REF_NAME="${GITHUB_REF_NAME}"
             VERSION="${REF_NAME#v}"
           else
-            VERSION="dev-$(date -u +%Y%m%d)"
+            DATE=$(date -u +%Y%m%d)
+            HASH=${GITHUB_SHA::7}
+            VERSION="0.0.0-dev-${DATE}-${HASH}"
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
@@ -182,7 +186,9 @@ jobs:
             PRERELEASE=false
             NAME="Release ${VERSION}"
           else
-            VERSION="dev-$(date -u +%Y%m%d)"
+            DATE=$(date -u +%Y%m%d)
+            HASH=${GITHUB_SHA::7}
+            VERSION="0.0.0-dev-${DATE}-${HASH}"
             TAG="dev-latest"
             PRERELEASE=true
             NAME="Dev ${VERSION}"

@@ -50,9 +50,23 @@ rm -rf "${DEB_DIR}"
 mkdir -p "${DEB_DIR}/DEBIAN" "${DEB_DIR}/usr/bin" "${DEB_DIR}/usr/share/applications" "${DEB_DIR}/usr/share/icons/hicolor/256x256/apps" "${DEB_DIR}/usr/share/pixmaps"
 
 install -m 0755 build/bin/${APP_NAME} "${DEB_DIR}/usr/bin/${APP_NAME}"
-install -m 0644 build/linux/tomorin-player.desktop "${DEB_DIR}/usr/share/applications/tomorin-player.desktop"
 install -m 0644 assets/icons/appicon-256.png "${DEB_DIR}/usr/share/icons/hicolor/256x256/apps/${APP_NAME}.png"
 install -m 0644 assets/icons/appicon-256.png "${DEB_DIR}/usr/share/pixmaps/${APP_NAME}.png"
+
+# Generate desktop entry on the fly (avoid missing template path in CI)
+cat > "${DEB_DIR}/usr/share/applications/tomorin-player.desktop" << 'EOF'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Tomorin Player
+Comment=更好的 bilibili 音乐播放器
+Exec=tomorin-player
+Icon=tomorin-player
+Categories=AudioVideo;Audio;Player;
+Terminal=false
+StartupNotify=true
+EOF
+chmod 0644 "${DEB_DIR}/usr/share/applications/tomorin-player.desktop"
 
 cat > "${DEB_DIR}/DEBIAN/control" << EOF
 Package: ${APP_NAME}

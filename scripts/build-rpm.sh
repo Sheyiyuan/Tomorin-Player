@@ -63,15 +63,20 @@ EOF
 
 # Derive RPM-friendly version/release
 RPM_VERSION="$APP_VERSION"
-# For x.y.z-dev.date.hash or x.y.z-other, extract base (x.y.z) and iteration (dev.date.hash or other)
-RPM_BASE="${RPM_VERSION%%-*}"  # Extract part before first dash
+# Extract base version (numeric part before first dash/tilde/plus)
+# Format: x.y.z or x.y.z-dev.date.hash → base=x.y.z
+RPM_BASE="${RPM_VERSION%%[-~+]*}"
 if [[ ! $RPM_BASE =~ ^[0-9] ]]; then RPM_BASE="0.0.0"; fi
-RPM_BASE=$(echo "$RPM_BASE" | sed 's/[^0-9.]/./g')
+# Ensure base only contains valid RPM version chars: digits and dots
+RPM_BASE=$(echo "$RPM_BASE" | sed 's/[^0-9.]//g')
 if [[ -z "$RPM_BASE" ]]; then RPM_BASE="0.0.0"; fi
-# Iteration is everything after the base (remove leading dash)
+
+# Extract iteration/release (everything after version base)
+# Valid RPM release chars: [A-Za-z0-9._], so convert dashes/tildes to dots
 RPM_ITER="${RPM_VERSION#${RPM_BASE}}"
-RPM_ITER="${RPM_ITER#-}"  # Remove leading dash
-RPM_ITER=$(echo "$RPM_ITER" | sed 's/[^A-Za-z0-9.]/./g')  # Replace illegal chars with dots
+RPM_ITER="${RPM_ITER#[-~+]}"  # Remove leading separator
+RPM_ITER=$(echo "$RPM_ITER" | sed 's/[-~+]/./g')  # Convert separators to dots
+RPM_ITER=$(echo "$RPM_ITER" | sed 's/[^A-Za-z0-9._]//g')  # Remove any other illegal chars
 if [[ -z "$RPM_ITER" ]]; then RPM_ITER="1"; fi
 
 # Build RPM via fpm

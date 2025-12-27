@@ -18,13 +18,16 @@ if [[ -z "$VERSION" ]]; then
   fi
 fi
 
-# Debian 版本必须以数字开头；若是 dev 开头则转为 0.0.0+dev 格式
+# Debian version must start with digit; if dev-based, prefix with 0.0.0+
+# Format: x.y.z or x.y.z-dev.date.hash
 DEB_VERSION="$VERSION"
 if [[ ! $DEB_VERSION =~ ^[0-9] ]]; then
   DEB_VERSION="0.0.0+${DEB_VERSION}"
 fi
-# 替换不允许的字符：仅保留 A-Za-z0-9.+-~，其他替换为 '-'
-DEB_VERSION=$(echo "$DEB_VERSION" | sed 's/[^A-Za-z0-9.+-~]/-/g')
+# Replace invalid chars: keep only A-Za-z0-9.+-~
+# Per Debian policy: version can contain digits, letters, +, -, ., ~
+# We also allow underscores for safety (will be in epoch if present)
+DEB_VERSION=$(echo "$DEB_VERSION" | sed 's/[^A-Za-z0-9.+~_-]/-/g')
 
 PKG_NAME="${APP_NAME}_${DEB_VERSION}_amd64"
 DEB_DIR="build/deb/${PKG_NAME}"

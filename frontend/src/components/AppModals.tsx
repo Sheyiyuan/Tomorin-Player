@@ -118,6 +118,7 @@ export interface AppModalsProps {
     onClearLoginCache: () => void;
     onClearThemeCache: () => void;
     onOpenDownloadsFolder: () => void;
+    onOpenDatabaseFile: () => void;
     onClearMusicCache: () => void;
     onClearAllCache: () => void;
 
@@ -226,6 +227,7 @@ const AppModals: React.FC<AppModalsProps> = (props) => {
         onClearLoginCache,
         onClearThemeCache,
         onOpenDownloadsFolder,
+        onOpenDatabaseFile,
         onClearMusicCache,
         onClearAllCache,
         onDownloadModalClose,
@@ -358,6 +360,7 @@ const AppModals: React.FC<AppModalsProps> = (props) => {
                 onClearLoginCache={onClearLoginCache}
                 onClearThemeCache={onClearThemeCache}
                 onOpenDownloadsFolder={onOpenDownloadsFolder}
+                onOpenDatabaseFile={onOpenDatabaseFile}
                 onClearMusicCache={onClearMusicCache}
                 onClearAllCache={onClearAllCache}
             />

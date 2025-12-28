@@ -154,6 +154,10 @@ export function OpenAudioCacheFolder() {
   return window['go']['services']['Service']['OpenAudioCacheFolder']();
 }
 
+export function OpenDatabaseFile() {
+  return window['go']['services']['Service']['OpenDatabaseFile']();
+}
+
 export function OpenDownloadedFile(arg1) {
   return window['go']['services']['Service']['OpenDownloadedFile'](arg1);
 }

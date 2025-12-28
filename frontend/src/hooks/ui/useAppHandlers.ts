@@ -328,6 +328,18 @@ export const useAppHandlers = (config: {
         }
     };
 
+    const handleOpenDatabaseFile = async () => {
+        try {
+            await Services.OpenDatabaseFile();
+        } catch (e: any) {
+            notifications.show({
+                title: "打开失败",
+                message: e?.message ?? String(e),
+                color: "red",
+            });
+        }
+    };
+
     const handleClearMusicCache = async () => {
         try {
             await Services.ClearAudioCache();
@@ -418,6 +430,7 @@ export const useAppHandlers = (config: {
         handleClearLoginCache,
         handleClearThemeCache,
         handleOpenDownloadsFolder,
+        handleOpenDatabaseFile,
         handleClearMusicCache,
         handleClearAllCache,
         // BV 模态

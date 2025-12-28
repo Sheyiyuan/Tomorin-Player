@@ -82,6 +82,8 @@ export function MinimizeToTray():Promise<void>;
 
 export function OpenAudioCacheFolder():Promise<void>;
 
+export function OpenDatabaseFile():Promise<void>;
+
 export function OpenDownloadedFile(arg1:string):Promise<void>;
 
 export function OpenDownloadsFolder():Promise<void>;

@@ -43,8 +43,11 @@ export type PlayerSetting = models.PlayerSetting;
 export type LyricMapping = models.LyricMapping;
 export type Playlist = models.Playlist;
 export type ExportData = services.ExportData;
-export type Theme = models.Theme;
 export type BiliAudio = models.BiliAudio;
+
+// Extend Theme to include new properties
+export interface Theme extends models.Theme {
+}
 
 export interface UserInfo {
     uid: number;

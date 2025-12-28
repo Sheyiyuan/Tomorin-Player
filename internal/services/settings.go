@@ -20,10 +20,11 @@ func (s *Service) SavePlayerSetting(setting models.PlayerSetting) error {
 
     // 使用 UpdateColumns 明确更新所有字段（包括零值）
     err := s.db.Model(&models.PlayerSetting{}).Where("id = ?", 1).UpdateColumns(map[string]interface{}{
-        "default_volume": setting.DefaultVolume,
-        "play_mode":      setting.PlayMode,
-        "themes":         setting.Themes,
-        "updated_at":     time.Now(),
+        "default_volume":   setting.DefaultVolume,
+        "play_mode":        setting.PlayMode,
+        "themes":           setting.Themes,
+        "current_theme_id": setting.CurrentThemeID,
+        "updated_at":       time.Now(),
     }).Error
 
     if err != nil {

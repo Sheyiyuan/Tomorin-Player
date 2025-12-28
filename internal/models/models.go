@@ -51,17 +51,23 @@ type SongRef struct {
 
 // Theme represents a theme configuration
 type Theme struct {
-	ID                string  `json:"id"`
-	Name              string  `json:"name"`
-	ColorScheme       string  `json:"colorScheme"` // "light" or "dark"
-	ThemeColor        string  `json:"themeColor"`
-	BackgroundColor   string  `json:"backgroundColor"`
-	BackgroundOpacity float64 `json:"backgroundOpacity"`
-	BackgroundImage   string  `json:"backgroundImage"`
-	PanelColor        string  `json:"panelColor"`
-	PanelOpacity      float64 `json:"panelOpacity"`
-	IsDefault         bool    `json:"isDefault"`
-	IsReadOnly        bool    `json:"isReadOnly"`
+	ID                  string  `json:"id"`
+	Name                string  `json:"name"`
+	ColorScheme         string  `json:"colorScheme"` // "light" or "dark"
+	ThemeColor          string  `json:"themeColor"`
+	BackgroundColor     string  `json:"backgroundColor"`
+	BackgroundOpacity   float64 `json:"backgroundOpacity"`
+	BackgroundImage     string  `json:"backgroundImage"`
+	BackgroundBlur      float64 `json:"backgroundBlur"`      // Blur radius for background image (0-50)
+	PanelColor          string  `json:"panelColor"`
+	PanelOpacity        float64 `json:"panelOpacity"`
+	PanelBlur           float64 `json:"panelBlur"`            // Gaussian blur for panels (0-30)
+	PanelRadius         float64 `json:"panelRadius"`          // Border radius for panels (0-20)
+	ComponentRadius     float64 `json:"componentRadius"`       // Border radius for components like buttons/inputs (0-32)
+	CoverRadius         float64 `json:"coverRadius"`           // Border radius for song covers (0-32)
+	WindowControlsPos   string  `json:"windowControlsPos"`    // Position of window controls: "left", "right", "hidden" (default: "right")
+	IsDefault           bool    `json:"isDefault"`
+	IsReadOnly          bool    `json:"isReadOnly"`
 }
 
 // PlayerSetting captures basic playback preferences.

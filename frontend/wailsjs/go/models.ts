@@ -334,8 +334,14 @@ export namespace models {
 	    backgroundColor: string;
 	    backgroundOpacity: number;
 	    backgroundImage: string;
+	    backgroundBlur: number;
 	    panelColor: string;
 	    panelOpacity: number;
+	    panelBlur: number;
+	    panelRadius: number;
+	    componentRadius: number;
+	    coverRadius: number;
+	    windowControlsPos: string;
 	    isDefault: boolean;
 	    isReadOnly: boolean;
 	
@@ -352,8 +358,14 @@ export namespace models {
 	        this.backgroundColor = source["backgroundColor"];
 	        this.backgroundOpacity = source["backgroundOpacity"];
 	        this.backgroundImage = source["backgroundImage"];
+	        this.backgroundBlur = source["backgroundBlur"];
 	        this.panelColor = source["panelColor"];
 	        this.panelOpacity = source["panelOpacity"];
+	        this.panelBlur = source["panelBlur"];
+	        this.panelRadius = source["panelRadius"];
+	        this.componentRadius = source["componentRadius"];
+	        this.coverRadius = source["coverRadius"];
+	        this.windowControlsPos = source["windowControlsPos"];
 	        this.isDefault = source["isDefault"];
 	        this.isReadOnly = source["isReadOnly"];
 	    }

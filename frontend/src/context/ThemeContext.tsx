@@ -11,8 +11,14 @@ export interface ThemeState {
     backgroundColor: string;
     backgroundOpacity: number;
     backgroundImageUrl: string;
+    backgroundBlur: number;
     panelColor: string;
     panelOpacity: number;
+    panelBlur: number;
+    panelRadius: number;
+    componentRadius: number;
+    coverRadius: number;
+    windowControlsPos: string;
     computedColorScheme: MantineColorScheme;
 }
 
@@ -23,8 +29,14 @@ export interface ThemeActions {
     setBackgroundColor: (color: string) => void;
     setBackgroundOpacity: (opacity: number) => void;
     setBackgroundImageUrl: (url: string) => void;
+    setBackgroundBlur: (blur: number) => void;
     setPanelColor: (color: string) => void;
     setPanelOpacity: (opacity: number) => void;
+    setPanelBlur: (blur: number) => void;
+    setPanelRadius: (radius: number) => void;
+    setComponentRadius: (radius: number) => void;
+    setCoverRadius: (radius: number) => void;
+    setWindowControlsPos: (pos: string) => void;
 
     // 工具方法
     applyTheme: (theme: Theme) => void;
@@ -44,17 +56,53 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // 获取 Mantine 计算的颜色方案
     const computedColorScheme = useComputedColorScheme('light');
 
-    // ========== State ==========
-    const defaultTheme = computedColorScheme === "dark" ? DEFAULT_THEMES.find(t => t.id === "dark")! : DEFAULT_THEMES.find(t => t.id === "light")!;
+    // ========== 初始化数据 ==========
+    // 从 localStorage 读取缓存的自定义主题
+    const getCachedThemes = (): Theme[] => {
+        try {
+            const saved = localStorage.getItem('half-beat.customThemes');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+        } catch (e) {
+            console.warn('[ThemeContext] 读取缓存主题失败:', e);
+        }
+        return [];
+    };
 
-    const [themes, setThemes] = useState<Theme[]>(DEFAULT_THEMES);
+    const initialThemes = [...DEFAULT_THEMES, ...getCachedThemes()];
+
+    // 优先从 localStorage 读取，否则使用系统偏好
+    const getInitialThemeId = (allThemes: Theme[]): string => {
+        try {
+            const saved = localStorage.getItem('currentThemeId');
+            if (saved && allThemes.find(t => t.id === saved)) {
+                return saved;
+            }
+        } catch (e) {
+            console.warn('[ThemeContext] 读取 localStorage 失败:', e);
+        }
+        const fallback = computedColorScheme === "dark" ? "dark" : "light";
+        return fallback;
+    };
+
+    const initialThemeId = getInitialThemeId(initialThemes);
+    const defaultTheme = initialThemes.find(t => t.id === initialThemeId) || DEFAULT_THEMES.find(t => t.id === "light")!;
+
+    const [themes, setThemes] = useState<Theme[]>(initialThemes);
     const [currentThemeId, setCurrentThemeId] = useState<string | null>(defaultTheme.id);
     const [themeColor, setThemeColor] = useState(defaultTheme.themeColor);
     const [backgroundColor, setBackgroundColor] = useState(defaultTheme.backgroundColor);
     const [backgroundOpacity, setBackgroundOpacity] = useState(defaultTheme.backgroundOpacity);
     const [backgroundImageUrl, setBackgroundImageUrl] = useState(defaultTheme.backgroundImage || "");
+    const [backgroundBlur, setBackgroundBlur] = useState(defaultTheme.backgroundBlur || 0);
     const [panelColor, setPanelColor] = useState(defaultTheme.panelColor);
     const [panelOpacity, setPanelOpacity] = useState(defaultTheme.panelOpacity);
+    const [panelBlur, setPanelBlur] = useState(defaultTheme.panelBlur ?? 0);
+    const [panelRadius, setPanelRadius] = useState(defaultTheme.panelRadius ?? 8);
+    const [componentRadius, setComponentRadius] = useState(defaultTheme.componentRadius ?? 8);
+    const [coverRadius, setCoverRadius] = useState(defaultTheme.coverRadius ?? 8);
+    const [windowControlsPos, setWindowControlsPos] = useState(defaultTheme.windowControlsPos || "right");
 
     // ========== Actions ==========
 
@@ -67,18 +115,18 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setBackgroundOpacity(theme.backgroundOpacity);
         // 使用后端模型字段名 backgroundImage
         setBackgroundImageUrl(theme.backgroundImage || "");
+        setBackgroundBlur(theme.backgroundBlur ?? 0);
         setPanelColor(theme.panelColor);
         setPanelOpacity(theme.panelOpacity);
+        setPanelBlur(theme.panelBlur ?? 0);
+        setPanelRadius(theme.panelRadius ?? 8);
+        setComponentRadius(theme.componentRadius ?? 8);
+        setCoverRadius(theme.coverRadius ?? 8);
+        setWindowControlsPos(theme.windowControlsPos || "right");
         setCurrentThemeId(theme.id);
 
-        // 保存到 localStorage
+        // 只保存主题 ID 到 localStorage，避免字段污染
         localStorage.setItem('currentThemeId', theme.id);
-        localStorage.setItem('themeColor', theme.themeColor);
-        localStorage.setItem('backgroundColor', theme.backgroundColor);
-        localStorage.setItem('backgroundOpacity', theme.backgroundOpacity.toString());
-        localStorage.setItem('backgroundImageUrl', theme.backgroundImage || "");
-        localStorage.setItem('panelColor', theme.panelColor);
-        localStorage.setItem('panelOpacity', theme.panelOpacity.toString());
     }, []);
 
     /**
@@ -100,38 +148,39 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         localStorage.setItem('backgroundImageUrl', trimmedUrl);
     }, []);
 
-    // ========== Effect: 从 localStorage 加载主题设置 ==========
+    // ========== Effect: 清理旧的 localStorage 字段 ==========
     useEffect(() => {
-        const savedThemeColor = localStorage.getItem('themeColor');
-        const savedBackgroundColor = localStorage.getItem('backgroundColor');
-        const savedBackgroundOpacity = localStorage.getItem('backgroundOpacity');
-        const savedBackgroundImageUrl = localStorage.getItem('backgroundImageUrl');
-        const savedPanelColor = localStorage.getItem('panelColor');
-        const savedPanelOpacity = localStorage.getItem('panelOpacity');
-        const savedThemeId = localStorage.getItem('currentThemeId');
-
-        if (savedThemeColor) setThemeColor(savedThemeColor);
-        if (savedBackgroundColor) setBackgroundColor(savedBackgroundColor);
-        if (savedBackgroundOpacity) setBackgroundOpacity(parseFloat(savedBackgroundOpacity));
-        if (savedBackgroundImageUrl !== null) setBackgroundImageUrl(savedBackgroundImageUrl);
-        if (savedPanelColor) setPanelColor(savedPanelColor);
-        if (savedPanelOpacity) setPanelOpacity(parseFloat(savedPanelOpacity));
-        if (savedThemeId) setCurrentThemeId(savedThemeId);
+        // 清理旧的污染字段
+        const fieldsToClean = [
+            'themeColor', 'backgroundColor', 'backgroundOpacity', 'backgroundImageUrl',
+            'panelColor', 'panelOpacity'
+        ];
+        fieldsToClean.forEach(field => {
+            try {
+                localStorage.removeItem(field);
+            } catch (e) {
+                // 忽略错误
+            }
+        });
     }, []);
 
-    // 当主题列表或当前主题为空时，自动应用默认主题，避免空白/残留背景
+    // ========== Effect: 当 themes 或 currentThemeId 改变时，自动应用主题 ==========
     useEffect(() => {
-        const themeList = themes.length ? themes : DEFAULT_THEMES;
-        const savedThemeId = localStorage.getItem('currentThemeId');
-        const targetTheme = themeList.find(t => t.id === (savedThemeId || currentThemeId))
-            || themeList[0]
-            || DEFAULT_THEMES[0];
+        if (themes.length === 0) return;
 
-        if (!currentThemeId || currentThemeId !== targetTheme.id || backgroundImageUrl !== (targetTheme.backgroundImage || "")) {
-            applyTheme(targetTheme);
+        // 查找当前主题
+        let targetTheme = themes.find(t => t.id === currentThemeId);
+
+        // 如果当前主题不存在，使用第一个主题
+        if (!targetTheme) {
+            targetTheme = themes[0];
+            setCurrentThemeId(targetTheme.id);
+            return;  // 等待 setCurrentThemeId 完成后再应用
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [themes]);
+
+        // 应用主题
+        applyTheme(targetTheme);
+    }, [themes, currentThemeId, applyTheme]);
 
     // ========== Context Value ==========
     const value: ThemeContextValue = {
@@ -142,8 +191,14 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             backgroundColor,
             backgroundOpacity,
             backgroundImageUrl,
+            backgroundBlur,
             panelColor,
             panelOpacity,
+            panelBlur,
+            panelRadius,
+            componentRadius,
+            coverRadius,
+            windowControlsPos,
             computedColorScheme,
         },
         actions: {
@@ -153,8 +208,14 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             setBackgroundColor,
             setBackgroundOpacity,
             setBackgroundImageUrl,
+            setBackgroundBlur,
             setPanelColor,
             setPanelOpacity,
+            setPanelBlur,
+            setPanelRadius,
+            setComponentRadius,
+            setCoverRadius,
+            setWindowControlsPos,
             applyTheme,
             setBackgroundImageUrlSafe,
         },

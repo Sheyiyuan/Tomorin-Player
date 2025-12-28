@@ -9,20 +9,40 @@ interface UseThemeEditorProps {
     setThemes: (themes: Theme[]) => void;
     defaultThemes: Theme[];
     currentThemeId: string | null;
-    themeColorDraft: string;
     computedColorScheme: string;
     saveCachedCustomThemes: (themes: Theme[]) => void;
     applyThemeToUi: (theme: Theme) => void;
     getCustomThemesFromState: (themes: Theme[]) => Theme[];
+    editingThemeId: string | null;
     setEditingThemeId: (id: string | null) => void;
+    newThemeName: string;
     setNewThemeName: (name: string) => void;
+    colorSchemeDraft: "light" | "dark";
     setColorSchemeDraft: (scheme: "light" | "dark") => void;
+    themeColorDraft: string;
     setThemeColorDraft: (color: string) => void;
+    backgroundColorDraft: string;
     setBackgroundColorDraft: (color: string) => void;
+    backgroundOpacityDraft: number;
     setBackgroundOpacityDraft: (opacity: number) => void;
+    backgroundImageUrlDraft: string;
     setBackgroundImageUrlDraftSafe: (url: string) => void;
+    backgroundBlurDraft: number;
+    setBackgroundBlurDraft: (blur: number) => void;
+    panelColorDraft: string;
     setPanelColorDraft: (color: string) => void;
+    panelOpacityDraft: number;
     setPanelOpacityDraft: (opacity: number) => void;
+    panelBlurDraft: number;
+    setPanelBlurDraft: (blur: number) => void;
+    panelRadiusDraft: number;
+    setPanelRadiusDraft: (radius: number) => void;
+    componentRadiusDraft: number;
+    setComponentRadiusDraft: (radius: number) => void;
+    coverRadiusDraft: number;
+    setCoverRadiusDraft: (radius: number) => void;
+    windowControlsPosDraft: string;
+    setWindowControlsPosDraft: (pos: string) => void;
     setSavingTheme: (saving: boolean) => void;
     openModal: (name: keyof ModalStates) => void;
     closeModal: (name: keyof ModalStates) => void;
@@ -33,20 +53,40 @@ export const useThemeEditor = ({
     setThemes,
     defaultThemes,
     currentThemeId,
-    themeColorDraft,
     computedColorScheme,
     saveCachedCustomThemes,
     applyThemeToUi,
     getCustomThemesFromState,
+    editingThemeId,
     setEditingThemeId,
+    newThemeName,
     setNewThemeName,
+    colorSchemeDraft,
     setColorSchemeDraft,
+    themeColorDraft,
     setThemeColorDraft,
+    backgroundColorDraft,
     setBackgroundColorDraft,
+    backgroundOpacityDraft,
     setBackgroundOpacityDraft,
+    backgroundImageUrlDraft,
     setBackgroundImageUrlDraftSafe,
+    backgroundBlurDraft,
+    setBackgroundBlurDraft,
+    panelColorDraft,
     setPanelColorDraft,
+    panelOpacityDraft,
     setPanelOpacityDraft,
+    panelBlurDraft,
+    setPanelBlurDraft,
+    panelRadiusDraft,
+    setPanelRadiusDraft,
+    componentRadiusDraft,
+    setComponentRadiusDraft,
+    coverRadiusDraft,
+    setCoverRadiusDraft,
+    windowControlsPosDraft,
+    setWindowControlsPosDraft,
     setSavingTheme,
     openModal,
     closeModal,
@@ -65,10 +105,16 @@ export const useThemeEditor = ({
         setBackgroundColorDraft(theme.backgroundColor);
         setBackgroundOpacityDraft(theme.backgroundOpacity);
         setBackgroundImageUrlDraftSafe(theme.backgroundImage);
+        setBackgroundBlurDraft(theme.backgroundBlur || 0);
         setPanelColorDraft(theme.panelColor);
         setPanelOpacityDraft(theme.panelOpacity);
+        setPanelBlurDraft(theme.panelBlur ?? 0);
+        setPanelRadiusDraft(theme.panelRadius ?? 8);
+        setComponentRadiusDraft(theme.componentRadius ?? 8);
+        setCoverRadiusDraft(theme.coverRadius ?? 8);
+        setWindowControlsPosDraft(theme.windowControlsPos || 'right');
         openModal("themeEditorModal");
-    }, [setEditingThemeId, setNewThemeName, setColorSchemeDraft, setThemeColorDraft, setBackgroundColorDraft, setBackgroundOpacityDraft, setBackgroundImageUrlDraftSafe, setPanelColorDraft, setPanelOpacityDraft, openModal]);
+    }, [setEditingThemeId, setNewThemeName, setColorSchemeDraft, setThemeColorDraft, setBackgroundColorDraft, setBackgroundOpacityDraft, setBackgroundImageUrlDraftSafe, setBackgroundBlurDraft, setPanelColorDraft, setPanelOpacityDraft, setPanelBlurDraft, setPanelRadiusDraft, setComponentRadiusDraft, setCoverRadiusDraft, setWindowControlsPosDraft, openModal]);
 
     const deleteTheme = useCallback(async (id: string) => {
         await Services.DeleteTheme(id);
@@ -86,22 +132,18 @@ export const useThemeEditor = ({
         setBackgroundColorDraft(computedColorScheme === "dark" ? "#0b1021" : "#f8fafc");
         setBackgroundOpacityDraft(1);
         setBackgroundImageUrlDraftSafe("");
+        setBackgroundBlurDraft(0);
         setPanelColorDraft(computedColorScheme === "dark" ? "#1f2937" : "#ffffff");
         setPanelOpacityDraft(0.92);
+        setPanelBlurDraft(0);
+        setPanelRadiusDraft(8);
+        setComponentRadiusDraft(8);
+        setCoverRadiusDraft(8);
+        setWindowControlsPosDraft("right");
         openModal("themeEditorModal");
-    }, [computedColorScheme, setEditingThemeId, setNewThemeName, setColorSchemeDraft, setThemeColorDraft, setBackgroundColorDraft, setBackgroundOpacityDraft, setBackgroundImageUrlDraftSafe, setPanelColorDraft, setPanelOpacityDraft, openModal]);
+    }, [setEditingThemeId, setNewThemeName, setColorSchemeDraft, setThemeColorDraft, setBackgroundColorDraft, setBackgroundOpacityDraft, setBackgroundImageUrlDraftSafe, setBackgroundBlurDraft, setPanelColorDraft, setPanelOpacityDraft, setPanelBlurDraft, setPanelRadiusDraft, setComponentRadiusDraft, setCoverRadiusDraft, setWindowControlsPosDraft, openModal, computedColorScheme]);
 
-    const submitTheme = useCallback(async (
-        editingThemeId: string | null,
-        newThemeName: string,
-        colorSchemeDraft: "light" | "dark",
-        themeColorDraft: string,
-        backgroundColorDraft: string,
-        backgroundOpacityDraft: number,
-        backgroundImageUrlDraft: string,
-        panelColorDraft: string,
-        panelOpacityDraft: number
-    ) => {
+    const submitTheme = useCallback(async () => {
         setSavingTheme(true);
         const toastId = notifications.show({
             title: editingThemeId ? "正在保存主题" : "正在创建主题",
@@ -121,8 +163,14 @@ export const useThemeEditor = ({
                     backgroundColor: backgroundColorDraft,
                     backgroundOpacity: backgroundOpacityDraft,
                     backgroundImage: backgroundImageUrlDraft,
+                    backgroundBlur: backgroundBlurDraft,
                     panelColor: panelColorDraft,
                     panelOpacity: panelOpacityDraft,
+                    panelBlur: panelBlurDraft,
+                    panelRadius: panelRadiusDraft,
+                    componentRadius: componentRadiusDraft,
+                    coverRadius: coverRadiusDraft,
+                    windowControlsPos: windowControlsPosDraft,
                     isDefault: editingTheme?.isDefault || false,
                     isReadOnly: false,
                 };
@@ -151,8 +199,14 @@ export const useThemeEditor = ({
                     backgroundColor: backgroundColorDraft,
                     backgroundOpacity: backgroundOpacityDraft,
                     backgroundImage: backgroundImageUrlDraft,
+                    backgroundBlur: backgroundBlurDraft,
                     panelColor: panelColorDraft,
                     panelOpacity: panelOpacityDraft,
+                    panelBlur: panelBlurDraft,
+                    panelRadius: panelRadiusDraft,
+                    componentRadius: componentRadiusDraft,
+                    coverRadius: coverRadiusDraft,
+                    windowControlsPos: windowControlsPosDraft,
                     isDefault: false,
                     isReadOnly: false,
                 };
@@ -185,7 +239,14 @@ export const useThemeEditor = ({
         } finally {
             setSavingTheme(false);
         }
-    }, [themes, currentThemeId, saveCachedCustomThemes, applyThemeToUi, getCustomThemesFromState, setThemes, setSavingTheme, closeModal, setEditingThemeId, setNewThemeName]);
+    }, [
+        themes, currentThemeId, saveCachedCustomThemes, applyThemeToUi, getCustomThemesFromState,
+        setThemes, setSavingTheme, closeModal, setEditingThemeId, setNewThemeName,
+        editingThemeId, newThemeName, colorSchemeDraft, themeColorDraft,
+        backgroundColorDraft, backgroundOpacityDraft, backgroundImageUrlDraft, backgroundBlurDraft,
+        panelColorDraft, panelOpacityDraft, panelBlurDraft, panelRadiusDraft,
+        componentRadiusDraft, coverRadiusDraft, windowControlsPosDraft, defaultThemes
+    ]);
 
     const closeThemeEditor = useCallback(() => {
         closeModal("themeEditorModal");

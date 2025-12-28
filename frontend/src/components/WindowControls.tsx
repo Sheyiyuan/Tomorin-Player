@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ActionIcon, Group, Modal, Radio, Checkbox, Button } from "@mantine/core";
 import { Minus, Square, X, Copy } from "lucide-react";
+import { notifications } from "@mantine/notifications";
 import * as Services from "../../wailsjs/go/services/Service";
 import { useThemeContext } from "../context";
 
@@ -61,32 +62,49 @@ export const WindowControls: React.FC = () => {
     };
 
     const handleCloseClick = () => {
+        console.log("Close button clicked");
         // 检查是否有记忆的选择
         const stored = localStorage.getItem(EXIT_BEHAVIOR_KEY) as ExitBehavior | null;
+        console.log("Stored behavior:", stored);
         if (stored === "minimize" || stored === "quit") {
             // 直接执行记忆的选择
+            console.log("Executing stored behavior:", stored);
             executeExitBehavior(stored);
         } else {
             // 显示对话框让用户选择
+            console.log("Opening exit choice modal");
             setExitModalOpen(true);
         }
     };
 
     const executeExitBehavior = async (behavior: ExitBehavior) => {
+        console.log("executeExitBehavior called with:", behavior);
         try {
             if (behavior === "minimize") {
+                console.log("Calling MinimizeToTray");
                 await Services.MinimizeToTray();
+                console.log("MinimizeToTray completed");
             } else {
+                console.log("Calling QuitApp");
                 await Services.QuitApp();
+                console.log("QuitApp completed");
             }
         } catch (error) {
             console.error("Error executing exit behavior:", error);
+            notifications.show({
+                title: "关闭失败",
+                message: String(error),
+                color: "red",
+                autoClose: 5000,
+            });
         }
     };
 
     const handleConfirmExit = () => {
+        console.log("Confirm exit clicked");
         if (rememberChoice) {
             localStorage.setItem(EXIT_BEHAVIOR_KEY, exitChoice);
+            console.log("Saved behavior choice:", exitChoice);
         }
         setExitModalOpen(false);
         executeExitBehavior(exitChoice);

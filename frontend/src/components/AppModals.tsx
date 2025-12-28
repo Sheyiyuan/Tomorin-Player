@@ -43,8 +43,14 @@ export interface AppModalsProps {
     backgroundColorDraft: string;
     backgroundOpacityDraft: number;
     backgroundImageUrlDraft: string;
+    backgroundBlurDraft: number;
     panelColorDraft: string;
     panelOpacityDraft: number;
+    panelBlurDraft: number;
+    panelRadiusDraft: number;
+    componentRadiusDraft: number;
+    coverRadiusDraft: number;
+    windowControlsPosDraft: string;
     savingTheme: boolean;
     fileDraftInputRef: React.RefObject<HTMLInputElement>;
 
@@ -98,9 +104,15 @@ export interface AppModalsProps {
     onBackgroundColorChange: (v: string) => void;
     onBackgroundOpacityChange: (v: number) => void;
     onBackgroundImageChange: (v: string) => void;
+    onBackgroundBlurChange: (v: number) => void;
     onClearBackgroundImage: () => void;
     onPanelColorChange: (v: string) => void;
     onPanelOpacityChange: (v: number) => void;
+    onPanelBlurChange: (v: number) => void;
+    onPanelRadiusChange: (v: number) => void;
+    onComponentRadiusChange: (v: number) => void;
+    onCoverRadiusChange: (v: number) => void;
+    onWindowControlsPosChange: (v: string) => void;
     onSubmitTheme: () => Promise<void>;
     onCancelThemeEdit: () => void;
     onBackgroundFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -167,8 +179,14 @@ const AppModals: React.FC<AppModalsProps> = (props) => {
         backgroundColorDraft,
         backgroundOpacityDraft,
         backgroundImageUrlDraft,
+        backgroundBlurDraft,
         panelColorDraft,
         panelOpacityDraft,
+        panelBlurDraft,
+        panelRadiusDraft,
+        componentRadiusDraft,
+        coverRadiusDraft,
+        windowControlsPosDraft,
         savingTheme,
         fileDraftInputRef,
         favorites,
@@ -210,9 +228,15 @@ const AppModals: React.FC<AppModalsProps> = (props) => {
         onBackgroundColorChange,
         onBackgroundOpacityChange,
         onBackgroundImageChange,
+        onBackgroundBlurChange,
         onClearBackgroundImage,
         onPanelColorChange,
         onPanelOpacityChange,
+        onPanelBlurChange,
+        onPanelRadiusChange,
+        onComponentRadiusChange,
+        onCoverRadiusChange,
+        onWindowControlsPosChange,
         onSubmitTheme,
         onCancelThemeEdit,
         onBackgroundFileChange,
@@ -289,11 +313,23 @@ const AppModals: React.FC<AppModalsProps> = (props) => {
                 onBackgroundOpacityChange={onBackgroundOpacityChange}
                 backgroundImageUrlDraft={backgroundImageUrlDraft}
                 onBackgroundImageChange={onBackgroundImageChange}
+                backgroundBlurDraft={backgroundBlurDraft}
+                onBackgroundBlurChange={onBackgroundBlurChange}
                 onClearBackgroundImage={onClearBackgroundImage}
                 panelColorDraft={panelColorDraft}
                 onPanelColorChange={onPanelColorChange}
                 panelOpacityDraft={panelOpacityDraft}
                 onPanelOpacityChange={onPanelOpacityChange}
+                panelBlurDraft={panelBlurDraft}
+                onPanelBlurChange={onPanelBlurChange}
+                panelRadiusDraft={panelRadiusDraft}
+                onPanelRadiusChange={onPanelRadiusChange}
+                componentRadiusDraft={componentRadiusDraft}
+                onComponentRadiusChange={onComponentRadiusChange}
+                coverRadiusDraft={coverRadiusDraft}
+                onCoverRadiusChange={onCoverRadiusChange}
+                windowControlsPosDraft={windowControlsPosDraft}
+                onWindowControlsPosChange={onWindowControlsPosChange}
                 onSubmit={onSubmitTheme}
                 savingTheme={savingTheme}
                 fileInputRef={fileDraftInputRef}

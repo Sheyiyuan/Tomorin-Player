@@ -28,6 +28,7 @@ export type PlayerBarProps = {
     volume: number;
     changeVolume: (value: number) => void;
     songsCount: number;
+    coverRadius?: number;
 };
 
 const PlayerBar: React.FC<PlayerBarProps> = ({
@@ -55,6 +56,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
     volume,
     changeVolume,
     songsCount,
+    coverRadius = 8,
 }) => {
     const isDownloaded = currentSong ? downloadedSongIds.has(currentSong.id) : false;
     return (
@@ -64,7 +66,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                     src={cover}
                     w={100}
                     h={100}
-                    radius="md"
+                    radius={coverRadius}
                     fit="cover"
                     style={{ flexShrink: 0, minWidth: 100, minHeight: 100, maxWidth: 100, maxHeight: 100 }}
                 />
@@ -74,7 +76,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                     h={100}
                     bg={computedColorScheme === "dark" ? "dark.6" : "gray.2"}
                     style={{
-                        borderRadius: 8,
+                        borderRadius: coverRadius,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",

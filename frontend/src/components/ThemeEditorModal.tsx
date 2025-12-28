@@ -1,5 +1,5 @@
 import React, { RefObject, useState, useEffect } from "react";
-import { Button, ColorInput, Group, Modal, Slider, Stack, Text, TextInput } from "@mantine/core";
+import { Button, ColorInput, Group, Modal, Slider, Stack, Text, TextInput, Select, Fieldset, Divider } from "@mantine/core";
 
 export type ThemeEditorModalProps = {
     opened: boolean;
@@ -19,10 +19,22 @@ export type ThemeEditorModalProps = {
     backgroundImageUrlDraft: string;
     onBackgroundImageChange: (value: string) => void;
     onClearBackgroundImage: () => void;
+    backgroundBlurDraft: number;
+    onBackgroundBlurChange: (value: number) => void;
     panelColorDraft: string;
     onPanelColorChange: (value: string) => void;
     panelOpacityDraft: number;
     onPanelOpacityChange: (value: number) => void;
+    panelBlurDraft: number;
+    onPanelBlurChange: (value: number) => void;
+    panelRadiusDraft: number;
+    onPanelRadiusChange: (value: number) => void;
+    componentRadiusDraft: number;
+    onComponentRadiusChange: (value: number) => void;
+    coverRadiusDraft: number;
+    onCoverRadiusChange: (value: number) => void;
+    windowControlsPosDraft: string;
+    onWindowControlsPosChange: (value: string) => void;
     onSubmit: () => Promise<void>;
     savingTheme: boolean;
     fileInputRef: RefObject<HTMLInputElement>;
@@ -47,10 +59,22 @@ const ThemeEditorModal: React.FC<ThemeEditorModalProps> = ({
     backgroundImageUrlDraft,
     onBackgroundImageChange,
     onClearBackgroundImage,
+    backgroundBlurDraft,
+    onBackgroundBlurChange,
     panelColorDraft,
     onPanelColorChange,
     panelOpacityDraft,
     onPanelOpacityChange,
+    panelBlurDraft,
+    onPanelBlurChange,
+    panelRadiusDraft,
+    onPanelRadiusChange,
+    componentRadiusDraft,
+    onComponentRadiusChange,
+    coverRadiusDraft,
+    onCoverRadiusChange,
+    windowControlsPosDraft,
+    onWindowControlsPosChange,
     onSubmit,
     savingTheme,
     fileInputRef,
@@ -99,105 +123,202 @@ const ThemeEditorModal: React.FC<ThemeEditorModalProps> = ({
                 style={{ display: "none" }}
                 onChange={onBackgroundFileChange}
             />
-            <Stack gap="sm">
-                <TextInput
-                    label="主题名称"
-                    value={newThemeName}
-                    onChange={(e) => onNameChange(e.currentTarget.value)}
-                    placeholder="输入主题名称"
-                />
-                <Stack gap={2}>
-                    <Text size="xs" c="dimmed">色彩模式</Text>
-                    <Group gap="xs">
-                        <Button
-                            size="xs"
-                            variant={colorSchemeDraft === "light" ? "filled" : "light"}
-                            color={themeColorDraft}
-                            onClick={() => onColorSchemeChange("light")}
-                        >
-                            亮色
-                        </Button>
-                        <Button
-                            size="xs"
-                            variant={colorSchemeDraft === "dark" ? "filled" : "light"}
-                            color={themeColorDraft}
-                            onClick={() => onColorSchemeChange("dark")}
-                        >
-                            暗色
-                        </Button>
-                    </Group>
-                </Stack>
-                <ColorInput
-                    label="主题色"
-                    value={themeColorDraft}
-                    onChange={onThemeColorChange}
-                    size="sm"
-                    disallowInput={false}
-                    format="hex"
-                />
-                <ColorInput
-                    label="背景色"
-                    value={backgroundColorDraft}
-                    onChange={onBackgroundColorChange}
-                    size="sm"
-                    disallowInput={false}
-                    format="hex"
-                />
-                <ColorInput
-                    label="面板颜色"
-                    value={panelColorDraft}
-                    onChange={onPanelColorChange}
-                    size="sm"
-                    disallowInput={false}
-                    format="hex"
-                />
-                <Stack gap={2}>
-                    <Text size="xs" c="dimmed">背景不透明度</Text>
-                    <Slider
-                        value={backgroundOpacityDraft * 100}
-                        onChange={(v) => onBackgroundOpacityChange(v / 100)}
-                        min={0}
-                        max={100}
-                        step={1}
-                        label={(v) => `${Math.round(v)}%`}
-                        style={{ '--slider-color': themeColorDraft } as any}
-                    />
-                </Stack>
-                <Stack gap="xs">
-                    <TextInput
-                        label="背景图 URL"
-                        value={backgroundImageUrlDraft}
-                        onChange={(e) => onBackgroundImageChange(e.currentTarget.value)}
-                        placeholder="https://example.com/bg.jpg"
-                        size="sm"
-                    />
-                    <Button
-                        size="xs"
-                        variant={pendingClear ? "filled" : "light"}
-                        color={pendingClear ? "red" : "gray"}
-                        onClick={handleClearClick}
-                        disabled={!backgroundImageUrlDraft || backgroundImageUrlDraft.length === 0}
-                        fullWidth
-                    >
-                        {pendingClear ? "确认清除？" : "清除背景图"}
-                    </Button>
-                </Stack>
-                <Button size="xs" variant="light" color={themeColorDraft} onClick={() => fileInputRef.current?.click()}>
-                    上传本地背景图
-                </Button>
-                <Stack gap={2}>
-                    <Text size="xs" c="dimmed">组件不透明度</Text>
-                    <Slider
-                        value={panelOpacityDraft * 100}
-                        onChange={(v) => onPanelOpacityChange(v / 100)}
-                        min={20}
-                        max={100}
-                        step={1}
-                        label={(v) => `${Math.round(v)}%`}
-                        style={{ '--slider-color': themeColorDraft } as any}
-                    />
-                </Stack>
-                <Group justify="flex-end" gap="sm">
+            <Stack gap="md">
+                <Fieldset legend="基础设置" variant="unstyled">
+                    <Stack gap="sm">
+                        <TextInput
+                            label="主题名称"
+                            value={newThemeName}
+                            onChange={(e) => onNameChange(e.currentTarget.value)}
+                            placeholder="输入主题名称"
+                            size="sm"
+                        />
+                        <Stack gap={2}>
+                            <Text size="xs" fw={500}>色彩模式</Text>
+                            <Group gap="xs">
+                                <Button
+                                    size="xs"
+                                    variant={colorSchemeDraft === "light" ? "filled" : "light"}
+                                    color={themeColorDraft}
+                                    onClick={() => onColorSchemeChange("light")}
+                                    fullWidth
+                                    style={{ flex: 1 }}
+                                >
+                                    亮色
+                                </Button>
+                                <Button
+                                    size="xs"
+                                    variant={colorSchemeDraft === "dark" ? "filled" : "light"}
+                                    color={themeColorDraft}
+                                    onClick={() => onColorSchemeChange("dark")}
+                                    fullWidth
+                                    style={{ flex: 1 }}
+                                >
+                                    暗色
+                                </Button>
+                            </Group>
+                        </Stack>
+                        <ColorInput
+                            label="主题色"
+                            value={themeColorDraft}
+                            onChange={onThemeColorChange}
+                            size="sm"
+                            disallowInput={false}
+                            format="hex"
+                        />
+                    </Stack>
+                </Fieldset>
+
+                <Fieldset legend="背景设置" variant="unstyled">
+                    <Stack gap="sm">
+                        <ColorInput
+                            label="背景色"
+                            value={backgroundColorDraft}
+                            onChange={onBackgroundColorChange}
+                            size="sm"
+                            disallowInput={false}
+                            format="hex"
+                        />
+                        <Stack gap={2}>
+                            <Text size="xs" fw={500}>背景不透明度</Text>
+                            <Slider
+                                value={backgroundOpacityDraft * 100}
+                                onChange={(v) => onBackgroundOpacityChange(v / 100)}
+                                min={0}
+                                max={100}
+                                step={1}
+                                label={(v) => `${Math.round(v)}%`}
+                                style={{ '--slider-color': themeColorDraft } as any}
+                            />
+                        </Stack>
+                        <Stack gap={2}>
+                            <Text size="xs" fw={500}>背景模糊</Text>
+                            <Slider
+                                value={backgroundBlurDraft}
+                                onChange={onBackgroundBlurChange}
+                                min={0}
+                                max={50}
+                                step={1}
+                                label={(v) => `${Math.round(v)}px`}
+                                style={{ '--slider-color': themeColorDraft } as any}
+                            />
+                        </Stack>
+                        <Divider label="背景图" labelPosition="center" size="xs" />
+                        <TextInput
+                            label="背景图 URL"
+                            value={backgroundImageUrlDraft}
+                            onChange={(e) => onBackgroundImageChange(e.currentTarget.value)}
+                            placeholder="https://example.com/bg.jpg"
+                            size="sm"
+                        />
+                        <Group grow gap="xs">
+                            <Button size="xs" variant="light" color={themeColorDraft} onClick={() => fileInputRef.current?.click()}>
+                                上传本地图片
+                            </Button>
+                            <Button
+                                size="xs"
+                                variant={pendingClear ? "filled" : "light"}
+                                color={pendingClear ? "red" : "gray"}
+                                onClick={handleClearClick}
+                                disabled={!backgroundImageUrlDraft || backgroundImageUrlDraft.length === 0}
+                            >
+                                {pendingClear ? "确认清除？" : "清除背景图"}
+                            </Button>
+                        </Group>
+                    </Stack>
+                </Fieldset>
+
+                <Fieldset legend="面板设置" variant="unstyled">
+                    <Stack gap="sm">
+                        <ColorInput
+                            label="面板颜色"
+                            value={panelColorDraft}
+                            onChange={onPanelColorChange}
+                            size="sm"
+                            disallowInput={false}
+                            format="hex"
+                        />
+                        <Stack gap={2}>
+                            <Text size="xs" fw={500}>面板不透明度</Text>
+                            <Slider
+                                value={panelOpacityDraft * 100}
+                                onChange={(v) => onPanelOpacityChange(v / 100)}
+                                min={20}
+                                max={100}
+                                step={1}
+                                label={(v) => `${Math.round(v)}%`}
+                                style={{ '--slider-color': themeColorDraft } as any}
+                            />
+                        </Stack>
+                        <Stack gap={2}>
+                            <Text size="xs" fw={500}>面板模糊</Text>
+                            <Slider
+                                value={panelBlurDraft}
+                                onChange={onPanelBlurChange}
+                                min={0}
+                                max={30}
+                                step={1}
+                                label={(v) => `${Math.round(v)}px`}
+                                style={{ '--slider-color': themeColorDraft } as any}
+                            />
+                        </Stack>
+                        <Stack gap={2}>
+                            <Text size="xs" fw={500}>面板圆角</Text>
+                            <Slider
+                                value={panelRadiusDraft}
+                                onChange={onPanelRadiusChange}
+                                min={0}
+                                max={32}
+                                step={1}
+                                label={(v) => `${Math.round(v)}px`}
+                                style={{ '--slider-color': themeColorDraft } as any}
+                            />
+                        </Stack>
+                    </Stack>
+                </Fieldset>
+
+                <Fieldset legend="其他设置" variant="unstyled">
+                    <Stack gap="sm">
+                        <Stack gap={2}>
+                            <Text size="xs" fw={500}>组件圆角 (按钮/输入框)</Text>
+                            <Slider
+                                value={componentRadiusDraft}
+                                onChange={onComponentRadiusChange}
+                                min={0}
+                                max={32}
+                                step={1}
+                                label={(v) => `${Math.round(v)}px`}
+                                style={{ '--slider-color': themeColorDraft } as any}
+                            />
+                        </Stack>
+                        <Stack gap={2}>
+                            <Text size="xs" fw={500}>封面圆角</Text>
+                            <Slider
+                                value={coverRadiusDraft}
+                                onChange={onCoverRadiusChange}
+                                min={0}
+                                max={50}
+                                step={1}
+                                label={(v) => `${Math.round(v)}px`}
+                                style={{ '--slider-color': themeColorDraft } as any}
+                            />
+                        </Stack>
+                        <Select
+                            label="窗口管理按钮位置"
+                            placeholder="选择窗口按钮位置"
+                            data={[
+                                { value: 'left', label: '左侧' },
+                                { value: 'right', label: '右侧' },
+                                { value: 'hidden', label: '隐藏' },
+                            ]}
+                            value={windowControlsPosDraft}
+                            onChange={(value) => onWindowControlsPosChange(value || 'right')}
+                            size="sm"
+                        />
+                    </Stack>
+                </Fieldset>
+
+                <Group justify="flex-end" gap="sm" mt="md">
                     <Button variant="subtle" color={themeColorDraft} onClick={onCancel}>
                         取消
                     </Button>

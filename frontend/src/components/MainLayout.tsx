@@ -9,6 +9,7 @@ interface MainLayoutProps {
     // SongDetailCard props
     currentSong: Song | null;
     panelBackground: string;
+    panelStyles: React.CSSProperties;
     themeColor: string;
     computedColorScheme: "light" | "dark";
     placeholderCover: string;
@@ -21,6 +22,7 @@ interface MainLayoutProps {
     onSkipEndChange: (value: number) => void;
     onStreamUrlChange: (url: string) => void;
     onSongInfoUpdate?: (songId: string, updates: { name?: string; singer?: string; cover?: string }) => void;
+    coverRadius?: number;
 
     // CurrentPlaylistCard props
     currentFav: Favorite | null;
@@ -56,6 +58,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     // SongDetailCard props
     currentSong,
     panelBackground,
+    panelStyles,
     themeColor,
     computedColorScheme,
     placeholderCover,
@@ -97,12 +100,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     onDeleteFavorite,
     onToggleConfirmDelete,
     confirmDeleteFavId,
+    coverRadius,
 }) => {
     return (
         <Flex flex={1} gap="md" miw={0} style={{ minHeight: 0 }}>
             <SongDetailCard
                 song={currentSong}
                 panelBackground={panelBackground}
+                panelStyles={panelStyles}
                 themeColor={themeColor}
                 computedColorScheme={computedColorScheme}
                 placeholderCover={placeholderCover}
@@ -115,10 +120,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 onSkipEndChange={onSkipEndChange}
                 onStreamUrlChange={onStreamUrlChange}
                 onSongInfoUpdate={onSongInfoUpdate}
+                coverRadius={coverRadius}
             />
 
             <CurrentPlaylistCard
                 panelBackground={panelBackground}
+                panelStyles={panelStyles}
                 currentFav={currentFav}
                 currentFavSongs={currentFavSongs}
                 currentSongId={currentSong?.id}
@@ -139,6 +146,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
             <FavoriteListCard
                 panelBackground={panelBackground}
+                panelStyles={panelStyles}
                 favorites={favorites}
                 selectedFavId={selectedFavId}
                 onSelectFavorite={onSelectFavorite}

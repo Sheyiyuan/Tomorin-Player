@@ -29,6 +29,8 @@ interface ControlsPanelProps {
     changeVolume: (value: number) => void;
     songsCount: number;
     panelBackground: string;
+    panelStyles: React.CSSProperties;
+    coverRadius?: number;
 }
 
 const ControlsPanel: React.FC<ControlsPanelProps> = ({
@@ -57,16 +59,18 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     changeVolume,
     songsCount,
     panelBackground,
+    panelStyles,
+    coverRadius,
 }) => {
     return (
         <Paper
             shadow="sm"
-            radius="md"
             p="md"
             withBorder
             pos="sticky"
             bottom={0}
-            style={{ zIndex: 5, backgroundColor: panelBackground }}
+            className="glass-panel"
+            style={{ ...panelStyles, zIndex: 5, backgroundColor: panelBackground }}
         >
             <PlayerBar
                 themeColor={themeColor}
@@ -93,6 +97,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                 volume={volume}
                 changeVolume={changeVolume}
                 songsCount={songsCount}
+                coverRadius={coverRadius}
             />
         </Paper>
     );

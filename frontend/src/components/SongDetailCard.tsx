@@ -6,6 +6,7 @@ import { Song } from "../types";
 export type SongDetailCardProps = {
     song: Song | null;
     panelBackground: string;
+    panelStyles: React.CSSProperties;
     themeColor: string;
     computedColorScheme: string;
     placeholderCover: string;
@@ -18,11 +19,13 @@ export type SongDetailCardProps = {
     onSkipEndChange: (value: number) => void;
     onStreamUrlChange: (value: string) => void;
     onSongInfoUpdate?: (songId: string, updates: { name?: string; singer?: string; cover?: string }) => void;
+    coverRadius?: number;
 };
 
 const SongDetailCard: React.FC<SongDetailCardProps> = ({
     song,
     panelBackground,
+    panelStyles,
     themeColor,
     computedColorScheme,
     placeholderCover,
@@ -35,6 +38,7 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
     onSkipEndChange,
     onStreamUrlChange,
     onSongInfoUpdate,
+    coverRadius = 8,
 }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState("");
@@ -65,7 +69,7 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
         setIsEditing(false);
     };
     return (
-        <Card shadow="sm" padding="md" radius="md" w={300} withBorder h="100%" style={{ minHeight: 0, backgroundColor: panelBackground, display: "flex", flexDirection: "column" }}>
+        <Card shadow="sm" padding="md" w={300} withBorder h="100%" className="glass-panel" style={{ ...panelStyles, minHeight: 0, backgroundColor: panelBackground, display: "flex", flexDirection: "column" }}>
             {song ? (
                 <ScrollArea style={{ flex: 1, minHeight: 0 }}>
                     <Stack gap="md" pb="sm">
@@ -74,7 +78,7 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
                             h={135}
                             bg={computedColorScheme === "dark" ? "dark.6" : "gray.2"}
                             style={{
-                                borderRadius: 8,
+                                borderRadius: coverRadius,
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
@@ -85,7 +89,7 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
                             <Image
                                 src={song.cover || placeholderCover}
                                 h={135}
-                                radius="md"
+                                radius={coverRadius}
                                 fit="contain"
                             />
                         </Box>

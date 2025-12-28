@@ -8,9 +8,14 @@
 
 _使用 Wails v2 构建的跨平台桌面应用_
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)[![Wails](https://img.shields.io/badge/Wails-v2.11-DF0039?logo=wails&logoColor=white)](https://wails.io)[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://golang.org)[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Wails](https://img.shields.io/badge/Wails-v2.11-DF0039?logo=wails&logoColor=white)](https://wails.io)
+[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://golang.org)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Mantine](https://img.shields.io/badge/Mantine-v8-339AF0?logo=mantine&logoColor=white)](https://mantine.dev)
 
-[功能特性](#功能特性) • [开发环境](#开发环境) • [构建与发布](#构建与发布) • [文档](#文档) • [项目结构](#项目结构) • [更新日志](#更新日志)
+[功能特性](#功能特性) • [开发环境](#开发环境) • [构建与发布](#构建与发布) • [项目结构](#项目结构) • [更新日志](#更新日志)
 
 </div>
 
@@ -18,28 +23,14 @@ _使用 Wails v2 构建的跨平台桌面应用_
 
 ## 简介
 
-<div align="center">
+**Half Beat Player** 是一款轻量级、现代化的桌面音乐播放器，专为 Bilibili 用户设计。它允许你直接播放 B站视频的音频流，无需下载视频，实现高效的「听视频」体验。
 
-half-beat 是一款轻量的的音乐播放器。采用现代化技术栈构建，提供流畅的用户体验。
+### 核心优势
 
-支持 B 站扫码登录、BV 号解析、收藏夹导入、歌单管理等功能。
-
-</div>
-
-**技术栈**
-
-- **后端**: Go + SQLite + Wails v2
-- **前端**: React 18 + TypeScript + Mantine UI v8
-- **构建**: Vite + pnpm
-
-**特点**
-
-- 跨平台支持（macOS / Windows / Linux）
-- 主题系统（浅色/深色 + 自定义）
-- 无需依赖 yt-dlp，直接使用 B站 API
-- 本地数据库存储，离线可用
-
----
+- **原生体验**: 基于 Wails v2 构建，拥有原生应用的性能和 Web 技术的灵活性。
+- **无需 yt-dlp**: 直接调用 B站 API 解析音频流，响应速度快，依赖少。
+- **现代化 UI**: 使用 Mantine v8 组件库，支持深色/浅色模式及自定义主题。
+- **本地优先**: 歌单和配置存储在本地 SQLite 数据库中，支持离线管理。
 
 <div align="center">
 
@@ -57,64 +48,40 @@ half-beat 是一款轻量的的音乐播放器。采用现代化技术栈构建�
 
 ---
 
+## ⚠️ 免责声明 (Disclaimer)
+
+1. **项目用途**：本项目仅供学习、研究和技术交流使用，请勿将其用于任何商业用途。
+2. **版权声明**：本项目所使用的所有 Bilibili 相关 API 均来自互联网。视频、音频、封面等内容版权归 [Bilibili](https://www.bilibili.com) 及相关权利人所有。
+3. **风险自担**：用户在使用本项目时需自行承担风险（包括但不限于账号封禁、数据丢失等）。开发者不对因使用本项目而产生的任何直接或间接损失负责。
+4. **及时删除**：如果 Bilibili 或相关权利人认为本项目侵犯了其合法权益，请联系开发者，我将在收到通知后第一时间删除相关代码。
+
+---
+
 ## 功能特性
 
-### 账号与登录
+### 📺 Bilibili 集成
 
-- B站扫码登录
-- 自动获取用户信息（头像、用户名）
-- 登录状态持久化
+- **扫码登录**: 安全便捷的 B站账号接入。
+- **用户信息**: 实时同步头像、用户名及登录状态。
+- **收藏夹导入**: 一键导入 B站公开或私有收藏夹。
 
-### 歌单管理
+### 🎵 播放体验
 
-- 创建、编辑、删除歌单
-- 从 BV 号添加歌曲（支持分P选择、音频截取）
-- 导入 B站 收藏夹（通过 fid 或登录账号）
-- 歌单复制功能
-- 自动清理未被引用的歌曲
+- **音频解析**: 支持多码率音频流解析。
+- **片段播放**: 支持设置播放区间，自动跳过片头片尾。
+- **播放模式**: 列表循环、随机播放、单曲循环。
+- **音频代理**: 内置音频代理服务器，解决跨域及防盗链问题。
 
-### 音频播放
+### 📂 歌单管理
 
-- 基于 B站 API 的音频解析（无需 yt-dlp）
-- 播放地址自动缓存和过期刷新
-- 支持播放区间设置（跳过片头片尾）
-- 播放模式切换（列表循环/随机/单曲循环）
-- 进度控制、音量调节
-- 智能音频源管理（元数据更新不中断播放）
+- **灵活组织**: 创建、编辑、删除自定义歌单。
+- **BV 号解析**: 支持通过 BV 号快速添加歌曲，支持分 P 选择。
+- **歌曲编辑**: 自定义歌曲名、歌手、封面及播放参数。
 
-### 搜索功能
+### 🔍 搜索与发现
 
-- 全局搜索（歌曲名、歌手、BV号）
-- 远程搜索（B站视频搜索）
-- BV 号快速解析
-- 实时搜索结果
-
-### 歌曲编辑
-
-- 编辑歌曲信息（名称、歌手、封面）
-- 自定义播放区间
-- 手动设置播放地址
-
-### 下载管理
-
-- 歌曲离线下载
-- 下载进度显示
-- 批量下载歌单
-- 本地文件管理
-
-### 主题系统
-
-- 内置多款主题（浅色/深色）
-- 自定义主题编辑器
-- 主题颜色、背景图、透明度调节
-- 主题导入/导出
-
-### 其他功能
-
-- 缓存管理
-- 音频缓存清理
-- 播放列表可视化编辑
-- 拖拽排序
+- **全局搜索**: 快速查找本地库中的歌曲。
+- **远程搜索**: 直接在应用内搜索 B站视频并添加至歌单。
 
 ---
 
@@ -122,37 +89,21 @@ half-beat 是一款轻量的的音乐播放器。采用现代化技术栈构建�
 
 ### 前置要求
 
-- **Go** 1.21+
-- **Node.js** 18+
-- **pnpm** (推荐) 或 npm
-- **Wails CLI**: `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
+- **Go**: 1.22+
+- **Node.js**: 18+
+- **pnpm**: 8+
+- **Wails**: v2.11+
+- **CGO 编译器**: (Windows 需要 gcc, Linux 需要 build-essential)
 
-### 安装依赖
+### 运行开发版
 
 ```bash
-# 后端依赖
-go mod tidy
-
-# 前端依赖
+# 安装前端依赖
 cd frontend
 pnpm install
-```
 
-### 开发模式
-
-```bash
-# 启动开发服务器（热重载）
-wails dev
-```
-
-或者分别启动前后端：
-
-```bash
-# 终端 1: 前端开发服务器
-cd frontend
-pnpm dev
-
-# 终端 2: Wails 后端
+# 返回根目录启动开发模式
+cd ..
 wails dev
 ```
 
@@ -160,66 +111,101 @@ wails dev
 
 ## 构建与发布
 
-### 本地构建（版本注入）
+### 基础构建
+
+使用 Wails CLI 构建当前平台的可执行文件：
 
 ```bash
-# Linux 构建
-export APP_VERSION=1.2.3
-export VITE_APP_VERSION=1.2.3
-~/go/bin/wails build -platform linux/amd64 -clean
-
-# Windows 交叉编译（Linux 主机）
-export APP_VERSION=1.2.3
-scripts/windows/build-windows.sh -c
-
-# Debian 打包
-export APP_VERSION=1.2.3
-scripts/build-deb.sh
+wails build
 ```
 
-### CI（基于 Tag）
+### 脚本化打包 (推荐)
 
-推送 `vX.Y.Z` Tag 后，CI 会自动派生版本号注入构建，产物包含版本号。
+项目提供了自动化脚本，支持版本注入和多平台打包。
+
+#### 1. 设置版本号 (可选)
+
+可以通过环境变量注入版本号，否则将从 `frontend/package.json` 读取：
+
+```bash
+export APP_VERSION=1.0.0
+```
+
+#### 2. Linux 打包 (DEB/RPM)
+
+```bash
+# 构建 DEB 包 (Debian/Ubuntu)
+./scripts/build-deb.sh
+
+# 构建 RPM 包 (Fedora/RHEL)
+./scripts/build-rpm.sh
+```
+
+#### 3. Windows 打包 (NSIS)
+
+支持在 Linux 下使用 MinGW 交叉编译：
+
+```bash
+# 构建 NSIS 安装程序
+./scripts/windows/build-windows.sh
+
+# 清理并构建
+./scripts/windows/build-windows.sh -c
+```
+
+#### 4. macOS 打包
+
+```bash
+./scripts/build-macos.sh
+```
+
+详细文档请参考：
+
+- [Windows 安装与运行](docs/windows.md)
+- [macOS 构建与安装](docs/macos.md)
+- [Debian/Ubuntu 打包](docs/debian.md)
+- [RPM 打包](docs/rpm.md)
 
 ---
 
-## 文档
-
-- Windows 安装与运行: [docs/windows.md](docs/windows.md)
-- macOS 构建与安装: [docs/macos.md](docs/macos.md)
-- Debian/Ubuntu 打包: [docs/debian.md](docs/debian.md)
-- RPM 打包: [docs/rpm.md](docs/rpm.md)
-
 ## 项目结构
 
-```
-tomorin/
-├── main.go                 # Wails 入口
-├── internal/
-│   ├── db/                # 数据库初始化
-│   ├── models/            # 数据模型
-│   ├── services/          # 业务逻辑（播放、收藏夹、下载等）
-│   └── proxy/             # HTTP 代理配置
-├── frontend/
+```text
+.
+├── internal/               # Go 后端逻辑
+│   ├── db/                 # 数据库初始化与 GORM 迁移
+│   ├── models/             # GORM 数据模型定义
+│   ├── proxy/              # 音频代理服务器 (处理 B站 Referer 限制)
+│   └── services/           # 核心业务服务
+│       ├── login.go        # B站扫码登录逻辑
+│       ├── bili_play.go    # B站音频流解析
+│       ├── playlist.go     # 歌单管理
+│       └── ...             # 搜索、下载、歌词等服务
+├── frontend/               # React 前端 (Vite + TS)
 │   ├── src/
-│   │   ├── components/    # React 组件
-│   │   ├── hooks/         # 自定义 Hooks
-│   │   ├── context/       # React Context
-│   │   ├── utils/         # 工具函数
-│   │   └── types.ts       # TypeScript 类型定义
-│   └── wailsjs/           # Wails 自动生成的绑定
-├── build/                 # 构建输出
-└── wails.json            # Wails 配置
+│   │   ├── components/     # UI 组件 (Mantine v8)
+│   │   ├── hooks/          # 业务逻辑封装 (播放器控制、数据获取)
+│   │   ├── context/        # 全局状态管理 (主题、播放状态)
+│   │   ├── api.ts          # Wails 自动生成的 Go 方法绑定调用
+│   │   └── utils/          # 工具函数 (图片处理、时间格式化)
+│   └── wailsjs/            # Wails 自动生成的 JS 绑定
+├── scripts/                # 跨平台构建与打包脚本
+├── build/                  # 构建产物与平台特定配置 (图标、NSIS 脚本)
+├── assets/                 # 静态资源
+├── main.go                 # 应用入口，初始化服务与 Wails 运行时
+└── wails.json              # Wails 项目配置文件
 ```
 
 ---
 
 ## 更新日志
 
-- 最新发布与变更请查看 GitHub Releases（基于 Tag 自动生成）：
-  - Releases: https://github.com/Sheyiyuan/Tomorin-Player/releases
-  - Tags: https://github.com/Sheyiyuan/Tomorin-Player/tags
+- 最新发布与变更请查看 GitHub Releases：
+  - [Releases](https://github.com/Sheyiyuan/Half-Beat-Player/releases)
+  - [Tags](https://github.com/Sheyiyuan/Half-Beat-Player/tags)
 
-## 许可证
+---
 
-[MIT License](LICENSE)
+## 开源协议
+
+本项目采用 [MIT License](LICENSE) 协议开源。

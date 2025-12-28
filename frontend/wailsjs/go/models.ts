@@ -191,10 +191,7 @@ export namespace models {
 	}
 	export class PlayerSetting {
 	    id: number;
-	    playMode: string;
-	    defaultVolume: number;
-	    themes: string;
-	    currentThemeId: string;
+	    config: Record<string, any>;
 	    updatedAt: time.Time;
 	
 	    static createFrom(source: any = {}) {
@@ -204,10 +201,7 @@ export namespace models {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
-	        this.playMode = source["playMode"];
-	        this.defaultVolume = source["defaultVolume"];
-	        this.themes = source["themes"];
-	        this.currentThemeId = source["currentThemeId"];
+	        this.config = source["config"];
 	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
 	    }
 	

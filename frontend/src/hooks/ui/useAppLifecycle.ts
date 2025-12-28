@@ -111,18 +111,18 @@ export const useAppLifecycle = ({
                 const customThemes = customThemesList || [];
                 saveCachedCustomThemes(customThemes);
                 setSetting(s as any);
-                setVolume(s.defaultVolume ?? 0.5);
+                setVolume(s.config?.defaultVolume ?? 0.5);
 
                 // 验证并设置播放模式，移除旧的 "order" 模式
                 const validModes = ['loop', 'random', 'single'];
-                const savedMode = s.playMode as string;
+                const savedMode = s.config?.playMode as string;
                 const mode = validModes.includes(savedMode) ? savedMode : 'loop';
                 setPlayMode(mode as any);
 
                 const allThemes = [...DEFAULT_THEMES, ...customThemes];
                 setThemes(allThemes);
 
-                const preferredThemeId = s.currentThemeId || "light";
+                const preferredThemeId = s.config?.currentThemeId || "light";
                 const targetTheme = allThemes.find((t: Theme) => t.id === preferredThemeId) || allThemes[0] || DEFAULT_THEMES[0];
 
                 // 如果后端记录的主题不存在（例如旧的自定义主题被删除），回退到默认主题并更新后端设置

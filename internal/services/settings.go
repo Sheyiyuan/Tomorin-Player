@@ -14,48 +14,68 @@ import (
 
 // SavePlayerSetting overwrites the single settings row.
 func (s *Service) SavePlayerSetting(setting models.PlayerSetting) error {
-    setting.ID = 1
-    setting.UpdatedAt = time.Now()
-    // Persist player settings
+	var existing models.PlayerSetting
+	if err := s.db.First(&existing, 1).Error; err == nil {
+		if existing.Config == nil {
+			existing.Config = make(map[string]any)
+		}
+		// Merge new config into existing one
+		for k, v := range setting.Config {
+			existing.Config[k] = v
+		}
+		existing.UpdatedAt = time.Now()
+		err := s.db.Save(&existing).Error
+		if err != nil {
+			fmt.Printf("SavePlayerSetting error: %v\n", err)
+		}
+		return err
+	}
 
-    // 使用 UpdateColumns 明确更新所有字段（包括零值）
-    err := s.db.Model(&models.PlayerSetting{}).Where("id = ?", 1).UpdateColumns(map[string]interface{}{
-        "default_volume":   setting.DefaultVolume,
-        "play_mode":        setting.PlayMode,
-        "themes":           setting.Themes,
-        "current_theme_id": setting.CurrentThemeID,
-        "updated_at":       time.Now(),
-    }).Error
-
-    if err != nil {
-        fmt.Printf("SavePlayerSetting error: %v\n", err)
-    }
-    return err
+	// If not found, create new
+	setting.ID = 1
+	setting.UpdatedAt = time.Now()
+	err := s.db.Save(&setting).Error
+	if err != nil {
+		fmt.Printf("SavePlayerSetting error: %v\n", err)
+	}
+	return err
 }
 
 // GetPlayerSetting returns the stored setting (or defaults).
 func (s *Service) GetPlayerSetting() (models.PlayerSetting, error) {
-    var setting models.PlayerSetting
-    if err := s.db.First(&setting, 1).Error; err != nil {
-        if errors.Is(err, gorm.ErrRecordNotFound) {
-            themesJSON, _ := formatThemesJSON([]models.Theme{})
-            setting = models.PlayerSetting{
-                ID:             1,
-                PlayMode:       "order",
-                DefaultVolume:  0.5,
-                Themes:         themesJSON,
-                CurrentThemeID: "light",
-            }
-            if err := s.db.Create(&setting).Error; err != nil {
-                return setting, err
-            }
-            fmt.Printf("GetPlayerSetting: Created default - Volume: %.2f\n", setting.DefaultVolume)
-            return setting, nil
-        }
-        return setting, err
-    }
-    fmt.Printf("GetPlayerSetting: Loaded - Volume: %.2f, PlayMode: %s\n", setting.DefaultVolume, setting.PlayMode)
-    return setting, nil
+	var setting models.PlayerSetting
+	if err := s.db.First(&setting, 1).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			themesJSON, _ := formatThemesJSON([]models.Theme{})
+			setting = models.PlayerSetting{
+				ID: 1,
+				Config: map[string]any{
+					"playMode":       "order",
+					"defaultVolume":  0.5,
+					"themes":         themesJSON,
+					"currentThemeId": "light",
+				},
+			}
+			if err := s.db.Create(&setting).Error; err != nil {
+				return setting, err
+			}
+			fmt.Printf("GetPlayerSetting: Created default settings\n")
+			return setting, nil
+		}
+		return setting, err
+	}
+	if setting.Config == nil {
+		setting.Config = make(map[string]any)
+	}
+	return setting, nil
+}
+
+// Helper to get string from config map
+func getConfigString(m map[string]any, key string, defaultValue string) string {
+	if v, ok := m[key].(string); ok {
+		return v
+	}
+	return defaultValue
 }
 
 // formatThemesJSON converts theme slice to JSON string
@@ -79,157 +99,131 @@ func parseThemesJSON(themesJSON string) ([]models.Theme, error) {
 
 // GetThemes returns all available themes
 func (s *Service) GetThemes() ([]models.Theme, error) {
-    setting, err := s.GetPlayerSetting()
-    if err != nil {
-        fmt.Printf("GetThemes: GetPlayerSetting error: %v\n", err)
-        return []models.Theme{}, err
-    }
-    fmt.Printf("GetThemes: Themes JSON: %s\n", setting.Themes)
-    themes, err := parseThemesJSON(setting.Themes)
-    if err != nil {
-        fmt.Printf("GetThemes: parseThemesJSON error: %v\n", err)
-        return []models.Theme{}, err
-    }
-    fmt.Printf("GetThemes: Parsed %d themes\n", len(themes))
-    return themes, nil
+	setting, err := s.GetPlayerSetting()
+	if err != nil {
+		fmt.Printf("GetThemes: GetPlayerSetting error: %v\n", err)
+		return []models.Theme{}, err
+	}
+	themesJSON := getConfigString(setting.Config, "themes", "")
+	themes, err := parseThemesJSON(themesJSON)
+	if err != nil {
+		fmt.Printf("GetThemes: parseThemesJSON error: %v\n", err)
+		return []models.Theme{}, err
+	}
+	return themes, nil
 }
 
 // CreateTheme adds a new custom theme
 func (s *Service) CreateTheme(theme models.Theme) (models.Theme, error) {
-    fmt.Printf("CreateTheme: Creating theme %s\n", theme.Name)
-    setting, err := s.GetPlayerSetting()
-    if err != nil {
-        fmt.Printf("CreateTheme: GetPlayerSetting error: %v\n", err)
-        return theme, err
-    }
+	setting, err := s.GetPlayerSetting()
+	if err != nil {
+		return theme, err
+	}
 
-    fmt.Printf("CreateTheme: Current themes JSON: %s\n", setting.Themes)
-    themes, err := parseThemesJSON(setting.Themes)
-    if err != nil {
-        fmt.Printf("CreateTheme: parseThemesJSON error: %v\n", err)
-        return theme, err
-    }
-    fmt.Printf("CreateTheme: Parsed %d existing themes\n", len(themes))
+	themesJSON := getConfigString(setting.Config, "themes", "")
+	themes, err := parseThemesJSON(themesJSON)
+	if err != nil {
+		return theme, err
+	}
 
-    // Generate unique ID for new theme
-    theme.ID = "theme-" + uuid.NewString()
-    theme.IsDefault = false
-    theme.IsReadOnly = false
-    themes = append(themes, theme)
-    fmt.Printf("CreateTheme: Generated ID %s, now have %d themes\n", theme.ID, len(themes))
+	// Generate unique ID for new theme
+	theme.ID = "theme-" + uuid.NewString()
+	theme.IsDefault = false
+	theme.IsReadOnly = false
+	themes = append(themes, theme)
 
-    themesJSON, err := formatThemesJSON(themes)
-    if err != nil {
-        fmt.Printf("CreateTheme: formatThemesJSON error: %v\n", err)
-        return theme, err
-    }
-    fmt.Printf("CreateTheme: New themes JSON: %s\n", themesJSON)
+	newThemesJSON, err := formatThemesJSON(themes)
+	if err != nil {
+		return theme, err
+	}
 
-    setting.Themes = themesJSON
-    err = s.SavePlayerSetting(setting)
-    if err != nil {
-        fmt.Printf("CreateTheme: SavePlayerSetting error: %v\n", err)
-    } else {
-        fmt.Printf("CreateTheme: Successfully saved, returning theme with ID %s\n", theme.ID)
-    }
-    return theme, err
+	setting.Config["themes"] = newThemesJSON
+	err = s.SavePlayerSetting(setting)
+	return theme, err
 }
 
 // UpdateTheme modifies an existing custom theme
 func (s *Service) UpdateTheme(theme models.Theme) error {
-    fmt.Printf("UpdateTheme: Updating theme %s (%s)\n", theme.ID, theme.Name)
-    setting, err := s.GetPlayerSetting()
-    if err != nil {
-        fmt.Printf("UpdateTheme: GetPlayerSetting error: %v\n", err)
-        return err
-    }
+	setting, err := s.GetPlayerSetting()
+	if err != nil {
+		return err
+	}
 
-    fmt.Printf("UpdateTheme: Current themes JSON: %s\n", setting.Themes)
-    themes, err := parseThemesJSON(setting.Themes)
-    if err != nil {
-        fmt.Printf("UpdateTheme: parseThemesJSON error: %v\n", err)
-        return err
-    }
-    fmt.Printf("UpdateTheme: Parsed %d themes before update\n", len(themes))
+	themesJSON := getConfigString(setting.Config, "themes", "")
+	themes, err := parseThemesJSON(themesJSON)
+	if err != nil {
+		return err
+	}
 
-    found := false
-    for i, t := range themes {
-        if t.ID == theme.ID {
-            // 保留 IsDefault 属性
-            theme.IsDefault = t.IsDefault
-            themes[i] = theme
-            found = true
-            fmt.Printf("UpdateTheme: Found and updated theme at index %d\n", i)
-            break
-        }
-    }
+	found := false
+	for i, t := range themes {
+		if t.ID == theme.ID {
+			// 保留 IsDefault 属性
+			theme.IsDefault = t.IsDefault
+			themes[i] = theme
+			found = true
+			break
+		}
+	}
 
-    if !found {
-        fmt.Printf("UpdateTheme: Theme ID %s not found!\n", theme.ID)
-        return fmt.Errorf("theme not found: %s", theme.ID)
-    }
+	if !found {
+		return fmt.Errorf("theme not found: %s", theme.ID)
+	}
 
-    themesJSON, err := formatThemesJSON(themes)
-    if err != nil {
-        fmt.Printf("UpdateTheme: formatThemesJSON error: %v\n", err)
-        return err
-    }
-    fmt.Printf("UpdateTheme: New themes JSON: %s\n", themesJSON)
+	newThemesJSON, err := formatThemesJSON(themes)
+	if err != nil {
+		return err
+	}
 
-    setting.Themes = themesJSON
-    err = s.SavePlayerSetting(setting)
-    if err != nil {
-        fmt.Printf("UpdateTheme: SavePlayerSetting error: %v\n", err)
-    } else {
-        fmt.Printf("UpdateTheme: Successfully saved\n")
-    }
-    return err
+	setting.Config["themes"] = newThemesJSON
+	return s.SavePlayerSetting(setting)
 }
 
 // DeleteTheme removes a custom theme
 func (s *Service) DeleteTheme(themeID string) error {
-    setting, err := s.GetPlayerSetting()
-    if err != nil {
-        return err
-    }
+	setting, err := s.GetPlayerSetting()
+	if err != nil {
+		return err
+	}
 
-    themes, err := parseThemesJSON(setting.Themes)
-    if err != nil {
-        return err
-    }
+	themesJSON := getConfigString(setting.Config, "themes", "")
+	themes, err := parseThemesJSON(themesJSON)
+	if err != nil {
+		return err
+	}
 
-    newThemes := []models.Theme{}
-    for _, t := range themes {
-        if t.ID == themeID {
-            if t.IsDefault {
-                return fmt.Errorf("cannot delete default theme")
-            }
-            continue
-        }
-        newThemes = append(newThemes, t)
-    }
+	newThemes := []models.Theme{}
+	for _, t := range themes {
+		if t.ID == themeID {
+			if t.IsDefault {
+				return fmt.Errorf("cannot delete default theme")
+			}
+			continue
+		}
+		newThemes = append(newThemes, t)
+	}
 
-    // If deleted theme was current, switch to light theme
-    if setting.CurrentThemeID == themeID {
-        setting.CurrentThemeID = "light"
-    }
+	// If deleted theme was current, switch to light theme
+	if getConfigString(setting.Config, "currentThemeId", "") == themeID {
+		setting.Config["currentThemeId"] = "light"
+	}
 
-    themesJSON, err := formatThemesJSON(newThemes)
-    if err != nil {
-        return err
-    }
+	newThemesJSON, err := formatThemesJSON(newThemes)
+	if err != nil {
+		return err
+	}
 
-    setting.Themes = themesJSON
-    return s.SavePlayerSetting(setting)
+	setting.Config["themes"] = newThemesJSON
+	return s.SavePlayerSetting(setting)
 }
 
 // SetCurrentTheme changes the active theme
 func (s *Service) SetCurrentTheme(themeID string) error {
-    setting, err := s.GetPlayerSetting()
-    if err != nil {
-        return err
-    }
+	setting, err := s.GetPlayerSetting()
+	if err != nil {
+		return err
+	}
 
-    setting.CurrentThemeID = themeID
-    return s.SavePlayerSetting(setting)
+	setting.Config["currentThemeId"] = themeID
+	return s.SavePlayerSetting(setting)
 }

@@ -72,12 +72,9 @@ type Theme struct {
 
 // PlayerSetting captures basic playback preferences.
 type PlayerSetting struct {
-	ID             uint      `gorm:"primaryKey" json:"id"`
-	PlayMode       string    `json:"playMode"`
-	DefaultVolume  float64   `json:"defaultVolume"`
-	Themes         string    `gorm:"type:longtext" json:"themes"`
-	CurrentThemeID string    `json:"currentThemeId"`
-	UpdatedAt      time.Time `json:"updatedAt"`
+	ID        uint           `gorm:"primaryKey" json:"id"`
+	Config    map[string]any `gorm:"column:config;serializer:json" json:"config"`
+	UpdatedAt time.Time      `json:"updatedAt"`
 }
 
 // Playlist stores the current playback queue state.

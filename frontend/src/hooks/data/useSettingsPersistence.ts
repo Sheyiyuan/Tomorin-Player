@@ -45,20 +45,26 @@ export const useSettingsPersistence = ({
             return;
         }
         const s = settingsRef.current;
+        const config = { ...(s.setting?.config || {}) };
+        // 移除 themes，因为 themes 由专门的 RPC 接口管理，避免旧数据覆盖新主题
+        delete config.themes;
+
         const next = {
             id: s.setting?.id ?? 1,
-            playMode: s.playMode,
-            defaultVolume: s.volume,
-            themes: s.setting?.themes ?? "",
-            currentThemeId: s.currentThemeId,
-            themeColor: s.themeColor,
-            backgroundColor: s.backgroundColor,
-            backgroundOpacity: s.backgroundOpacity,
-            backgroundImage: s.backgroundImageUrl,
-            panelOpacity: s.panelOpacity,
+            config: {
+                ...config,
+                playMode: s.playMode,
+                defaultVolume: s.volume,
+                currentThemeId: s.currentThemeId,
+                themeColor: s.themeColor,
+                backgroundColor: s.backgroundColor,
+                backgroundOpacity: s.backgroundOpacity,
+                backgroundImage: s.backgroundImageUrl,
+                panelOpacity: s.panelOpacity,
+                ...(partial.config || {}),
+            },
             updatedAt: new Date().toISOString(),
-            ...partial,
-        } as PlayerSetting;
+        } as any as PlayerSetting;
         setSetting(next);
         try {
             await Services.SavePlayerSetting(next as any);

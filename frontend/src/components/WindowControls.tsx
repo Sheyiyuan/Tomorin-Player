@@ -29,7 +29,7 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
     const [exitChoice, setExitChoice] = useState<ExitBehavior>("minimize");
     const { state: themeState } = useThemeContext();
 
-    // 优先使用 props，否则回退到 context (虽然 context 里没有 computed values，但可以作为兜底)
+    // 优先使用 props，否则回退到 context
     const themeColor = propThemeColor || themeState.themeColor;
     const controlBackground = propControlBackground;
     const textColorPrimary = propTextColorPrimary || themeState.textColorPrimary;

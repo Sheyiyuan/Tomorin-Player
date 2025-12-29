@@ -12,7 +12,7 @@ import { useSongs, useFavorites, useSongCache, useSettingsPersistence } from "./
 import { useAuth, useBVResolver, useFavoriteActions, useThemeEditor, useSearchAndBV, useBVModal, useLyricManagement, useSongOperations, useLyricLoader, useGlobalSearch, useLoginHandlers } from "./hooks/features";
 import { useHitokoto, useUiDerived, useAppLifecycle, useAppEffects, useAppHandlers } from "./hooks/ui";
 import { useAppPanelsProps } from "./hooks/ui/useAppPanelsProps";
-// Contexts
+// Contexts - use both old and new for compatibility during migration
 import { useThemeContext, useModalContext } from "./context";
 
 // Utils

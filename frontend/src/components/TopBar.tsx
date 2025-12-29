@@ -3,7 +3,6 @@ import { ActionIcon, Avatar, Button, Group, Menu, Text } from "@mantine/core";
 import { LogOut, Palette, Search, Settings as SettingsIcon } from "lucide-react";
 import { notifications } from "@mantine/notifications";
 import * as Services from "../../wailsjs/go/services/Service";
-import { useThemeContext } from "../context";
 import { WindowControls } from "./WindowControls";
 
 interface UserInfo {

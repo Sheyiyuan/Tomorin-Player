@@ -14,18 +14,18 @@
 - **[REFACTOR_README.md](REFACTOR_README.md)** - 📖 文档总览和导航
 
 ### 核心指南
-| 文档 | 内容 | 行数 | 时间 |
-|------|------|------|------|
-| [QUICK_START_REFACTOR.md](QUICK_START_REFACTOR.md) | ⚡ 5分钟快速版 | 350 | 5 分钟 |
-| [FRONTEND_REFACTOR_GUIDE.md](FRONTEND_REFACTOR_GUIDE.md) | 📚 600+ 行完整指南 | 650 | 1 小时 |
-| [REFACTOR_EXECUTION_CHECKLIST.md](REFACTOR_EXECUTION_CHECKLIST.md) | ✅ 分阶段执行清单 | 750 | 90 分钟 |
+| 文档                                                               | 内容              | 行数 | 时间    |
+| ------------------------------------------------------------------ | ----------------- | ---- | ------- |
+| [QUICK_START_REFACTOR.md](QUICK_START_REFACTOR.md)                 | ⚡ 5分钟快速版     | 350  | 5 分钟  |
+| [FRONTEND_REFACTOR_GUIDE.md](FRONTEND_REFACTOR_GUIDE.md)           | 📚 600+ 行完整指南 | 650  | 1 小时  |
+| [REFACTOR_EXECUTION_CHECKLIST.md](REFACTOR_EXECUTION_CHECKLIST.md) | ✅ 分阶段执行清单  | 750  | 90 分钟 |
 
 ### 参考文档
-| 文档 | 内容 | 行数 |
-|------|------|------|
-| [REFACTOR_QUICK_REFERENCE.md](REFACTOR_QUICK_REFERENCE.md) | 🔖 快速查阅卡 | 400 |
-| [DIRECTORY_STRUCTURE_CHANGES.md](DIRECTORY_STRUCTURE_CHANGES.md) | 📂 目录对比 | 500 |
-| [REFACTOR_DOCUMENTATION_INDEX.md](REFACTOR_DOCUMENTATION_INDEX.md) | 🗂️ 完整导航 | 300 |
+| 文档                                                               | 内容         | 行数 |
+| ------------------------------------------------------------------ | ------------ | ---- |
+| [REFACTOR_QUICK_REFERENCE.md](REFACTOR_QUICK_REFERENCE.md)         | 🔖 快速查阅卡 | 400  |
+| [DIRECTORY_STRUCTURE_CHANGES.md](DIRECTORY_STRUCTURE_CHANGES.md)   | 📂 目录对比   | 500  |
+| [REFACTOR_DOCUMENTATION_INDEX.md](REFACTOR_DOCUMENTATION_INDEX.md) | 🗂️ 完整导航   | 300  |
 
 ### 项目更新
 - **[.github/copilot-instructions.md](.github/copilot-instructions.md)** - 已更新重构部分
@@ -97,40 +97,40 @@ git checkout -b refactor/frontend-restructuring
 
 ## 📊 重构收益
 
-| 方面 | 改进 |
-|------|------|
-| **代码行数** | 1103 → <500 行（↓55%） |
-| **顶层状态** | 45+ → 1 个（↓97%） |
-| **Hook 导入** | 30+ → 5-8 个（↓83%） |
-| **Props 属性** | 80+ → <5 个（↓95%） |
-| **Context 数量** | 3 → 1 个（↓67%） |
-| **代码组织** | 混乱 → 清晰 |
-| **维护难度** | 高 → 低 |
-| **新人学习** | 困难 → 容易 |
+| 方面             | 改进                   |
+| ---------------- | ---------------------- |
+| **代码行数**     | 1103 → <500 行（↓55%） |
+| **顶层状态**     | 45+ → 1 个（↓97%）     |
+| **Hook 导入**    | 30+ → 5-8 个（↓83%）   |
+| **Props 属性**   | 80+ → <5 个（↓95%）    |
+| **Context 数量** | 3 → 1 个（↓67%）       |
+| **代码组织**     | 混乱 → 清晰            |
+| **维护难度**     | 高 → 低                |
+| **新人学习**     | 困难 → 容易            |
 
 ## 🎯 6 个重构阶段
 
-| 阶段 | 任务 | 天数 |
-|------|------|------|
-| 1 | 创建统一状态管理（Store + Context） | 1-2 |
-| 2 | 合并和重组 Hook（13→4） | 1-2 |
-| 3 | 精简 App.tsx（1103→<500 行） | 1 |
-| 4 | 重组组件文件结构 | 1 |
-| 5 | Props 规范化和类型完善 | 1 |
-| 6 | 验证、测试和优化 | 1 |
+| 阶段 | 任务                                | 天数 |
+| ---- | ----------------------------------- | ---- |
+| 1    | 创建统一状态管理（Store + Context） | 1-2  |
+| 2    | 合并和重组 Hook（13→4）             | 1-2  |
+| 3    | 精简 App.tsx（1103→<500 行）        | 1    |
+| 4    | 重组组件文件结构                    | 1    |
+| 5    | Props 规范化和类型完善              | 1    |
+| 6    | 验证、测试和优化                    | 1    |
 
 ## 💡 快速查找
 
-| 需要什么 | 查阅 |
-|---------|------|
-| 不知道是什么 | QUICK_START_REFACTOR.md |
-| 想全面理解 | FRONTEND_REFACTOR_GUIDE.md |
-| 要开始执行 | REFACTOR_EXECUTION_CHECKLIST.md |
-| 遇到错误 | REFACTOR_QUICK_REFERENCE.md |
-| 查文件映射 | REFACTOR_QUICK_REFERENCE.md |
-| 查代码模板 | REFACTOR_QUICK_REFERENCE.md |
-| 理解新结构 | DIRECTORY_STRUCTURE_CHANGES.md |
-| 找全部文档 | REFACTOR_DOCUMENTATION_INDEX.md |
+| 需要什么     | 查阅                            |
+| ------------ | ------------------------------- |
+| 不知道是什么 | QUICK_START_REFACTOR.md         |
+| 想全面理解   | FRONTEND_REFACTOR_GUIDE.md      |
+| 要开始执行   | REFACTOR_EXECUTION_CHECKLIST.md |
+| 遇到错误     | REFACTOR_QUICK_REFERENCE.md     |
+| 查文件映射   | REFACTOR_QUICK_REFERENCE.md     |
+| 查代码模板   | REFACTOR_QUICK_REFERENCE.md     |
+| 理解新结构   | DIRECTORY_STRUCTURE_CHANGES.md  |
+| 找全部文档   | REFACTOR_DOCUMENTATION_INDEX.md |
 
 ## 🎓 文档内容预览
 
@@ -214,12 +214,12 @@ git checkout -b refactor/frontend-restructuring
 
 ## 🎉 准备好了吗？
 
-| 我想... | 打开这个 | 耗时 |
-|--------|---------|------|
-| 快速了解 | QUICK_START_REFACTOR.md | 5分钟 |
-| 完整理解 | FRONTEND_REFACTOR_GUIDE.md | 1小时 |
-| 开始执行 | REFACTOR_EXECUTION_CHECKLIST.md | 5-7天 |
-| 工作参考 | REFACTOR_QUICK_REFERENCE.md | 随时 |
+| 我想...  | 打开这个                        | 耗时   |
+| -------- | ------------------------------- | ------ |
+| 快速了解 | QUICK_START_REFACTOR.md         | 5分钟  |
+| 完整理解 | FRONTEND_REFACTOR_GUIDE.md      | 1小时  |
+| 开始执行 | REFACTOR_EXECUTION_CHECKLIST.md | 5-7天  |
+| 工作参考 | REFACTOR_QUICK_REFERENCE.md     | 随时   |
 | 查看导航 | REFACTOR_DOCUMENTATION_INDEX.md | 10分钟 |
 
 ---

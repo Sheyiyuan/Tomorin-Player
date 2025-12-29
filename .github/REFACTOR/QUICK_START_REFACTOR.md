@@ -63,14 +63,14 @@ components/
 
 ## 📋 6 个阶段概览
 
-| 阶段 | 任务 | 天数 | 优先级 |
-|------|------|------|--------|
-| 1 | 创建 Store + Context + useAppStore | 1-2 | 🔴 |
-| 2 | 合并 13 个 Hook 为 4 个 | 1-2 | 🟠 |
-| 3 | 精简 App.tsx (1103 → <500 行) | 1 | 🟠 |
-| 4 | 重组组件目录结构 | 1 | 🟡 |
-| 5 | 规范 Props 和类型 | 1 | 🟡 |
-| 6 | 验证和测试 | 1 | 🟡 |
+| 阶段 | 任务                               | 天数 | 优先级 |
+| ---- | ---------------------------------- | ---- | ------ |
+| 1    | 创建 Store + Context + useAppStore | 1-2  | 🔴      |
+| 2    | 合并 13 个 Hook 为 4 个            | 1-2  | 🟠      |
+| 3    | 精简 App.tsx (1103 → <500 行)      | 1    | 🟠      |
+| 4    | 重组组件目录结构                   | 1    | 🟡      |
+| 5    | 规范 Props 和类型                  | 1    | 🟡      |
+| 6    | 验证和测试                         | 1    | 🟡      |
 
 ## 🚀 如何开始？
 
@@ -215,13 +215,13 @@ import { usePlayer, usePlaylist } from './hooks/player'; // ✅
 
 ## 📖 完整文档
 
-| 文档 | 用途 |
-|------|------|
-| [FRONTEND_REFACTOR_GUIDE.md](FRONTEND_REFACTOR_GUIDE.md) | 完整详细指南 |
-| [REFACTOR_QUICK_REFERENCE.md](REFACTOR_QUICK_REFERENCE.md) | ⭐ 快速查阅（建议打印） |
+| 文档                                                               | 用途                         |
+| ------------------------------------------------------------------ | ---------------------------- |
+| [FRONTEND_REFACTOR_GUIDE.md](FRONTEND_REFACTOR_GUIDE.md)           | 完整详细指南                 |
+| [REFACTOR_QUICK_REFERENCE.md](REFACTOR_QUICK_REFERENCE.md)         | ⭐ 快速查阅（建议打印）       |
 | [REFACTOR_EXECUTION_CHECKLIST.md](REFACTOR_EXECUTION_CHECKLIST.md) | ⭐ 分阶段执行清单（建议打印） |
-| [DIRECTORY_STRUCTURE_CHANGES.md](DIRECTORY_STRUCTURE_CHANGES.md) | 目录对比 |
-| [REFACTOR_DOCUMENTATION_INDEX.md](REFACTOR_DOCUMENTATION_INDEX.md) | 文档导航 |
+| [DIRECTORY_STRUCTURE_CHANGES.md](DIRECTORY_STRUCTURE_CHANGES.md)   | 目录对比                     |
+| [REFACTOR_DOCUMENTATION_INDEX.md](REFACTOR_DOCUMENTATION_INDEX.md) | 文档导航                     |
 
 ---
 

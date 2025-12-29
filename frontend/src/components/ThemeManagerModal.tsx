@@ -77,36 +77,38 @@ const ThemeManagerModal: React.FC<ThemeManagerModalProps> = ({
                                 >
                                     {currentThemeId === theme.id ? "已选" : "选择"}
                                 </Button>
-                                <Button
-                                    size="xs"
-                                    variant="light"
-                                    color={theme.themeColor}
-                                    radius={derived?.componentRadius}
-                                    onClick={() => onViewTheme(theme)}
-                                >
-                                    详情
-                                </Button>
-                                {!theme.isReadOnly && (
+                                {theme.isReadOnly && (
                                     <Button
                                         size="xs"
                                         variant="light"
                                         color={theme.themeColor}
                                         radius={derived?.componentRadius}
-                                        onClick={() => onEditTheme(theme)}
+                                        onClick={() => onViewTheme(theme)}
                                     >
-                                        编辑
+                                        详情
                                     </Button>
                                 )}
                                 {!theme.isReadOnly && (
-                                    <Button
-                                        size="xs"
-                                        variant="light"
-                                        color="red"
-                                        radius={derived?.componentRadius}
-                                        onClick={() => onDeleteTheme(theme.id)}
-                                    >
-                                        删除
-                                    </Button>
+                                    <>
+                                        <Button
+                                            size="xs"
+                                            variant="light"
+                                            color={theme.themeColor}
+                                            radius={derived?.componentRadius}
+                                            onClick={() => onEditTheme(theme)}
+                                        >
+                                            编辑
+                                        </Button>
+                                        <Button
+                                            size="xs"
+                                            variant="light"
+                                            color="red"
+                                            radius={derived?.componentRadius}
+                                            onClick={() => onDeleteTheme(theme.id)}
+                                        >
+                                            删除
+                                        </Button>
+                                    </>
                                 )}
                             </Group>
                         </Group>

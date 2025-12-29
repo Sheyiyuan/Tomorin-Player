@@ -1,6 +1,7 @@
 import React, { RefObject, useState, useEffect, useCallback } from "react";
-import { Button, ColorInput, Group, Modal, Slider, Stack, Text, TextInput, Select, Fieldset, Divider, Tabs, Textarea, Alert, Box } from "@mantine/core";
-import { AlertCircle } from "lucide-react";
+import { Button, ColorInput, Group, Modal, Slider, Stack, Text, TextInput, Select, Fieldset, Divider, Tabs, Textarea, Alert, Box, ScrollArea } from "@mantine/core";
+import { AlertCircle, Copy, Check } from "lucide-react";
+import { notifications } from "@mantine/notifications";
 
 export type ThemeDetailModalProps = {
     opened: boolean;
@@ -164,6 +165,7 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = ({
     const [activeTab, setActiveTab] = useState<string | null>("gui");
     const [jsonError, setJsonError] = useState<string>("");
     const [jsonText, setJsonText] = useState("");
+    const [copied, setCopied] = useState(false);
 
     // 建立 Theme Object 和 JSON 之间的同步
     const buildThemeObject = useCallback((): ThemeObject => ({
@@ -292,6 +294,25 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = ({
         setJsonError("");
     };
 
+    // 复制 JSON 到剪贴板
+    const handleCopyJson = useCallback(() => {
+        navigator.clipboard.writeText(jsonText).then(() => {
+            setCopied(true);
+            notifications.show({
+                message: "已复制到剪贴板",
+                color: "green",
+                autoClose: 1500,
+            });
+            setTimeout(() => setCopied(false), 2000);
+        }).catch(() => {
+            notifications.show({
+                message: "复制失败",
+                color: "red",
+                autoClose: 1500,
+            });
+        });
+    }, [jsonText]);
+
     // 从 JSON 应用按钮
     const handleApplyFromJson = () => {
         try {
@@ -405,159 +426,38 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = ({
 
                 {/* GUI 模式 */}
                 <Tabs.Panel value="gui" pt="md">
-                    <Stack gap="md">
-                        <Fieldset legend="基础设置" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
-                            <Stack gap="sm">
-                                <TextInput
-                                    label="主题名称"
-                                    value={newThemeName}
-                                    onChange={(e) => onNameChange(e.currentTarget.value)}
-                                    placeholder="输入主题名称"
-                                    size="sm"
-                                    styles={inputStyles}
-                                    readOnly={isReadOnly}
-                                />
-                                <ColorInput
-                                    label="主题色"
-                                    value={themeColorDraft}
-                                    onChange={onThemeColorChange}
-                                    size="sm"
-                                    disallowInput={false}
-                                    format="hex"
-                                    styles={inputStyles}
-                                    readOnly={isReadOnly}
-                                />
-                            </Stack>
-                        </Fieldset>
-
-                        <Fieldset legend="背景设置" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
-                            <Stack gap="sm">
-                                <ColorInput
-                                    label="背景色"
-                                    value={backgroundColorDraft}
-                                    onChange={onBackgroundColorChange}
-                                    size="sm"
-                                    disallowInput={false}
-                                    format="hex"
-                                    styles={inputStyles}
-                                    readOnly={isReadOnly}
-                                />
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>背景不透明度</Text>
-                                    <Slider
-                                        value={backgroundOpacityDraft * 100}
-                                        onChange={(v) => onBackgroundOpacityChange(v / 100)}
-                                        min={0}
-                                        max={100}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}%`}
-                                        color={themeColorDraft}
-                                        disabled={isReadOnly}
+                    <ScrollArea style={{ height: "500px", marginRight: -16, paddingRight: 16 }}>
+                        <Stack gap="md" pr="md">
+                            <Fieldset legend="基础设置" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
+                                <Stack gap="sm">
+                                    <TextInput
+                                        label="主题名称"
+                                        value={newThemeName}
+                                        onChange={(e) => onNameChange(e.currentTarget.value)}
+                                        placeholder="输入主题名称"
+                                        size="sm"
+                                        styles={inputStyles}
+                                        readOnly={isReadOnly}
                                     />
-                                </Stack>
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>背景模糊</Text>
-                                    <Slider
-                                        value={backgroundBlurDraft}
-                                        onChange={onBackgroundBlurChange}
-                                        min={0}
-                                        max={50}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}px`}
-                                        color={themeColorDraft}
-                                        disabled={isReadOnly}
-                                    />
-                                </Stack>
-                                <Divider label="背景图" labelPosition="center" size="xs" styles={{ label: { color: derived?.textColorSecondary } }} />
-                                <TextInput
-                                    label="背景图 URL"
-                                    value={backgroundImageUrlDraft}
-                                    onChange={(e) => onBackgroundImageChange(e.currentTarget.value)}
-                                    placeholder="https://example.com/bg.jpg"
-                                    size="sm"
-                                    styles={inputStyles}
-                                    readOnly={isReadOnly}
-                                />
-                                {!isReadOnly && (
-                                    <Group grow gap="xs">
-                                        <Button size="xs" variant="light" color={themeColorDraft} onClick={() => fileInputRef.current?.click()}>
-                                            上传本地图片
-                                        </Button>
-                                        <Button
-                                            size="xs"
-                                            variant={pendingClear ? "filled" : "light"}
-                                            color={pendingClear ? "red" : "gray"}
-                                            onClick={handleClearClick}
-                                            disabled={!backgroundImageUrlDraft || backgroundImageUrlDraft.length === 0}
-                                        >
-                                            {pendingClear ? "确认清除？" : "清除背景图"}
-                                        </Button>
-                                    </Group>
-                                )}
-                            </Stack>
-                        </Fieldset>
-
-                        <Fieldset legend="面板设置" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
-                            <Stack gap="sm">
-                                <ColorInput
-                                    label="面板颜色"
-                                    value={panelColorDraft}
-                                    onChange={onPanelColorChange}
-                                    size="sm"
-                                    disallowInput={false}
-                                    format="hex"
-                                    styles={inputStyles}
-                                    readOnly={isReadOnly}
-                                />
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>面板不透明度</Text>
-                                    <Slider
-                                        value={panelOpacityDraft * 100}
-                                        onChange={(v) => onPanelOpacityChange(v / 100)}
-                                        min={20}
-                                        max={100}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}%`}
-                                        color={themeColorDraft}
-                                        disabled={isReadOnly}
-                                    />
-                                </Stack>
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>面板模糊</Text>
-                                    <Slider
-                                        value={panelBlurDraft}
-                                        onChange={onPanelBlurChange}
-                                        min={0}
-                                        max={30}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}px`}
-                                        color={themeColorDraft}
-                                        disabled={isReadOnly}
-                                    />
-                                </Stack>
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>面板圆角</Text>
-                                    <Slider
-                                        value={panelRadiusDraft}
-                                        onChange={onPanelRadiusChange}
-                                        min={0}
-                                        max={32}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}px`}
-                                        color={themeColorDraft}
-                                        disabled={isReadOnly}
-                                    />
-                                </Stack>
-                            </Stack>
-                        </Fieldset>
-
-                        <Fieldset legend="控件与文字" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
-                            <Stack gap="sm">
-                                <Group grow gap="xs">
                                     <ColorInput
-                                        label="控件背景色"
-                                        value={controlColorDraft}
-                                        onChange={onControlColorChange}
+                                        label="主题色"
+                                        value={themeColorDraft}
+                                        onChange={onThemeColorChange}
+                                        size="sm"
+                                        disallowInput={false}
+                                        format="hex"
+                                        styles={inputStyles}
+                                        readOnly={isReadOnly}
+                                    />
+                                </Stack>
+                            </Fieldset>
+
+                            <Fieldset legend="背景设置" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
+                                <Stack gap="sm">
+                                    <ColorInput
+                                        label="背景色"
+                                        value={backgroundColorDraft}
+                                        onChange={onBackgroundColorChange}
                                         size="sm"
                                         disallowInput={false}
                                         format="hex"
@@ -565,10 +465,10 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = ({
                                         readOnly={isReadOnly}
                                     />
                                     <Stack gap={2}>
-                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>控件不透明度</Text>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>背景不透明度</Text>
                                         <Slider
-                                            value={controlOpacityDraft * 100}
-                                            onChange={(v) => onControlOpacityChange(v / 100)}
+                                            value={backgroundOpacityDraft * 100}
+                                            onChange={(v) => onBackgroundOpacityChange(v / 100)}
                                             min={0}
                                             max={100}
                                             step={1}
@@ -577,186 +477,309 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = ({
                                             disabled={isReadOnly}
                                         />
                                     </Stack>
-                                </Group>
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>控件模糊</Text>
-                                    <Slider
-                                        value={controlBlurDraft}
-                                        onChange={onControlBlurChange}
-                                        min={0}
-                                        max={20}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}px`}
-                                        color={themeColorDraft}
-                                        disabled={isReadOnly}
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>背景模糊</Text>
+                                        <Slider
+                                            value={backgroundBlurDraft}
+                                            onChange={onBackgroundBlurChange}
+                                            min={0}
+                                            max={50}
+                                            step={1}
+                                            label={(v) => `${Math.round(v)}px`}
+                                            color={themeColorDraft}
+                                            disabled={isReadOnly}
+                                        />
+                                    </Stack>
+                                    <Divider label="背景图" labelPosition="center" size="xs" styles={{ label: { color: derived?.textColorSecondary } }} />
+                                    <TextInput
+                                        label="背景图 URL"
+                                        value={backgroundImageUrlDraft}
+                                        onChange={(e) => onBackgroundImageChange(e.currentTarget.value)}
+                                        placeholder="https://example.com/bg.jpg"
+                                        size="sm"
+                                        styles={inputStyles}
+                                        readOnly={isReadOnly}
                                     />
+                                    {!isReadOnly && (
+                                        <Group grow gap="xs">
+                                            <Button size="xs" variant="light" color={themeColorDraft} onClick={() => fileInputRef.current?.click()}>
+                                                上传本地图片
+                                            </Button>
+                                            <Button
+                                                size="xs"
+                                                variant={pendingClear ? "filled" : "light"}
+                                                color={pendingClear ? "red" : "gray"}
+                                                onClick={handleClearClick}
+                                                disabled={!backgroundImageUrlDraft || backgroundImageUrlDraft.length === 0}
+                                            >
+                                                {pendingClear ? "确认清除？" : "清除背景图"}
+                                            </Button>
+                                        </Group>
+                                    )}
                                 </Stack>
-                                <Group grow gap="xs">
+                            </Fieldset>
+
+                            <Fieldset legend="面板设置" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
+                                <Stack gap="sm">
                                     <ColorInput
-                                        label="主要文字颜色"
-                                        value={textColorPrimaryDraft}
-                                        onChange={onTextColorPrimaryChange}
+                                        label="面板颜色"
+                                        value={panelColorDraft}
+                                        onChange={onPanelColorChange}
                                         size="sm"
                                         disallowInput={false}
                                         format="hex"
                                         styles={inputStyles}
                                         readOnly={isReadOnly}
                                     />
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>面板不透明度</Text>
+                                        <Slider
+                                            value={panelOpacityDraft * 100}
+                                            onChange={(v) => onPanelOpacityChange(v / 100)}
+                                            min={20}
+                                            max={100}
+                                            step={1}
+                                            label={(v) => `${Math.round(v)}%`}
+                                            color={themeColorDraft}
+                                            disabled={isReadOnly}
+                                        />
+                                    </Stack>
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>面板模糊</Text>
+                                        <Slider
+                                            value={panelBlurDraft}
+                                            onChange={onPanelBlurChange}
+                                            min={0}
+                                            max={30}
+                                            step={1}
+                                            label={(v) => `${Math.round(v)}px`}
+                                            color={themeColorDraft}
+                                            disabled={isReadOnly}
+                                        />
+                                    </Stack>
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>面板圆角</Text>
+                                        <Slider
+                                            value={panelRadiusDraft}
+                                            onChange={onPanelRadiusChange}
+                                            min={0}
+                                            max={32}
+                                            step={1}
+                                            label={(v) => `${Math.round(v)}px`}
+                                            color={themeColorDraft}
+                                            disabled={isReadOnly}
+                                        />
+                                    </Stack>
+                                </Stack>
+                            </Fieldset>
+
+                            <Fieldset legend="控件与文字" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
+                                <Stack gap="sm">
+                                    <Group grow gap="xs">
+                                        <ColorInput
+                                            label="控件背景色"
+                                            value={controlColorDraft}
+                                            onChange={onControlColorChange}
+                                            size="sm"
+                                            disallowInput={false}
+                                            format="hex"
+                                            styles={inputStyles}
+                                            readOnly={isReadOnly}
+                                        />
+                                        <Stack gap={2}>
+                                            <Text size="xs" fw={500} c={derived?.textColorPrimary}>控件不透明度</Text>
+                                            <Slider
+                                                value={controlOpacityDraft * 100}
+                                                onChange={(v) => onControlOpacityChange(v / 100)}
+                                                min={0}
+                                                max={100}
+                                                step={1}
+                                                label={(v) => `${Math.round(v)}%`}
+                                                color={themeColorDraft}
+                                                disabled={isReadOnly}
+                                            />
+                                        </Stack>
+                                    </Group>
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>控件模糊</Text>
+                                        <Slider
+                                            value={controlBlurDraft}
+                                            onChange={onControlBlurChange}
+                                            min={0}
+                                            max={20}
+                                            step={1}
+                                            label={(v) => `${Math.round(v)}px`}
+                                            color={themeColorDraft}
+                                            disabled={isReadOnly}
+                                        />
+                                    </Stack>
+                                    <Group grow gap="xs">
+                                        <ColorInput
+                                            label="主要文字颜色"
+                                            value={textColorPrimaryDraft}
+                                            onChange={onTextColorPrimaryChange}
+                                            size="sm"
+                                            disallowInput={false}
+                                            format="hex"
+                                            styles={inputStyles}
+                                            readOnly={isReadOnly}
+                                        />
+                                        <ColorInput
+                                            label="次要文字颜色"
+                                            value={textColorSecondaryDraft}
+                                            onChange={onTextColorSecondaryChange}
+                                            size="sm"
+                                            disallowInput={false}
+                                            format="hex"
+                                            styles={inputStyles}
+                                            readOnly={isReadOnly}
+                                        />
+                                    </Group>
+                                </Stack>
+                            </Fieldset>
+
+                            <Fieldset legend="歌单卡片" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
+                                <Stack gap="sm">
                                     <ColorInput
-                                        label="次要文字颜色"
-                                        value={textColorSecondaryDraft}
-                                        onChange={onTextColorSecondaryChange}
+                                        label="卡片背景色"
+                                        value={favoriteCardColorDraft}
+                                        onChange={onFavoriteCardColorChange}
                                         size="sm"
                                         disallowInput={false}
                                         format="hex"
                                         styles={inputStyles}
                                         readOnly={isReadOnly}
                                     />
-                                </Group>
-                            </Stack>
-                        </Fieldset>
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>卡片不透明度</Text>
+                                        <Slider
+                                            value={cardOpacityDraft * 100}
+                                            onChange={(v) => onCardOpacityChange(v / 100)}
+                                            min={0}
+                                            max={100}
+                                            step={1}
+                                            label={(v) => `${Math.round(v)}%`}
+                                            color={themeColorDraft}
+                                            disabled={isReadOnly}
+                                        />
+                                    </Stack>
+                                </Stack>
+                            </Fieldset>
 
-                        <Fieldset legend="歌单卡片" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
-                            <Stack gap="sm">
-                                <ColorInput
-                                    label="卡片背景色"
-                                    value={favoriteCardColorDraft}
-                                    onChange={onFavoriteCardColorChange}
-                                    size="sm"
-                                    disallowInput={false}
-                                    format="hex"
-                                    styles={inputStyles}
-                                    readOnly={isReadOnly}
-                                />
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>卡片不透明度</Text>
-                                    <Slider
-                                        value={cardOpacityDraft * 100}
-                                        onChange={(v) => onCardOpacityChange(v / 100)}
-                                        min={0}
-                                        max={100}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}%`}
-                                        color={themeColorDraft}
-                                        disabled={isReadOnly}
+                            <Fieldset legend="弹窗" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
+                                <Stack gap="sm">
+                                    <ColorInput
+                                        label="弹窗背景色"
+                                        value={modalColorDraft}
+                                        onChange={onModalColorChange}
+                                        size="sm"
+                                        disallowInput={false}
+                                        format="hex"
+                                        styles={inputStyles}
+                                        readOnly={isReadOnly}
                                     />
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>弹窗不透明度</Text>
+                                        <Slider
+                                            value={modalOpacityDraft * 100}
+                                            onChange={(v) => onModalOpacityChange(v / 100)}
+                                            min={0}
+                                            max={100}
+                                            step={1}
+                                            label={(v) => `${Math.round(v)}%`}
+                                            color={themeColorDraft}
+                                            disabled={isReadOnly}
+                                        />
+                                    </Stack>
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>弹窗模糊度</Text>
+                                        <Slider
+                                            value={modalBlurDraft}
+                                            onChange={onModalBlurChange}
+                                            min={0}
+                                            max={30}
+                                            step={1}
+                                            label={(v) => `${Math.round(v)}px`}
+                                            color={themeColorDraft}
+                                            disabled={isReadOnly}
+                                        />
+                                    </Stack>
                                 </Stack>
-                            </Stack>
-                        </Fieldset>
+                            </Fieldset>
 
-                        <Fieldset legend="弹窗" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
-                            <Stack gap="sm">
-                                <ColorInput
-                                    label="弹窗背景色"
-                                    value={modalColorDraft}
-                                    onChange={onModalColorChange}
-                                    size="sm"
-                                    disallowInput={false}
-                                    format="hex"
-                                    styles={inputStyles}
-                                    readOnly={isReadOnly}
-                                />
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>弹窗不透明度</Text>
-                                    <Slider
-                                        value={modalOpacityDraft * 100}
-                                        onChange={(v) => onModalOpacityChange(v / 100)}
-                                        min={0}
-                                        max={100}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}%`}
-                                        color={themeColorDraft}
+                            <Fieldset legend="其他设置" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
+                                <Stack gap="sm">
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>组件圆角 (按钮/输入框)</Text>
+                                        <Slider
+                                            value={componentRadiusDraft}
+                                            onChange={onComponentRadiusChange}
+                                            min={0}
+                                            max={32}
+                                            step={1}
+                                            label={(v) => `${Math.round(v)}px`}
+                                            color={themeColorDraft}
+                                            disabled={isReadOnly}
+                                        />
+                                    </Stack>
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>弹窗圆角</Text>
+                                        <Slider
+                                            value={modalRadiusDraft}
+                                            onChange={onModalRadiusChange}
+                                            min={0}
+                                            max={32}
+                                            step={1}
+                                            label={(v) => `${Math.round(v)}px`}
+                                            color={themeColorDraft}
+                                            disabled={isReadOnly}
+                                        />
+                                    </Stack>
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>通知圆角</Text>
+                                        <Slider
+                                            value={notificationRadiusDraft}
+                                            onChange={onNotificationRadiusChange}
+                                            min={0}
+                                            max={32}
+                                            step={1}
+                                            label={(v) => `${Math.round(v)}px`}
+                                            color={themeColorDraft}
+                                            disabled={isReadOnly}
+                                        />
+                                    </Stack>
+                                    <Stack gap={2}>
+                                        <Text size="xs" fw={500} c={derived?.textColorPrimary}>封面圆角</Text>
+                                        <Slider
+                                            value={coverRadiusDraft}
+                                            onChange={onCoverRadiusChange}
+                                            min={0}
+                                            max={50}
+                                            step={1}
+                                            label={(v) => `${Math.round(v)}px`}
+                                            color={themeColorDraft}
+                                            disabled={isReadOnly}
+                                        />
+                                    </Stack>
+                                    <Select
+                                        label="窗口管理按钮位置"
+                                        placeholder="选择窗口按钮位置"
+                                        data={[
+                                            { value: 'left', label: '左侧' },
+                                            { value: 'right', label: '右侧' },
+                                            { value: 'hidden', label: '隐藏' },
+                                        ]}
+                                        value={windowControlsPosDraft}
+                                        onChange={(value) => onWindowControlsPosChange(value || 'right')}
+                                        size="sm"
+                                        radius={derived?.componentRadius}
+                                        styles={inputStyles}
                                         disabled={isReadOnly}
                                     />
                                 </Stack>
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>弹窗模糊度</Text>
-                                    <Slider
-                                        value={modalBlurDraft}
-                                        onChange={onModalBlurChange}
-                                        min={0}
-                                        max={30}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}px`}
-                                        color={themeColorDraft}
-                                        disabled={isReadOnly}
-                                    />
-                                </Stack>
-                            </Stack>
-                        </Fieldset>
-
-                        <Fieldset legend="其他设置" variant="unstyled" styles={{ legend: { color: derived?.textColorPrimary, fontWeight: 600 } }}>
-                            <Stack gap="sm">
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>组件圆角 (按钮/输入框)</Text>
-                                    <Slider
-                                        value={componentRadiusDraft}
-                                        onChange={onComponentRadiusChange}
-                                        min={0}
-                                        max={32}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}px`}
-                                        color={themeColorDraft}
-                                        disabled={isReadOnly}
-                                    />
-                                </Stack>
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>弹窗圆角</Text>
-                                    <Slider
-                                        value={modalRadiusDraft}
-                                        onChange={onModalRadiusChange}
-                                        min={0}
-                                        max={32}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}px`}
-                                        color={themeColorDraft}
-                                        disabled={isReadOnly}
-                                    />
-                                </Stack>
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>通知圆角</Text>
-                                    <Slider
-                                        value={notificationRadiusDraft}
-                                        onChange={onNotificationRadiusChange}
-                                        min={0}
-                                        max={32}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}px`}
-                                        color={themeColorDraft}
-                                        disabled={isReadOnly}
-                                    />
-                                </Stack>
-                                <Stack gap={2}>
-                                    <Text size="xs" fw={500} c={derived?.textColorPrimary}>封面圆角</Text>
-                                    <Slider
-                                        value={coverRadiusDraft}
-                                        onChange={onCoverRadiusChange}
-                                        min={0}
-                                        max={50}
-                                        step={1}
-                                        label={(v) => `${Math.round(v)}px`}
-                                        color={themeColorDraft}
-                                        disabled={isReadOnly}
-                                    />
-                                </Stack>
-                                <Select
-                                    label="窗口管理按钮位置"
-                                    placeholder="选择窗口按钮位置"
-                                    data={[
-                                        { value: 'left', label: '左侧' },
-                                        { value: 'right', label: '右侧' },
-                                        { value: 'hidden', label: '隐藏' },
-                                    ]}
-                                    value={windowControlsPosDraft}
-                                    onChange={(value) => onWindowControlsPosChange(value || 'right')}
-                                    size="sm"
-                                    radius={derived?.componentRadius}
-                                    styles={inputStyles}
-                                    disabled={isReadOnly}
-                                />
-                            </Stack>
-                        </Fieldset>
-                    </Stack>
+                            </Fieldset>
+                        </Stack>
+                    </ScrollArea>
                 </Tabs.Panel>
 
                 {/* JSON 模式 */}
@@ -767,15 +790,30 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = ({
                                 这是一个内置主题，无法编辑。查看详情请使用上面的 JSON 配置。
                             </Alert>
                         )}
-                        <Textarea
-                            label="主题配置 (JSON)"
-                            placeholder="粘贴或编辑 JSON 配置..."
-                            value={jsonText}
-                            onChange={(e) => handleJsonChange(e.currentTarget.value)}
-                            minRows={15}
-                            styles={textareaStyles}
-                            readOnly={isReadOnly}
-                        />
+                        <div style={{ position: "relative" }}>
+                            <ScrollArea style={{ height: "500px", marginRight: -16, paddingRight: 16 }}>
+                                <Textarea
+                                    label="主题配置 (JSON)"
+                                    placeholder="粘贴或编辑 JSON 配置..."
+                                    value={jsonText}
+                                    onChange={(e) => handleJsonChange(e.currentTarget.value)}
+                                    minRows={20}
+                                    styles={textareaStyles}
+                                    readOnly={isReadOnly}
+                                />
+                            </ScrollArea>
+                        </div>
+                        {!isReadOnly && (
+                            <Button
+                                leftSection={copied ? <Check size={16} /> : <Copy size={16} />}
+                                variant="light"
+                                color={themeColorDraft}
+                                onClick={handleCopyJson}
+                                radius={derived?.componentRadius}
+                            >
+                                {copied ? "已复制" : "复制 JSON"}
+                            </Button>
+                        )}
                         {jsonError && (
                             <Alert icon={<AlertCircle size={16} />} color="red" title="JSON 验证错误">
                                 <Box style={{ whiteSpace: "pre-wrap", fontSize: "12px" }}>

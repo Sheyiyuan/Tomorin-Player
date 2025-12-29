@@ -101,7 +101,7 @@ const BVAddModal: React.FC<BVAddModalProps> = ({
             overlayProps={{ blur: 10, opacity: 0.35 }}
             radius={derived?.componentRadius}
             styles={modalStyles}
-            className="glass-panel"
+            className="normal-panel"
         >
             {bvPreview ? (
                 <Stack gap="md">

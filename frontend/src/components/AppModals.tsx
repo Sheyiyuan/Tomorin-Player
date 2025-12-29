@@ -434,7 +434,6 @@ const AppModals: React.FC<AppModalsProps> = (props) => {
                 onSelect={onPlaylistSelect}
                 onReorder={onPlaylistReorder}
                 onRemove={onPlaylistRemove}
-                panelStyles={panelStyles}
                 derived={derived}
             />
 
@@ -458,7 +457,7 @@ const AppModals: React.FC<AppModalsProps> = (props) => {
                         fontWeight: 600,
                     }
                 }}
-                className="glass-panel"
+                className="normal-panel"
             >
                 <Stack gap="md">
                     <TextInput

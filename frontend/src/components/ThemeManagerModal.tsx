@@ -45,7 +45,7 @@ const ThemeManagerModal: React.FC<ThemeManagerModalProps> = ({
     } : undefined;
 
     return (
-        <Modal opened={opened} onClose={onClose} title="主题管理" centered size="md" radius={derived?.componentRadius} styles={modalStyles} className={panelStyles ? "glass-panel" : ""}>
+        <Modal opened={opened} onClose={onClose} title="主题管理" centered size="md" radius={derived?.componentRadius} styles={modalStyles} className="normal-panel">
             <Stack gap="sm">
                 {themes.map((theme) => (
                     <Card key={theme.id} p="sm" radius={derived?.componentRadius} withBorder style={{

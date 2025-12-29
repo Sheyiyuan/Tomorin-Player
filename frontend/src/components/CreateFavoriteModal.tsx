@@ -110,7 +110,7 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
             centered
             size="md"
             styles={modalStyles}
-            className={panelStyles ? "glass-panel" : ""}
+            className="normal-panel"
         >
             <Stack gap="sm">
                 <TextInput

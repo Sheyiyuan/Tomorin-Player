@@ -48,7 +48,7 @@ const DownloadManagerModal: React.FC<DownloadManagerModalProps> = ({
             centered
             title="下载文件管理"
             styles={modalStyles}
-            className={panelStyles ? "glass-panel" : ""}
+            className="normal-panel"
         >
             <Stack gap="md">
                 <Text fw={600} style={{ color: derived?.textColorPrimary }}>{managingSong?.name || '未选择歌曲'}</Text>

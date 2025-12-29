@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { ActionIcon, Box, Group, Image, Slider, Stack, Text } from "@mantine/core";
-import { Download, ListMusic, Music, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, SquarePlus } from "lucide-react";
+import { Download, ListMusic, Music, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, SquarePlus, Volume, Volume1, Volume2, VolumeX } from "lucide-react";
 import { Song } from "../types";
 
 export type PlayerBarProps = {
@@ -72,6 +72,36 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
 }) => {
     const isDownloaded = currentSong ? downloadedSongIds.has(currentSong.id) : false;
     const iconStyle = { color: textColorPrimary };
+    const [isMuted, setIsMuted] = useState<boolean>(false);
+    const [previousVolume, setPreviousVolume] = useState<number>(volume || 0.5);
+
+    const handleMuteToggle = () => {
+        if (isMuted) {
+            // 取消静音，恢复到之前的音量
+            setIsMuted(false);
+            changeVolume(previousVolume > 0 ? previousVolume : 0.5);
+        } else {
+            // 进入静音状态
+            setPreviousVolume(volume);
+            setIsMuted(true);
+            changeVolume(0);
+        }
+    };
+
+    const handleVolumeChange = (value: number) => {
+        // 当用户调节音量滑块时，自动取消静音状态
+        if (isMuted) {
+            setIsMuted(false);
+        }
+        changeVolume(value);
+    };
+
+    const getVolumeIcon = () => {
+        if (isMuted) return <VolumeX size={16} />;
+        if (volume === 0) return <Volume size={16} />;
+        if (volume < 0.5) return <Volume1 size={16} />;
+        return <Volume2 size={16} />;
+    };
 
     return (
         <Group align="flex-start" gap="md">
@@ -259,10 +289,19 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                             {playMode === "loop" ? <Repeat size={16} /> : playMode === "random" ? <Shuffle size={16} /> : <Repeat1 size={16} />}
                         </ActionIcon>
                         <Group gap={6} align="center">
-                            <Text size="xs" style={{ color: textColorSecondary }}>音量</Text>
+                            <ActionIcon
+                                variant="default"
+                                size="lg"
+                                radius={componentRadius}
+                                onClick={handleMuteToggle}
+                                title={isMuted ? "取消静音" : "静音"}
+                                style={{ ...controlStyles, borderColor: "transparent", color: textColorPrimary }}
+                            >
+                                {getVolumeIcon()}
+                            </ActionIcon>
                             <Slider
                                 value={Math.round(volume * 100)}
-                                onChange={(v) => changeVolume(v / 100)}
+                                onChange={(v) => handleVolumeChange(v / 100)}
                                 min={0}
                                 max={100}
                                 step={1}

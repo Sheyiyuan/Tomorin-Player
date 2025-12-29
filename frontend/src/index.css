@@ -32,7 +32,7 @@ a {
     -webkit-app-region: no-drag;
 }
 
-/* 兼容性毛玻璃方案 */
+/* 兼容性毛玻璃方案 - 仅用于面板和播放控件 */
 .glass-panel {
     position: relative;
     overflow: hidden;
@@ -65,6 +65,12 @@ a {
     inset: 0;
     z-index: -1;
     background-color: var(--glass-panel-color);
+}
+
+/* 普通面板 - 不应用背景图片模糊 */
+.normal-panel {
+    position: relative;
+    background-color: transparent !important;
 }
 
 @keyframes scroll {

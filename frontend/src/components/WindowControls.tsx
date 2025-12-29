@@ -181,7 +181,7 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
                         fontWeight: 600,
                     }
                 }}
-                className="glass-panel"
+                className="normal-panel"
             >
                 <div style={{ marginBottom: "16px" }}>
                     <Radio.Group

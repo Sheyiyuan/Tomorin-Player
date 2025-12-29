@@ -193,7 +193,7 @@ const ThemeEditorModal: React.FC<ThemeEditorModalProps> = ({
             size="md"
             radius={derived?.componentRadius}
             styles={modalStyles}
-            className="glass-panel"
+            className="normal-panel"
         >
             <input
                 ref={fileInputRef}

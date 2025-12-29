@@ -103,7 +103,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     fontWeight: 600,
                 }
             }}
-            className="glass-panel"
+            className="normal-panel"
         >
             <Stack gap="md">
                 <TextInput

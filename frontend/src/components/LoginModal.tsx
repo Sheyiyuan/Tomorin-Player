@@ -120,7 +120,7 @@ export default function LoginModal({ opened, onClose, onLoginSuccess, panelStyle
             closeOnEscape={true}
             closeOnClickOutside={true}
             styles={modalStyles}
-            className={panelStyles ? "glass-panel" : ""}
+            className="normal-panel"
         >
             <Stack gap="md">
                 {errorMessage && (

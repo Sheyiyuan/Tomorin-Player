@@ -12,7 +12,6 @@ export type PlaylistModalProps = {
     onSelect: (song: Song, index: number) => void;
     onReorder: (fromIndex: number, toIndex: number) => void;
     onRemove: (index: number) => void;
-    panelStyles?: React.CSSProperties;
     derived?: any;
 };
 
@@ -25,11 +24,24 @@ const PlaylistModal: React.FC<PlaylistModalProps> = ({
     onSelect,
     onReorder,
     onRemove,
-    panelStyles,
     derived,
 }) => {
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+    const modalStyles = derived ? {
+        content: {
+            backgroundColor: derived.modalBackground,
+            color: derived.textColorPrimary,
+        },
+        header: {
+            backgroundColor: "transparent",
+            color: derived.textColorPrimary,
+        },
+        title: {
+            fontWeight: 600,
+        }
+    } : undefined;
 
     const handleDragStart = (e: React.DragEvent, index: number) => {
         setDraggedIndex(index);
@@ -68,23 +80,8 @@ const PlaylistModal: React.FC<PlaylistModalProps> = ({
             size="lg"
             centered
             overlayProps={{ blur: 10, opacity: 0.35 }}
-            styles={{
-                body: { height: '500px' },
-                content: {
-                    height: '600px',
-                    ...panelStyles,
-                    backgroundColor: derived?.panelBackground,
-                    color: derived?.textColorPrimary,
-                },
-                header: {
-                    backgroundColor: "transparent",
-                    color: derived?.textColorPrimary,
-                },
-                title: {
-                    fontWeight: 600,
-                }
-            }}
-            className="glass-panel"
+            styles={modalStyles}
+            className="normal-panel"
         >
             <ScrollArea style={{ height: '450px' }}>
                 <Stack gap="xs">
@@ -102,18 +99,14 @@ const PlaylistModal: React.FC<PlaylistModalProps> = ({
                                 onDragLeave={handleDragLeave}
                                 onDrop={(e) => handleDrop(e, index)}
                                 onDragEnd={handleDragEnd}
-                                className="glass-panel"
+                                className="normal-panel"
                                 style={{
-                                    ...panelStyles,
                                     backgroundColor:
                                         index === currentIndex
                                             ? `${themeColorHighlight}40`
                                             : dragOverIndex === index && draggedIndex !== index
                                                 ? 'rgba(0, 0, 0, 0.05)'
                                                 : derived?.controlBackground,
-                                    "--glass-panel-color": index === currentIndex
-                                        ? `${themeColorHighlight}40`
-                                        : derived?.controlBackground,
                                     cursor: "move",
                                     opacity: draggedIndex === index ? 0.5 : 1,
                                     transition: 'all 0.2s ease',

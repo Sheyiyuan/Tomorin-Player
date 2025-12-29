@@ -35,7 +35,7 @@ const AddToFavoriteModal: React.FC<AddToFavoriteModalProps> = ({ opened, onClose
                     fontWeight: 600,
                 }
             }}
-            className="glass-panel"
+            className="normal-panel"
         >
             <Stack gap="md">
                 {favorites.length === 0 ? (

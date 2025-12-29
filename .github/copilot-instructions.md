@@ -306,7 +306,7 @@ const handleCopyJson = useCallback(() => {
 **最易出错的地方**：参数解构！每次在新的函数/组件中使用新字段都必须从参数中显式解构。
 ## 🔄 前端重构进行中（2025年12月29日启动）
 
-> 📌 **重要**：前端代码进行结构性重构，目标是精简 App.tsx（1103 行 → <500 行）、统一状态管理（3 个 Context → 1 个）、重组 Hook 体系（30+ 导入 → 5-8 导入）
+> 📌 **重要**：前端代码进行结构性重构，目标是精简 App.tsx（1103 行 → <500 行）、统一状态管理（3 个 Context → 1 个）、重组 Hook 体系（13 个 → 4 个）
 
 ### 重构目标
 1. **App.tsx 精简**：从 1103 行精简到 <500 行
@@ -316,15 +316,16 @@ const handleCopyJson = useCallback(() => {
 5. **组件结构清晰**：按功能分组（modals/、layouts/、cards/）
 
 ### 重构阶段计划
-- **阶段 1**（1-2 天）：创建统一状态管理（AppStore + AppContext + useAppStore）
-- **阶段 2**（1-2 天）：合并和重组 Hook 体系
-- **阶段 3**（1 天）：精简 App.tsx
-- **阶段 4**（1 天）：重新组织组件文件结构
-- **阶段 5**（1 天）：Props 规范化和类型完善
-- **阶段 6**（1 天）：验证、测试和优化
+- **阶段 1** ✅ **完成**：创建统一状态管理（AppStore + AppContext + useAppStore）
+- **阶段 2** ✅ **完成**：合并和重组 Hook 体系（13 个 → 4 个合并 Hook）
+- **阶段 3** 📋 **待处理**：精简 App.tsx（1103 行 → <500 行）
+- **阶段 4** 📋 **待处理**：重新组织组件文件结构
+- **阶段 5** 📋 **待处理**：完全迁移到新 Store（移除旧 Context）
+- **阶段 6** 📋 **待处理**：验证、测试和优化
 
 ### 详细指南
 📖 **完整重构指南**：见 [FRONTEND_REFACTOR_GUIDE.md](../FRONTEND_REFACTOR_GUIDE.md)
+📖 **阶段 2 总结**：见 [.github/REFACTOR/PHASE2_SUMMARY.md](../.github/REFACTOR/PHASE2_SUMMARY.md)
 
 ### 关键代码路径变化
 重构前后的关键文件变化：
@@ -387,21 +388,77 @@ const handleCopyJson = useCallback(() => {
                 └─ 数据操作
 ```
 
-### 重构检查清单
-在本文档持续更新重构进度：
+### 阶段 2 完成总结（✅ 已完成 - 2025年12月29日）
 
-**已完成**：
-- [x] 评估现有代码结构
-- [x] 制定重构方案
-- [x] 创建重构指南文档
+**已完成的工作**：
 
-**进行中**：
-- [ ] 阶段 1：创建 Store + Context
-- [ ] 阶段 2：合并 Hook
-- [ ] 阶段 3：精简 App.tsx
-- [ ] 阶段 4：重组组件
-- [ ] 阶段 5：类型完善
-- [ ] 阶段 6：验证优化
+#### 1️⃣ Hook 合并与创建（13 → 4）
+新创建的 4 个合并 Hook（均已测试通过）：
+
+- **usePlayerV2.ts** (~324 行)
+  - 合并来源：useAudioPlayer + usePlaybackControls + usePlaySong + usePlayModes
+  - 核心方法：play(), pause(), seek(), setVolume(), playSong(), playNext(), playPrev(), setPlayMode()
+  - 关键修复：使用 `playInfo.ProxyURL` 而非不存在的 `playInfo.url`
+  - 特性：4 种播放模式（loop-all, loop-one, shuffle, no-loop）+ 重试机制
+
+- **usePlaylistV2.ts** (~186 行)
+  - 合并来源：usePlaylist + usePlaylistActions + usePlaylistPersistence
+  - 核心方法：setQueue(), addSongToQueue(), removeSongFromQueue(), reorderQueue()
+  - 特性：1000ms 防抖自动保存到 Services.SavePlaylist()
+  - 类型安全：使用类型断言 `(playlist as any)?.queueIds` 处理临时兼容性
+
+- **useAudioV2.ts** (~268 行)
+  - 合并来源：useAudioEvents + useAudioInterval + useSkipIntervalHandler + useAudioSourceManager
+  - 核心方法：音频事件监听（timeupdate, loadedmetadata, ended, error, canplay）
+  - 特性：使用 localStorage 缓存（模式：`half-beat.song.${id}`）替代不存在的 Services.UpdateSongInfo()
+  - 进度计算：intervalInProgress 追踪当前在 skipInterval 中的位置
+
+- **useAppInitialize.ts** (~225 行)
+  - 新增文件：集中式应用初始化 Hook
+  - 初始化流程：loadUserInfo(10%) → loadThemeConfig(30%) → loadPlaylist(60%) → initializePlayerState(85%)
+  - 特性：进度回调支持、AbortController 支持取消、自动错误恢复
+
+#### 2️⃣ API 调用修复（6 处关键修复）
+| 问题 | 原因 | 解决方案 | 验证 |
+|------|------|---------|------|
+| GetStreamingAudioURL() 不存在 | 方法已移除 | 改用 Services.GetPlayURL() | ✅ |
+| playInfo.url 不存在 | PlayInfo 返回 ProxyURL | 改用 playInfo.ProxyURL | ✅ |
+| setCurrentUser() 不存在 | AppActions 不提供此方法 | 改用 setUserInfo() | ✅ |
+| setQueue() 接收 3 个参数 | 实际仅接受 1 个参数 | 改为 setQueue(songs) + setCurrentIndex() | ✅ |
+| store.playlist.queue 不存在 | Queue 在 PlayerState 而非 PlaylistState | 改用 store.player.queue | ✅ |
+| Services.UpdateSongInfo() 不存在 | 方法已移除 | 改用 localStorage 存储跳过时间 | ✅ |
+
+#### 3️⃣ 状态管理统一
+- **AppStore 类型** (`store/types.ts`)：6 个状态域（player, playlist, theme, modals, ui, data）
+- **AppContext** (`context/AppContext.tsx`)：单一 Provider 提供 [store, actions] 元组
+- **useAppStore**：便利 Hook，支持 usePlayerState、usePlaylistState、useThemeState 等
+
+#### 4️⃣ 编译与构建验证
+- ✅ **TypeScript 编译**：0 errors（严格模式）
+- ✅ **生产构建**：成功（1,508.81 kB 总大小，500.90 kB gzip）
+- ✅ **运行时错误**：已解决（Context Provider 嵌套修复）
+
+#### 5️⃣ 代码提交
+- **Commit Hash**：c1de1b8
+- **Commit Message**：详细的 Phase 2 总结，包含阶段总结、Hook 合并详情、API 修复、代码指标等
+- **提交文件**：13 个改造 + 7 个新文件
+
+#### 6️⃣ 文档完成
+- **PHASE2_SUMMARY.md**：300+ 行完整总结（已创建）
+- **关键路径变化**：完整列出新建、删除、改造的文件
+- **后续计划**：已详细规划 Phase 3-6
+
+**技术成就**：
+- 完成 Hook 体系大规模重构（从 13 个细粒度 Hook 到 4 个合并 Hook）
+- 统一了前端状态管理架构（3 Context → 1 Store）
+- 建立了可持续的开发模式（V2 后缀规范、类型断言策略、localStorage 降级方案）
+- 确保向后兼容（保留旧 Hook 导出供过渡期使用）
+- 零编译错误，构建验证通过
+
+**下一步**（Phase 3）：
+- 将 App.tsx 从 1103 行精简到 <500 行
+- 深度集成 useAppStore，移除 Props Drilling
+- 预计时间：1-2 天
 
 ### 重构期间的开发提示
 - 每完成一个阶段，立即提交 Git（含清晰的 commit message）
@@ -409,3 +466,5 @@ const handleCopyJson = useCallback(() => {
 - 每次修改后运行 `wails dev` 验证功能
 - 如遇到问题，参考 [FRONTEND_REFACTOR_GUIDE.md](../FRONTEND_REFACTOR_GUIDE.md) 的常见陷阱部分
 - 重构完成后**必须更新此文档**，更新内容应移至"重构后的项目架构"部分
+
+---

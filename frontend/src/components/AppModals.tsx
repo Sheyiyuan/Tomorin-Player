@@ -10,7 +10,7 @@ type GlobalSearchResult = { kind: "song"; song: Song } | { kind: "favorite"; fav
 export interface AppModalsProps {
     // modal state flags
     modals: {
-        themeModal: boolean;
+        themeManagerModal: boolean;
         themeEditorModal: boolean;
         themeDetailModal: boolean;
         addFavoriteModal: boolean;
@@ -337,8 +337,8 @@ const AppModals: React.FC<AppModalsProps> = (props) => {
     return (
         <>
             <ThemeManagerModal
-                opened={modals.themeModal}
-                onClose={() => closeModal("themeModal")}
+                opened={modals.themeManagerModal}
+                onClose={() => closeModal("themeManagerModal")}
                 themes={themes}
                 currentThemeId={currentThemeId}
                 onSelectTheme={onSelectTheme}

@@ -296,6 +296,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         closePlaylist: () => modalManager.closeModal('playlistModal'),
         openThemeManager: () => modalManager.openModal('themeManagerModal'),
         closeThemeManager: () => modalManager.closeModal('themeManagerModal'),
+        openThemeEditor: () => modalManager.openModal('themeEditorModal'),
+        closeThemeEditor: () => modalManager.closeModal('themeEditorModal'),
         openThemeDetail: (theme, readonly) => modalManager.openModal('themeDetailModal'),
         closeThemeDetail: () => modalManager.closeModal('themeDetailModal'),
         openGlobalSearch: () => modalManager.openModal('globalSearchModal'),
@@ -380,6 +382,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             settingsOpen: modalManager.modals.settingsModal,
             playlistOpen: modalManager.modals.playlistModal,
             themeManagerOpen: modalManager.modals.themeManagerModal,
+            themeEditorOpen: modalManager.modals.themeEditorModal,
             themeDetailOpen: modalManager.modals.themeDetailModal,
             themeDetailData: null,
             themeDetailReadonly: false,
@@ -447,13 +450,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // ========== 应用主题时自动同步到 Mantine ==========
     useEffect(() => {
-        if (themeThemes.length > 0 && themeCurrentThemeId) {
-            const currentTheme = themeThemes.find(t => t.id === themeCurrentThemeId);
-            if (currentTheme && themeColorScheme) {
-                setMantineColorScheme(themeColorScheme);
-            }
+        if (themeColorScheme) {
+            setMantineColorScheme(themeColorScheme);
         }
-    }, [themeCurrentThemeId, themeColorScheme, themeThemes, setMantineColorScheme]);
+    }, [themeColorScheme, setMantineColorScheme]);
 
     // ========== Context Value ==========
     const contextValue: AppContextValue = {

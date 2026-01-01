@@ -85,6 +85,7 @@ export interface ModalState {
     settingsOpen: boolean;
     playlistOpen: boolean;
     themeManagerOpen: boolean;
+    themeEditorOpen: boolean;
     themeDetailOpen: boolean;
     themeDetailData: Theme | null;
     themeDetailReadonly: boolean;

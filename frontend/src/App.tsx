@@ -69,11 +69,12 @@ const App: React.FC = () => {
     const computedColorScheme = useComputedColorScheme('light');
 
     // 主题状态
-    const { themes, currentThemeId, themeColor, backgroundColor, backgroundOpacity, backgroundImageUrl, backgroundBlur, panelColor, panelOpacity, panelBlur, panelRadius, controlColor, controlOpacity, controlBlur, textColorPrimary, textColorSecondary, favoriteCardColor, cardOpacity, modalRadius, notificationRadius, componentRadius, coverRadius, modalColor, modalOpacity, modalBlur, windowControlsPos } = store.theme;
+    const { themes, currentThemeId, colorScheme, themeColor, backgroundColor, backgroundOpacity, backgroundImageUrl, backgroundBlur, panelColor, panelOpacity, panelBlur, panelRadius, controlColor, controlOpacity, controlBlur, textColorPrimary, textColorSecondary, favoriteCardColor, cardOpacity, modalRadius, notificationRadius, componentRadius, coverRadius, modalColor, modalOpacity, modalBlur, windowControlsPos } = store.theme;
 
     // 主题操作 (从扁平的 store.actions 中获取)
     const setThemes = store.actions.setThemes;
     const setCurrentThemeId = store.actions.setCurrentThemeId;
+    const setColorScheme = store.actions.setColorScheme;
     const setThemeColor = store.actions.setThemeColor;
     const setBackgroundColor = store.actions.setBackgroundColor;
     const setBackgroundOpacity = store.actions.setBackgroundOpacity;
@@ -110,8 +111,8 @@ const App: React.FC = () => {
     // Modal 状态和操作适配层
     // 将 store.modals (xxxOpen 格式) 转换为 AppModals 期望的格式
     const modals = {
-        themeModal: false, // 不使用（已废弃）
-        themeEditorModal: false, // 不使用（已废弃）
+        themeManagerModal: store.modals.themeManagerOpen,
+        themeEditorModal: store.modals.themeEditorOpen,
         themeDetailModal: store.modals.themeDetailOpen,
         addFavoriteModal: store.modals.addToFavoriteOpen,
         playlistModal: store.modals.playlistOpen,
@@ -130,7 +131,8 @@ const App: React.FC = () => {
             'settingsModal': { open: actions.openSettings, close: actions.closeSettings },
             'playlistModal': { open: actions.openPlaylist, close: actions.closePlaylist },
             'themeManagerModal': { open: actions.openThemeManager, close: actions.closeThemeManager },
-            'themeDetailModal': { open: () => { }, close: actions.closeThemeDetail },
+            'themeEditorModal': { open: actions.openThemeEditor, close: actions.closeThemeEditor },
+            'themeDetailModal': { open: actions.openThemeDetail, close: actions.closeThemeDetail },
             'globalSearchModal': { open: actions.openGlobalSearch, close: actions.closeGlobalSearch },
             'bvAddModal': { open: actions.openBVAdd, close: actions.closeBVAdd },
             'playlistManagerModal': { open: actions.openFavoriteList, close: actions.closeFavoriteList },
@@ -167,7 +169,7 @@ const App: React.FC = () => {
     // ========== 主题管理 ==========
     const themeManagement = useThemeManagement({
         themes, setThemes, currentThemeId, setCurrentThemeId,
-        setters: { setThemeColor, setBackgroundColor, setBackgroundOpacity, setBackgroundImageUrl, setBackgroundBlur, setPanelColor, setPanelOpacity, setPanelBlur, setPanelRadius, setControlColor, setControlOpacity, setControlBlur, setTextColorPrimary, setTextColorSecondary, setFavoriteCardColor, setCardOpacity, setModalRadius, setNotificationRadius, setComponentRadius, setCoverRadius, setModalColor, setModalOpacity, setModalBlur, setWindowControlsPos },
+        setters: { setColorScheme, setThemeColor, setBackgroundColor, setBackgroundOpacity, setBackgroundImageUrl, setBackgroundBlur, setPanelColor, setPanelOpacity, setPanelBlur, setPanelRadius, setControlColor, setControlOpacity, setControlBlur, setTextColorPrimary, setTextColorSecondary, setFavoriteCardColor, setCardOpacity, setModalRadius, setNotificationRadius, setComponentRadius, setCoverRadius, setModalColor, setModalOpacity, setModalBlur, setWindowControlsPos },
         skipPersistRef,
     });
     const { applyTheme, saveCachedCustomThemes, getCustomThemes } = themeManagement;

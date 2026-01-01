@@ -15,6 +15,7 @@ interface UseThemeManagementProps {
     setCurrentThemeId: (id: string | null) => void;
     // 所有主题状态设置函数
     setters: {
+        setColorScheme: (v: 'light' | 'dark') => void;
         setThemeColor: (v: string) => void;
         setBackgroundColor: (v: string) => void;
         setBackgroundOpacity: (v: number) => void;
@@ -79,6 +80,7 @@ export const useThemeManagement = ({
         setCurrentThemeId(theme.id);
         skipPersistRef.current = true;
 
+        setters.setColorScheme((theme.colorScheme as 'light' | 'dark') || 'dark');
         setters.setThemeColor(theme.themeColor || '#1f77f0');
         setters.setBackgroundColor(theme.backgroundColor || '#0a0e27');
         setters.setBackgroundOpacity(theme.backgroundOpacity ?? 1);
@@ -103,13 +105,7 @@ export const useThemeManagement = ({
         setters.setModalOpacity(theme.modalOpacity ?? 0.95);
         setters.setModalBlur(theme.modalBlur ?? 10);
         setters.setWindowControlsPos(windowControlsPosValue);
-
-        // 使用主题的 colorScheme 字段设置 Mantine 颜色方案
-        const colorScheme = theme.colorScheme || 'dark';
-        if (colorScheme === 'light' || colorScheme === 'dark') {
-            setColorScheme(colorScheme as any);
-        }
-    }, [setCurrentThemeId, setColorScheme, setters, skipPersistRef]);
+    }, [setCurrentThemeId, setters, skipPersistRef]);
 
     return {
         getCustomThemes,

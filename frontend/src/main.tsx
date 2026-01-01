@@ -12,7 +12,7 @@ import "@mantine/notifications/styles.css";
 import "./index.css";
 import "../wailsjs/runtime/runtime";
 import App from "./App";
-import { AppProvider, useAppStore } from "./context/AppContext";
+import { AppProvider } from "./context/AppContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ModalProvider } from "./context/ModalContext";
 

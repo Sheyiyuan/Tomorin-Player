@@ -3,11 +3,11 @@
 ## 📊 核心成果
 
 ### 组件重新组织
-| 类别 | 数量 | 组件列表 |
-|-----|------|---------|
-| **Modals** | 11 | ThemeManagerModal, ThemeDetailModal, AddToFavoriteModal, PlaylistModal, LoginModal, SettingsModal, DownloadManagerModal, CreateFavoriteModal, GlobalSearchModal, BVAddModal, ThemeEditorModal |
-| **Layouts** | 6 | MainLayout, TopBar, ControlsPanel, PlayerBar, AppPanels, WindowControls |
-| **Cards** | 4 | CurrentPlaylistCard, FavoriteListCard, SongDetailCard, SettingsExitBehavior |
+| 类别        | 数量 | 组件列表                                                                                                                                                                                      |
+| ----------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Modals**  | 11   | ThemeManagerModal, ThemeDetailModal, AddToFavoriteModal, PlaylistModal, LoginModal, SettingsModal, DownloadManagerModal, CreateFavoriteModal, GlobalSearchModal, BVAddModal, ThemeEditorModal |
+| **Layouts** | 6    | MainLayout, TopBar, ControlsPanel, PlayerBar, AppPanels, WindowControls                                                                                                                       |
+| **Cards**   | 4    | CurrentPlaylistCard, FavoriteListCard, SongDetailCard, SettingsExitBehavior                                                                                                                   |
 
 ### 目录结构变化
 ```
@@ -125,12 +125,12 @@ export { SettingsExitBehavior } from './SettingsExitBehavior';
 
 ## 📈 改进指标
 
-| 指标 | 改进 |
-|-----|------|
-| **代码组织** | 分散的 22 个文件 → 3 个分类目录 |
-| **查找效率** | 显著提升 (从 root 目录快速定位) |
-| **导入复杂度** | 简化 (使用 index.ts 集中导出) |
-| **可扩展性** | 新增组件时更清晰的放置位置 |
+| 指标           | 改进                            |
+| -------------- | ------------------------------- |
+| **代码组织**   | 分散的 22 个文件 → 3 个分类目录 |
+| **查找效率**   | 显著提升 (从 root 目录快速定位) |
+| **导入复杂度** | 简化 (使用 index.ts 集中导出)   |
+| **可扩展性**   | 新增组件时更清晰的放置位置      |
 
 ## 🔗 提交信息
 
@@ -180,14 +180,14 @@ refactor(phase4): 重新组织组件文件结构，实现模块化分类
 
 ## 🏁 里程碑
 
-| 日期  | 阶段   | 成果                                            |
-|-------|--------|------------------------------------------------|
+| 日期  | 阶段    | 成果                                          |
+| ----- | ------- | --------------------------------------------- |
 | 12-29 | Phase 1 | 创建统一状态管理 (AppStore + 3 Context → 1)   |
 | 12-29 | Phase 2 | 合并 Hook 体系 (13 → 4 + 5 聚合)              |
-| 01-01 | Phase 3 | **App.tsx 精简 1102 → 210 行 (-81%)**          |
-| 01-01 | Phase 4 | **组件文件结构优化 (22 文件 → 3 分类目录)** ✨  |
-| -     | Phase 5 | 完全迁移到新 Store (待进行)                    |
-| -     | Phase 6 | 最终验证和优化 (待进行)                        |
+| 01-01 | Phase 3 | **App.tsx 精简 1102 → 210 行 (-81%)**         |
+| 01-01 | Phase 4 | **组件文件结构优化 (22 文件 → 3 分类目录)** ✨ |
+| -     | Phase 5 | 完全迁移到新 Store (待进行)                   |
+| -     | Phase 6 | 最终验证和优化 (待进行)                       |
 
 ---
 

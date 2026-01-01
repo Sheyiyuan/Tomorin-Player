@@ -318,7 +318,7 @@ const handleCopyJson = useCallback(() => {
 ### 重构阶段计划
 - **阶段 1** ✅ **完成**：创建统一状态管理（AppStore + AppContext + useAppStore）
 - **阶段 2** ✅ **完成**：合并和重组 Hook 体系（13 个 → 4 个合并 Hook）
-- **阶段 3** 📋 **待处理**：精简 App.tsx（1103 行 → <500 行）
+- **阶段 3** � **进行中**：精简 App.tsx（1102 行 → 982 行，继续优化至 <500 行）
 - **阶段 4** 📋 **待处理**：重新组织组件文件结构
 - **阶段 5** 📋 **待处理**：完全迁移到新 Store（移除旧 Context）
 - **阶段 6** 📋 **待处理**：验证、测试和优化
@@ -388,77 +388,63 @@ const handleCopyJson = useCallback(() => {
                 └─ 数据操作
 ```
 
-### 阶段 2 完成总结（✅ 已完成 - 2025年12月29日）
+### 阶段 3 进度总结（进行中 - 2025年1月1日）
 
-**已完成的工作**：
+**已完成的优化**：
 
-#### 1️⃣ Hook 合并与创建（13 → 4）
-新创建的 4 个合并 Hook（均已测试通过）：
+#### 1️⃣ 创建聚合 Hook 体系（5 个新 Hook）
+新创建的聚合 Hook：
 
-- **usePlayerV2.ts** (~324 行)
-  - 合并来源：useAudioPlayer + usePlaybackControls + usePlaySong + usePlayModes
-  - 核心方法：play(), pause(), seek(), setVolume(), playSong(), playNext(), playPrev(), setPlayMode()
-  - 关键修复：使用 `playInfo.ProxyURL` 而非不存在的 `playInfo.url`
-  - 特性：4 种播放模式（loop-all, loop-one, shuffle, no-loop）+ 重试机制
+- **useThemeManagement.ts**（~90 行）
+  - 集中主题应用和缓存逻辑
+  - 提供：getCustomThemes()、saveCachedCustomThemes()、applyTheme()
+  - 取代：applyThemeToUi()、getCustomThemesFromState()、saveCachedCustomThemes() 的分散定义
 
-- **usePlaylistV2.ts** (~186 行)
-  - 合并来源：usePlaylist + usePlaylistActions + usePlaylistPersistence
-  - 核心方法：setQueue(), addSongToQueue(), removeSongFromQueue(), reorderQueue()
-  - 特性：1000ms 防抖自动保存到 Services.SavePlaylist()
-  - 类型安全：使用类型断言 `(playlist as any)?.queueIds` 处理临时兼容性
+- **useFavoritesManager.ts**（~95 行）
+  - 聚合所有收藏夹相关状态
+  - 包含：创建、编辑、下载管理等所有相关状态和重置函数
+  - 简化：20+ 个 useState 声明 → 1 个 Hook 调用
 
-- **useAudioV2.ts** (~268 行)
-  - 合并来源：useAudioEvents + useAudioInterval + useSkipIntervalHandler + useAudioSourceManager
-  - 核心方法：音频事件监听（timeupdate, loadedmetadata, ended, error, canplay）
-  - 特性：使用 localStorage 缓存（模式：`half-beat.song.${id}`）替代不存在的 Services.UpdateSongInfo()
-  - 进度计算：intervalInProgress 追踪当前在 skipInterval 中的位置
+- **useThemeDraftState.ts**（~140 行）
+  - 集中管理 26 个主题编辑草稿状态
+  - 提供：resetThemeDraft() 重置所有状态
+  - 简化：主题编辑 Props 传递
 
-- **useAppInitialize.ts** (~225 行)
-  - 新增文件：集中式应用初始化 Hook
-  - 初始化流程：loadUserInfo(10%) → loadThemeConfig(30%) → loadPlaylist(60%) → initializePlayerState(85%)
-  - 特性：进度回调支持、AbortController 支持取消、自动错误恢复
+- **useAppSearchState.ts**（~50 行）
+  - 统一搜索、BV 和应用状态
+  - 包含：搜索词、全局搜索、应用状态等
 
-#### 2️⃣ API 调用修复（6 处关键修复）
-| 问题 | 原因 | 解决方案 | 验证 |
-|------|------|---------|------|
-| GetStreamingAudioURL() 不存在 | 方法已移除 | 改用 Services.GetPlayURL() | ✅ |
-| playInfo.url 不存在 | PlayInfo 返回 ProxyURL | 改用 playInfo.ProxyURL | ✅ |
-| setCurrentUser() 不存在 | AppActions 不提供此方法 | 改用 setUserInfo() | ✅ |
-| setQueue() 接收 3 个参数 | 实际仅接受 1 个参数 | 改为 setQueue(songs) + setCurrentIndex() | ✅ |
-| store.playlist.queue 不存在 | Queue 在 PlayerState 而非 PlaylistState | 改用 store.player.queue | ✅ |
-| Services.UpdateSongInfo() 不存在 | 方法已移除 | 改用 localStorage 存储跳过时间 | ✅ |
+- **useAppComputedState.ts**（~100 行）
+  - 集中派生值计算
+  - 提供：maxSkipLimit、backgroundStyle、mantineTheme、filteredSongs
+  - 避免重复的 useMemo 调用
 
-#### 3️⃣ 状态管理统一
-- **AppStore 类型** (`store/types.ts`)：6 个状态域（player, playlist, theme, modals, ui, data）
-- **AppContext** (`context/AppContext.tsx`)：单一 Provider 提供 [store, actions] 元组
-- **useAppStore**：便利 Hook，支持 usePlayerState、usePlaylistState、useThemeState 等
+#### 2️⃣ App.tsx 精简成果
+| 指标 | 初始值 | 当前值 | 减少 |
+|-----|-------|-------|------|
+| 代码行数 | 1102 | 982 | 120 行（10.9%） |
+| 顶级 useState | 40+ | 聚合到 5 个 Hook | 主要减少 |
+| useMemo 重复 | 3 个 | 1 个集中的 Hook | 消除重复 |
+| 派生值声明 | 分散 | 单一 useAppComputedState | 集中管理 |
 
-#### 4️⃣ 编译与构建验证
+#### 3️⃣ 编译与构建验证
 - ✅ **TypeScript 编译**：0 errors（严格模式）
-- ✅ **生产构建**：成功（1,508.81 kB 总大小，500.90 kB gzip）
-- ✅ **运行时错误**：已解决（Context Provider 嵌套修复）
+- ✅ **生产构建**：成功（1,515.07 kB 总 → 500.56 kB gzip）
+- ✅ **性能指标**：构建时间 4.58s
 
-#### 5️⃣ 代码提交
-- **Commit Hash**：c1de1b8
-- **Commit Message**：详细的 Phase 2 总结，包含阶段总结、Hook 合并详情、API 修复、代码指标等
-- **提交文件**：13 个改造 + 7 个新文件
+#### 4️⃣ 代码提交
+- **第一批** (4f4082a)：创建 4 个聚合 Hook
+- **第二批** (9612956)：优化派生值、减少 120 行代码
 
-#### 6️⃣ 文档完成
-- **PHASE2_SUMMARY.md**：300+ 行完整总结（已创建）
-- **关键路径变化**：完整列出新建、删除、改造的文件
-- **后续计划**：已详细规划 Phase 3-6
+**继续优化方向**（目标 <500 行）：
+- 考虑提取 JSX 部分到 AppRoot 组件
+- 简化大型 Props 对象的生成
+- 提取更多中间变量到专用 Hook
 
-**技术成就**：
-- 完成 Hook 体系大规模重构（从 13 个细粒度 Hook 到 4 个合并 Hook）
-- 统一了前端状态管理架构（3 Context → 1 Store）
-- 建立了可持续的开发模式（V2 后缀规范、类型断言策略、localStorage 降级方案）
-- 确保向后兼容（保留旧 Hook 导出供过渡期使用）
-- 零编译错误，构建验证通过
-
-**下一步**（Phase 3）：
-- 将 App.tsx 从 1103 行精简到 <500 行
-- 深度集成 useAppStore，移除 Props Drilling
-- 预计时间：1-2 天
+**技术债务**：
+- appModalsProps 对象仍需进一步优化（150+ 行）
+- 可考虑使用 Props Composition 模式
+- 可考虑引入 useCallback 优化 Handler Props
 
 ### 重构期间的开发提示
 - 每完成一个阶段，立即提交 Git（含清晰的 commit message）

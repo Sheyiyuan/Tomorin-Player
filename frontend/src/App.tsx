@@ -10,7 +10,7 @@ import { useSongs, useFavorites, useSongCache, useSettingsPersistence } from "./
 import { useAuth, useBVResolver, useFavoriteActions, useThemeEditor, useSearchAndBV, useBVModal, useLyricManagement, useSongOperations, useLyricLoader, useGlobalSearch, useLoginHandlers } from "./hooks/features";
 
 // Hooks - UI aggregation
-import { useHitokoto, useUiDerived, useAppLifecycle, useAppEffects, useAppHandlers, useAppPanelsProps, useThemeManagement, useFavoritesManager, useThemeDraftState, useAppSearchState, useAppComputedState, useAppModalsProps } from "./hooks/ui";
+import { useHitokoto, useUiDerived, useAppLifecycle, useAppEffects, useAppHandlers, useAppPanelsProps, useThemeManagement, useFavoritesManager, useThemeDraftState, useAppSearchState, useAppComputedState } from "./hooks/ui";
 
 // Contexts
 import { useThemeContext, useModalContext } from "./context";
@@ -178,29 +178,161 @@ const App: React.FC = () => {
     // ========== 构建 Props ==========
     const { topBarProps, mainLayoutProps, controlsPanelProps } = useAppPanelsProps({ userInfo, hitokoto, setGlobalSearchTerm, openModal, setThemeColorDraft, setBackgroundColorDraft, setBackgroundOpacityDraft, setBackgroundImageUrlDraftSafe, setPanelColorDraft, setPanelOpacityDraft, themeColor, backgroundColor, backgroundOpacity, backgroundImageUrl, panelColor, panelOpacity, setUserInfo, setStatus, windowControlsPos, currentSong, panelBackground, panelStyles, controlBackground, controlStyles, favoriteCardBackground, textColorPrimary: derivedTextColorPrimary, textColorSecondary: derivedTextColorSecondary, componentRadius: derivedComponentRadius, coverRadius: derivedCoverRadius, computedColorScheme: (computedColorScheme === "auto" ? "light" : computedColorScheme) as "light" | "dark", placeholderCover: PLACEHOLDER_COVER, maxSkipLimit, formatTime, formatTimeWithMs, formatTimeLabel, parseTimeLabel, handleIntervalChange, handleSkipStartChange, handleSkipEndChange, handleStreamUrlChange, handleSongInfoUpdate: updateSongInfo, currentFav, currentFavSongs, searchQuery, setSearchQuery, playSong, addSong, downloadedSongIds, handleDownloadSong, handleAddSongToFavorite, handleRemoveSongFromPlaylist, confirmRemoveSongId, setConfirmRemoveSongId, playFavorite, handleDownloadAllFavorite, favorites, selectedFavId, setSelectedFavId, setConfirmDeleteFavId, playSingleSong, addCurrentToFavorite, createFavorite, handleEditFavorite, handleDeleteFavorite, confirmDeleteFavId, progressInInterval, intervalStart, intervalLength, duration, seek, playPrev, togglePlay, playNext, isPlaying, playMode, handlePlayModeToggle, handleDownloadCurrentSong, handleManageDownload, volume, changeVolume, songsCount: songs.length });
 
-    const appModalsProps = useAppModalsProps({
-        themes, currentThemeId, themeColor, backgroundColor, backgroundOpacity, backgroundImageUrl, panelColor, panelOpacity,
-        showThemeManager: modals.themeManager, showThemeDetail: modals.themeDetail, showThemeEditor: modals.themeEditor, showLogin: modals.loginModal, showSettings: modals.settingsModal, showPlaylist: modals.playlistModal, showCreateFavorite: modals.createFavorite, showAddToFavorite: modals.addToFavorite, showBVAdd: modals.bvAdd, showGlobalSearch: modals.globalSearch, showDownloadManager: modals.downloadManager, showSongDetail: modals.songDetail,
-        favorites, selectedFavId, songs, editingFavId, createFavName, confirmDeleteFavId,
-        downloadingState: downloadManager, confirmCancelDownloadId: null,
-        searchQuery, globalSearchTerm, globalSearchResults,
-        themeNameDraft: newThemeName, themeDraftState: themeDraft,
-        closeAllModals: () => closeModal("all"), closeThemeManager: () => closeModal("themeManager"), closeThemeDetail: () => closeModal("themeDetail"), closeThemeEditor: () => closeModal("themeEditor"), closeLogin: () => closeModal("loginModal"), closeSettings: () => closeModal("settingsModal"), closePlaylist: () => closeModal("playlistModal"), closeCreateFavorite: () => closeModal("createFavorite"), closeAddToFavorite: () => closeModal("addToFavorite"), closeBVAdd: () => closeModal("bvAdd"), closeGlobalSearch: () => closeModal("globalSearch"), closeDownloadManager: () => closeModal("downloadManager"), closeSongDetail: () => closeModal("songDetail"),
-        handleThemeSelect: handleSelectTheme, handleThemeChange: (field: string, value: any) => { }, handleResetThemeDraft: handleCloseThemeEditor, handleSaveTheme: handleSubmitTheme, handleDeleteTheme, handleViewTheme,
-        handleCreateFavorite: handleSubmitCreateFavorite, handleEditFavorite, handleDeleteFavorite, handleAddToFavorite: handleAddToFavoriteFromModal, handleRemoveFromFavorite: handleRemoveSongFromPlaylist,
-        handleDownload: handleDownloadCurrentSong, handleCancelDownload: () => { },
-        handleBVAdd: handleResolveBVAndAdd, handleGlobalSearch: handleRemoteSearch,
-        handleLoginSuccess: onLoginSuccess, handleLogout: async () => { },
-        handleRemoveSong: handleRemoveSongFromPlaylist,
-        setEditingFavId, setCreateFavName, setConfirmDeleteFavId, setConfirmCancelDownloadId: () => { }, setSearchQuery, setGlobalSearchTerm, setThemeNameDraft: setNewThemeName,
-    });
-
     // ========== 渲染 ==========
     return (
         <MantineProvider theme={mantineTheme}>
             <Box h="100vh" w="100vw" style={{ position: "relative", overflow: "hidden", backgroundColor: "transparent" }}>
                 <Box style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: -1, ...backgroundStyle }} />
-                <AppModals {...appModalsProps} />
+                <AppModals
+                    modals={modals}
+                    themes={themes}
+                    currentThemeId={currentThemeId}
+                    themeColor={themeColor}
+                    themeColorLight={themeColorLight}
+                    editingThemeId={editingThemeId}
+                    newThemeName={newThemeName}
+                    themeColorDraft={themeColorDraft}
+                    backgroundColorDraft={backgroundColorDraft}
+                    backgroundOpacityDraft={backgroundOpacityDraft}
+                    backgroundImageUrlDraft={backgroundImageUrlDraft}
+                    backgroundBlurDraft={backgroundBlurDraft}
+                    panelColorDraft={panelColorDraft}
+                    panelOpacityDraft={panelOpacityDraft}
+                    panelBlurDraft={panelBlurDraft}
+                    panelRadiusDraft={panelRadiusDraft}
+                    controlColorDraft={controlColorDraft}
+                    controlOpacityDraft={controlOpacityDraft}
+                    controlBlurDraft={controlBlurDraft}
+                    textColorPrimaryDraft={textColorPrimaryDraft}
+                    textColorSecondaryDraft={textColorSecondaryDraft}
+                    favoriteCardColorDraft={favoriteCardColorDraft}
+                    cardOpacityDraft={cardOpacityDraft}
+                    modalRadiusDraft={modalRadiusDraft}
+                    notificationRadiusDraft={notificationRadiusDraft}
+                    componentRadiusDraft={componentRadiusDraft}
+                    coverRadiusDraft={coverRadiusDraft}
+                    modalColorDraft={modalColorDraft}
+                    modalOpacityDraft={modalOpacityDraft}
+                    modalBlurDraft={modalBlurDraft}
+                    windowControlsPosDraft={windowControlsPosDraft}
+                    colorSchemeDraft={colorSchemeDraft}
+                    savingTheme={savingTheme}
+                    fileDraftInputRef={fileDraftInputRef}
+                    favorites={favorites}
+                    queue={queue}
+                    currentIndex={currentIndex}
+                    currentSong={currentSong}
+                    globalSearchTerm={globalSearchTerm}
+                    globalSearchResults={globalSearchResults}
+                    remoteResults={remoteResults}
+                    remoteLoading={remoteLoading}
+                    resolvingBV={resolvingBV}
+                    bvModalOpen={bvModalOpen}
+                    bvPreview={bvPreview}
+                    bvTargetFavId={bvTargetFavId}
+                    bvSongName={bvSongName}
+                    bvSinger={bvSinger}
+                    sliceStart={sliceStart}
+                    sliceEnd={sliceEnd}
+                    newFavName={newFavName}
+                    managingSong={managingSong}
+                    confirmDeleteDownloaded={confirmDeleteDownloaded}
+                    appVersion={APP_VERSION}
+                    cacheSize={cacheSize}
+                    createFavName={createFavName}
+                    createFavMode={createFavMode as any}
+                    duplicateSourceId={duplicateSourceId}
+                    importFid={importFid}
+                    myCollections={myFavoriteImport.myCollections}
+                    isLoadingCollections={myFavoriteImport.isLoading}
+                    selectedMyCollectionId={myFavoriteImport.selectedCollectionId}
+                    closeModal={closeModal}
+                    onSelectTheme={handleSelectTheme}
+                    onViewTheme={handleViewTheme}
+                    onEditTheme={handleEditTheme}
+                    onDeleteTheme={handleDeleteTheme}
+                    onCreateTheme={handleCreateThemeClick}
+                    onThemeNameChange={setNewThemeName}
+                    onThemeColorChange={setThemeColorDraft}
+                    onBackgroundColorChange={setBackgroundColorDraft}
+                    onBackgroundOpacityChange={setBackgroundOpacityDraft}
+                    onBackgroundImageChange={setBackgroundImageUrlDraftSafe}
+                    onBackgroundBlurChange={setBackgroundBlurDraft}
+                    onClearBackgroundImage={handleClearBackgroundImageDraft}
+                    onPanelColorChange={setPanelColorDraft}
+                    onPanelOpacityChange={setPanelOpacityDraft}
+                    onPanelBlurChange={setPanelBlurDraft}
+                    onPanelRadiusChange={setPanelRadiusDraft}
+                    onControlColorChange={setControlColorDraft}
+                    onControlOpacityChange={setControlOpacityDraft}
+                    onControlBlurChange={setControlBlurDraft}
+                    onTextColorPrimaryChange={setTextColorPrimaryDraft}
+                    onTextColorSecondaryChange={setTextColorSecondaryDraft}
+                    onFavoriteCardColorChange={setFavoriteCardColorDraft}
+                    onCardOpacityChange={setCardOpacityDraft}
+                    onModalRadiusChange={setModalRadiusDraft}
+                    onNotificationRadiusChange={setNotificationRadiusDraft}
+                    onComponentRadiusChange={setComponentRadiusDraft}
+                    onCoverRadiusChange={setCoverRadiusDraft}
+                    onModalColorChange={setModalColorDraft}
+                    onModalOpacityChange={setModalOpacityDraft}
+                    onModalBlurChange={setModalBlurDraft}
+                    onWindowControlsPosChange={setWindowControlsPosDraft}
+                    onColorSchemeChange={setColorSchemeDraft}
+                    onSubmitTheme={handleSubmitTheme}
+                    onCancelThemeEdit={handleCloseThemeEditor}
+                    onBackgroundFileChange={handleBackgroundFileDraft}
+                    onAddToFavorite={handleAddToFavoriteFromModal}
+                    onPlaylistSelect={handlePlaylistSelect}
+                    onPlaylistReorder={handlePlaylistReorder}
+                    onPlaylistRemove={handlePlaylistRemove}
+                    editingFavName={editingFavName}
+                    onEditingFavNameChange={setEditingFavName}
+                    onSaveEditFavorite={handleSaveEditFavorite}
+                    onLoginSuccess={onLoginSuccess}
+                    onClearLoginCache={handleClearLoginCache}
+                    onClearThemeCache={handleClearThemeCache}
+                    onOpenDownloadsFolder={handleOpenDownloadsFolder}
+                    onOpenDatabaseFile={handleOpenDatabaseFile}
+                    onClearMusicCache={handleClearMusicCache}
+                    onClearAllCache={handleClearAllCache}
+                    onDownloadModalClose={handleDownloadModalClose}
+                    onOpenDownloadedFile={handleOpenDownloadedFile}
+                    onDeleteDownloadedFile={handleDeleteDownloadedFile}
+                    onToggleConfirmDelete={setConfirmDeleteDownloaded}
+                    onCreateFavoriteSubmit={handleSubmitCreateFavorite}
+                    onCreateFavModeChange={setCreateFavMode}
+                    onDuplicateSourceChange={setDuplicateSourceId}
+                    onImportFidChange={setImportFid}
+                    onCreateFavNameChange={setCreateFavName}
+                    onMyCollectionSelect={myFavoriteImport.setSelectedCollectionId}
+                    onFetchMyCollections={myFavoriteImport.fetchMyCollections}
+                    onGlobalTermChange={setGlobalSearchTerm}
+                    onResolveBVAndAdd={handleResolveBVAndAdd}
+                    onRemoteSearch={handleRemoteSearch}
+                    onResultClick={handleSearchResultClick}
+                    onAddFromRemote={handleAddFromRemote}
+                    onSliceRangeChange={handleSliceRangeChange}
+                    onSliceStartChange={handleSliceStartChange}
+                    onSliceEndChange={handleSliceEndChange}
+                    onSelectFavorite={setBvTargetFavId}
+                    onCreateFavoriteInBV={handleCreateFavoriteInModal}
+                    onFavNameChange={setNewFavName}
+                    onSongNameChange={setBvSongName}
+                    onSingerChange={setBvSinger}
+                    onConfirmBVAdd={handleConfirmBVAdd}
+                    onBvModalClose={() => setBvModalOpen(false)}
+                    formatTime={formatTime}
+                    formatTimeWithMs={formatTimeWithMs}
+                    panelStyles={panelStyles}
+                    derived={{
+                        panelBackground,
+                        controlBackground,
+                        favoriteCardBackground,
+                        textColorPrimary: derivedTextColorPrimary,
+                        textColorSecondary: derivedTextColorSecondary,
+                    }}
+                />
                 <AppPanels topBarProps={topBarProps} mainLayoutProps={mainLayoutProps as any} controlsPanelProps={controlsPanelProps as any} />
             </Box>
         </MantineProvider>

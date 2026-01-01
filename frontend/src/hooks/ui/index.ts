@@ -9,3 +9,4 @@ export * from './useThemeManagement';
 export * from './useFavoritesManager';
 export * from './useThemeDraftState';
 export * from './useAppSearchState';
+export * from './useAppComputedState';

@@ -14,7 +14,7 @@ import { useSongs, useFavorites, useSongCache, useSettingsPersistence } from "./
 import { useAuth, useBVResolver, useFavoriteActions, useThemeEditor, useSearchAndBV, useBVModal, useLyricManagement, useSongOperations, useLyricLoader, useGlobalSearch, useLoginHandlers } from "./hooks/features";
 
 // Hooks - UI (aggregated state management)
-import { useHitokoto, useUiDerived, useAppLifecycle, useAppEffects, useAppHandlers, useAppPanelsProps, useThemeManagement, useFavoritesManager, useThemeDraftState, useAppSearchState } from "./hooks/ui";
+import { useHitokoto, useUiDerived, useAppLifecycle, useAppEffects, useAppHandlers, useAppPanelsProps, useThemeManagement, useFavoritesManager, useThemeDraftState, useAppSearchState, useAppComputedState } from "./hooks/ui";
 
 // Contexts - use both old and new for compatibility during migration
 import { useThemeContext, useModalContext } from "./context";
@@ -458,16 +458,57 @@ const App: React.FC = () => {
         setStatus,
     });
 
-    // ========== 派生值和其他辅助函数 ==========
-    // 播放区间相关派生值（从 useAudioInterval hook 获取）
-    const maxSkipLimit = duration > 0 ? duration : 1;
+    // ========== 派生值计算 ==========
+    const {
+        backgroundWithOpacity, panelBackground, controlBackground, favoriteCardBackground, modalBackground, themeColorLight, panelStyles,
+        controlStyles, modalStyles,
+        componentRadius: derivedComponentRadius,
+        coverRadius: derivedCoverRadius,
+        modalRadius: derivedModalRadius,
+        notificationRadius: derivedNotificationRadius,
+        textColorPrimary: derivedTextColorPrimary,
+        textColorSecondary: derivedTextColorSecondary,
+    } = useUiDerived({
+        themeColor,
+        backgroundColor,
+        backgroundOpacity,
+        backgroundImageUrl,
+        panelColor,
+        panelOpacity,
+        panelBlur,
+        panelRadius,
+        controlColor,
+        controlOpacity,
+        controlBlur,
+        textColorPrimary,
+        textColorSecondary,
+        favoriteCardColor,
+        cardOpacity,
+        modalRadius,
+        notificationRadius,
+        componentRadius,
+        coverRadius,
+        modalColor,
+        modalOpacity,
+        modalBlur,
+    });
 
-    // Effect: 当主题改变时同步 Mantine 颜色方案
-    useEffect(() => {
-        if (!themes.length || !currentThemeId) return;
-        // Mantine color scheme will be managed by the computedColorScheme
-    }, [currentThemeId, themes]);
+    // 计算派生状态：背景样式、Mantine 主题、过滤歌曲列表
+    const { maxSkipLimit, backgroundStyle, mantineTheme, filteredSongs } = useAppComputedState({
+        duration,
+        backgroundImageUrl,
+        backgroundBlur,
+        backgroundWithOpacity,
+        derivedComponentRadius,
+        derivedModalRadius,
+        derivedNotificationRadius,
+        derivedTextColorPrimary,
+        themeColorLight,
+        songs,
+        searchQuery,
+    });
 
+    // ========== 应用级生命周期和 Effects ==========
     useAppLifecycle({
         userInfo,
         setUserInfo,
@@ -513,42 +554,6 @@ const App: React.FC = () => {
         prevSongIdRef,
     });
 
-    // toRgba 已移至 useUiDerived
-
-    const {
-        backgroundWithOpacity, panelBackground, controlBackground, favoriteCardBackground, modalBackground, themeColorLight, panelStyles,
-        controlStyles, modalStyles,
-        componentRadius: derivedComponentRadius,
-        coverRadius: derivedCoverRadius,
-        modalRadius: derivedModalRadius,
-        notificationRadius: derivedNotificationRadius,
-        textColorPrimary: derivedTextColorPrimary,
-        textColorSecondary: derivedTextColorSecondary,
-    } = useUiDerived({
-        themeColor,
-        backgroundColor,
-        backgroundOpacity,
-        backgroundImageUrl,
-        panelColor,
-        panelOpacity,
-        panelBlur,
-        panelRadius,
-        controlColor,
-        controlOpacity,
-        controlBlur,
-        textColorPrimary,
-        textColorSecondary,
-        favoriteCardColor,
-        cardOpacity,
-        modalRadius,
-        notificationRadius,
-        componentRadius,
-        coverRadius,
-        modalColor,
-        modalOpacity,
-        modalBlur,
-    });
-
     // 音频事件处理由 useAudioEvents Hook 统一管理
     useAudioEvents({
         audioRef,
@@ -567,10 +572,7 @@ const App: React.FC = () => {
         setStatus,
         playbackRetryRef,
         isHandlingErrorRef,
-        upsertSongs: async (arg1: any[]) => {
-            // Convert from frontend Song type to backend
-            return Services.UpsertSongs(arg1);
-        },
+        upsertSongs: async (arg1: any[]) => Services.UpsertSongs(arg1),
         playSong,
         playNext,
     });
@@ -795,57 +797,6 @@ const App: React.FC = () => {
         changeVolume,
         songsCount: songs.length,
     });
-
-    const filteredSongs = songs.filter((s) =>
-        searchQuery === "" || s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.singer.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    const backgroundStyle = useMemo(() => {
-        return {
-            backgroundColor: backgroundWithOpacity,
-            backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : undefined,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-            backgroundAttachment: "fixed" as const,
-            filter: backgroundBlur > 0 ? `blur(${backgroundBlur}px)` : undefined,
-            transform: "none", // 移除缩放，避免错位
-        };
-    }, [backgroundWithOpacity, backgroundImageUrl, backgroundBlur]);
-
-    // 动态生成 Mantine 主题以支持圆角调整
-    const mantineTheme = useMemo(() => createTheme({
-        defaultRadius: derivedComponentRadius,
-        black: derivedTextColorPrimary,
-        white: "#ffffff",
-        components: {
-            Text: {
-                defaultProps: {
-                    color: derivedTextColorPrimary,
-                },
-            },
-            Title: {
-                defaultProps: {
-                    color: derivedTextColorPrimary,
-                },
-            },
-            Modal: {
-                defaultProps: {
-                    radius: derivedModalRadius,
-                },
-            },
-            Menu: {
-                defaultProps: {
-                    radius: derivedModalRadius,
-                },
-            },
-            Notification: {
-                defaultProps: {
-                    radius: derivedNotificationRadius,
-                },
-            },
-        },
-    }), [derivedComponentRadius, derivedModalRadius, derivedNotificationRadius, derivedTextColorPrimary]);
 
     // ========== 设置弹窗动作 ==========
 

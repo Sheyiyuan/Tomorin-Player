@@ -320,12 +320,13 @@ const handleCopyJson = useCallback(() => {
 - **阶段 2** ✅ **完成**：合并和重组 Hook 体系（13 个 → 4 个核心 Hook + 5 个聚合 Hook）
 - **阶段 3** ✅ **完成**：精简 App.tsx（1102 行 → 210 行，超目标 80% 优化）
 - **阶段 4** ✅ **完成**：重新组织组件文件结构（22 文件 → 3 分类目录 + 1 根组件）
-- **阶段 5** ⏳ **进行中**：完全迁移到新 Store（移除旧 Context）
-- **阶段 6** 📋 **待处理**：验证、测试和优化
+- **阶段 5** ✅ **部分完成**：建立新 Store 基础（AppProvider + useAppStore 已实装，保留旧 Context 兼容）
+- **阶段 6** 📋 **待处理**：最终验证、测试和优化
 
 ### 详细指南
 📖 **Phase 3 最终总结**：见 [.github/REFACTOR/PHASE3_FINAL_SUMMARY.md](./PHASE3_FINAL_SUMMARY.md)
 📖 **Phase 4 组件组织**：见 [.github/REFACTOR/PHASE4_COMPONENT_REORGANIZATION.md](./PHASE4_COMPONENT_REORGANIZATION.md)
+📖 **Phase 5 迁移进度**：见 [.github/REFACTOR/PHASE5_STORE_MIGRATION.md](./PHASE5_STORE_MIGRATION.md)
 
 ### Phase 4 成果 - 组件组织结构
 ```
@@ -488,13 +489,14 @@ components/
 - 重构完成后**必须更新此文档**，更新内容应移至"重构后的项目架构"部分
 
 ---
-## 🎉 前端重构进度总结 (2025年1月1日更新)
+## 🎉 前端重构进度总结 (2025年1月1日最新更新)
 
 ### 最终成果
 - **App.tsx**: 1103 → 210 行 (-81%) ✅
 - **Hook 体系**: 13+ → 4 核心 + 5 聚合 ✅
 - **组件结构**: 22 文件 → 3 分类目录 (modals/, layouts/, cards/) ✅
-- **构建**: 4.49s, 0 TypeScript errors ✅
+- **State 管理**: AppStore + AppContext 已建立 ✅
+- **构建**: 4.38s, 0 TypeScript errors ✅
 - **代码质量**: 显著提升 ✅
 - **应用**: 成功启动运行 ✅
 
@@ -513,6 +515,14 @@ components/
 | **Layouts** | 6 | `components/layouts/` |
 | **Cards** | 4 | `components/cards/` |
 | **总计** | 21 | 3 个分类目录 |
+
+### 新的状态管理架构
+| 组件 | 状态 | 说明 |
+|-----|------|------|
+| **AppProvider** | ✅ 已实现 | 提供统一的应用 Store |
+| **useAppStore** | ✅ 已定义 | 单一数据入口 Hook |
+| **AppStore** | ✅ 已建立 | 包含所有应用状态 |
+| **旧 Context** | ✅ 兼容 | 保留以确保过渡平稳 |
 
 ### 代码改进指标
 | 指标 | 改进 |

@@ -67,10 +67,10 @@ const App: React.FC = () => {
     // ========== 上下文 ==========
     const [store] = useAppStore();
     const computedColorScheme = useComputedColorScheme('light');
-    
+
     // 主题状态
     const { themes, currentThemeId, themeColor, backgroundColor, backgroundOpacity, backgroundImageUrl, backgroundBlur, panelColor, panelOpacity, panelBlur, panelRadius, controlColor, controlOpacity, controlBlur, textColorPrimary, textColorSecondary, favoriteCardColor, cardOpacity, modalRadius, notificationRadius, componentRadius, coverRadius, modalColor, modalOpacity, modalBlur, windowControlsPos } = store.theme;
-    
+
     // 主题操作 (从扁平的 store.actions 中获取)
     const setThemes = store.actions.setThemes;
     const setCurrentThemeId = store.actions.setCurrentThemeId;
@@ -106,7 +106,7 @@ const App: React.FC = () => {
     const { bvPreview, bvModalOpen, bvSongName, bvSinger, bvTargetFavId, resolvingBV, sliceStart, sliceEnd, setBvPreview, setBvModalOpen, setBvSongName, setBvSinger, setBvTargetFavId, setResolvingBV, setSliceStart, setSliceEnd } = bvResolver;
 
     const hitokoto = useHitokoto();
-    
+
     // Modal 状态和操作适配层
     // 将 store.modals (xxxOpen 格式) 转换为 AppModals 期望的格式
     const modals = {
@@ -122,7 +122,7 @@ const App: React.FC = () => {
         createFavModal: store.modals.createFavoriteOpen,
         globalSearchModal: store.modals.globalSearchOpen,
     };
-    
+
     // Modal 操作映射
     const createModalAdapters = (actions: any) => {
         const modalMap: Record<string, { open: () => void; close: () => void }> = {
@@ -130,14 +130,14 @@ const App: React.FC = () => {
             'settingsModal': { open: actions.openSettings, close: actions.closeSettings },
             'playlistModal': { open: actions.openPlaylist, close: actions.closePlaylist },
             'themeManagerModal': { open: actions.openThemeManager, close: actions.closeThemeManager },
-            'themeDetailModal': { open: () => {}, close: actions.closeThemeDetail },
+            'themeDetailModal': { open: () => { }, close: actions.closeThemeDetail },
             'globalSearchModal': { open: actions.openGlobalSearch, close: actions.closeGlobalSearch },
             'bvAddModal': { open: actions.openBVAdd, close: actions.closeBVAdd },
             'playlistManagerModal': { open: actions.openFavoriteList, close: actions.closeFavoriteList },
             'createFavModal': { open: actions.openCreateFavorite, close: actions.closeCreateFavorite },
             'addFavoriteModal': { open: actions.openAddToFavorite, close: actions.closeAddToFavorite },
             'downloadManagerModal': { open: actions.openDownloadManager, close: actions.closeDownloadManager },
-            'downloadModal': { open: () => {}, close: actions.closeSongDetail },
+            'downloadModal': { open: () => { }, close: actions.closeSongDetail },
         };
         return {
             openModal: (name: string) => modalMap[name]?.open?.(),

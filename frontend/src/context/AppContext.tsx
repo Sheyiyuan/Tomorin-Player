@@ -312,6 +312,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         closeAddToFavorite: () => modalManager.closeModal('addFavoriteModal'),
         openDownloadManager: () => modalManager.openModal('downloadManagerModal'),
         closeDownloadManager: () => modalManager.closeModal('downloadManagerModal'),
+        openDownloadTasks: () => modalManager.openModal('downloadTasksModal'),
+        closeDownloadTasks: () => modalManager.closeModal('downloadTasksModal'),
         openSongDetail: (song) => modalManager.openModal('downloadModal'),
         closeSongDetail: () => modalManager.closeModal('downloadModal'),
     }), [modalManager]);
@@ -392,6 +394,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             createFavoriteOpen: modalManager.modals.createFavModal,
             addToFavoriteOpen: modalManager.modals.addFavoriteModal,
             downloadManagerOpen: modalManager.modals.downloadManagerModal,
+            downloadTasksOpen: modalManager.modals.downloadTasksModal,
             songDetailOpen: modalManager.modals.downloadModal,
             songDetailData: null,
         },
@@ -409,6 +412,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             lyricMapping: dataLyricMapping,
             cachedSongs: dataCachedSongs,
             cachedCovers: dataCachedCovers,
+        },
+        download: {
+            tasks: [],
+            activeTaskId: null,
         },
         actions: allActions,
     }), [

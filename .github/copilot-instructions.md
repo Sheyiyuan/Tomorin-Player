@@ -330,9 +330,7 @@ const handleCopyJson = useCallback(() => {
 - **阶段 6** 📋 **待处理**：最终验证、测试和优化
 
 ### 详细指南
-📖 **Phase 3 最终总结**：见 [.github/REFACTOR/PHASE3_FINAL_SUMMARY.md](./PHASE3_FINAL_SUMMARY.md)
-📖 **Phase 4 组件组织**：见 [.github/REFACTOR/PHASE4_COMPONENT_REORGANIZATION.md](./PHASE4_COMPONENT_REORGANIZATION.md)
-📖 **Phase 5 迁移进度**：见 [.github/REFACTOR/PHASE5_STORE_MIGRATION.md](./PHASE5_STORE_MIGRATION.md)
+重构文档已归档，详细信息请参考 Git 提交历史。
 
 ### Phase 4 成果 - 组件组织结构
 ```
@@ -491,7 +489,6 @@ components/
 - 每完成一个阶段，立即提交 Git（含清晰的 commit message）
 - 每次修改后运行 `pnpm build` 确保构建成功
 - 每次修改后运行 `wails dev` 验证功能
-- 如遇到问题，参考 [FRONTEND_REFACTOR_GUIDE.md](../FRONTEND_REFACTOR_GUIDE.md) 的常见陷阱部分
 - 重构完成后**必须更新此文档**，更新内容应移至"重构后的项目架构"部分
 
 ---

@@ -14,6 +14,7 @@ export interface ModalStates {
     downloadModal: boolean;
     createFavModal: boolean;
     downloadManagerModal: boolean;
+    downloadTasksModal: boolean;
     bvAddModal: boolean;
     globalSearchTermModal: boolean;
     playlistManagerModal: boolean;
@@ -34,6 +35,7 @@ export const useModalManager = () => {
         downloadModal: false,
         createFavModal: false,
         downloadManagerModal: false,
+        downloadTasksModal: false,
         bvAddModal: false,
         globalSearchTermModal: false,
         playlistManagerModal: false,

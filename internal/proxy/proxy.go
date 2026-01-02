@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -162,14 +163,14 @@ func (ap *AudioProxy) handleAudio(w http.ResponseWriter, r *http.Request) {
 				cachePath := filepath.Join(ap.baseDir, "audio_cache", fileName)
 				if _, err := os.Stat(cachePath); err == nil {
 					fmt.Printf("[Proxy] Serving from cache: %s\n", cachePath)
-					ap.serveLocalFile(w, cachePath)
+					ap.serveLocalFile(w, r, cachePath)
 					return
 				}
 				
 				downloadPath := filepath.Join(ap.baseDir, "downloads", fileName)
 				if _, err := os.Stat(downloadPath); err == nil {
 					fmt.Printf("[Proxy] Serving from downloads: %s\n", downloadPath)
-					ap.serveLocalFile(w, downloadPath)
+					ap.serveLocalFile(w, r, downloadPath)
 					return
 				}
 				
@@ -226,8 +227,8 @@ func (ap *AudioProxy) handleAudio(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, resp.Body)
 }
 
-// serveLocalFile serves a local file with proper headers
-func (ap *AudioProxy) serveLocalFile(w http.ResponseWriter, filePath string) {
+// serveLocalFile serves a local file with proper headers and Range support
+func (ap *AudioProxy) serveLocalFile(w http.ResponseWriter, r *http.Request, filePath string) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("[Proxy] Error opening local file: %v\n", err)
@@ -245,14 +246,66 @@ func (ap *AudioProxy) serveLocalFile(w http.ResponseWriter, filePath string) {
 
 	// Set response headers
 	w.Header().Set("Content-Type", "audio/mp4")
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
 	w.Header().Set("Accept-Ranges", "bytes")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	// Stream file
+	fileSize := fileInfo.Size()
+
+	// Handle Range requests
+	rangeHeader := r.Header.Get("Range")
+	if rangeHeader != "" {
+		ranges, err := parseRange(rangeHeader, fileSize)
+		if err == nil && len(ranges) == 1 {
+			ra := ranges[0]
+			w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", ra.start, ra.start+ra.length-1, fileSize))
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", ra.length))
+			w.WriteHeader(http.StatusPartialContent)
+			file.Seek(ra.start, 0)
+			io.CopyN(w, file, ra.length)
+			return
+		}
+	}
+
+	// Full file response
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileSize))
 	w.WriteHeader(http.StatusOK)
 	io.Copy(w, file)
+}
+
+type httpRange struct {
+	start  int64
+	length int64
+}
+
+func parseRange(s string, size int64) ([]httpRange, error) {
+	if !strings.HasPrefix(s, "bytes=") {
+		return nil, fmt.Errorf("invalid range")
+	}
+	var ranges []httpRange
+	for _, ra := range strings.Split(s[6:], ",") {
+		ra = strings.TrimSpace(ra)
+		if ra == "" {
+			continue
+		}
+		parts := strings.Split(ra, "-")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid range")
+		}
+		start, err1 := strconv.ParseInt(parts[0], 10, 64)
+		end, err2 := strconv.ParseInt(parts[1], 10, 64)
+		if err1 != nil || err2 != nil || start < 0 || end < 0 || start > end {
+			return nil, fmt.Errorf("invalid range")
+		}
+		if start >= size {
+			return nil, fmt.Errorf("invalid range")
+		}
+		if end >= size {
+			end = size - 1
+		}
+		ranges = append(ranges, httpRange{start: start, length: end - start + 1})
+	}
+	return ranges, nil
 }
 
 // GetProxyURL returns the full proxy URL for an audio stream
@@ -304,7 +357,7 @@ func (ap *AudioProxy) handleLocal(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Let ServeFile handle Range and Content-Type (CORS already set at function start)
+	// Let serveLocalFile handle Range and Content-Type (CORS already set at function start)
 	fmt.Printf("[Proxy] Serving local file: %s\n", path)
-	http.ServeFile(w, r, path)
+	ap.serveLocalFile(w, r, path)
 }

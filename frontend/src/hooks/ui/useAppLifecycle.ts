@@ -284,5 +284,6 @@ export const useAppLifecycle = ({
                 setStatus(`错误: ${e?.message ?? String(e)}`);
             }
         })();
-    }, [setting, openModal, setIsLoggedIn, setUserInfo, setSongs, setFavorites, setSetting, setVolume, setQueue, setCurrentIndex, setCurrentSong, setSelectedFavId, setStatus]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 };

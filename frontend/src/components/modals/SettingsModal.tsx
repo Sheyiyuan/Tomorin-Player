@@ -1,6 +1,6 @@
 import React from "react";
 import { Button, Group, Modal, Stack, Text } from "@mantine/core";
-import { SettingsExitBehavior } from "./SettingsExitBehavior";
+import { SettingsExitBehavior } from "../cards";
 
 interface SettingsModalProps {
     opened: boolean;
@@ -44,8 +44,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             radius={derived?.componentRadius}
             styles={{
                 content: {
-                    ...panelStyles,
-                    backgroundColor: derived?.panelBackground,
+                    backgroundColor: derived?.modalBackground,
                     color: derived?.textColorPrimary,
                 },
                 header: {

@@ -5,6 +5,7 @@ import { DEFAULT_THEMES } from "../../utils/constants";
 import type { Theme, Favorite, Song } from "../../types";
 import { convertSongs, convertFavorites, convertThemes } from "../../types";
 import type { ModalStates } from './useModalManager';
+import { waitForWailsRuntime } from "../../utils/wails";
 
 interface UseAppLifecycleParams {
     userInfo: any;
@@ -72,77 +73,87 @@ export const useAppLifecycle = ({
         // 跳过初始化期间的持久化，等待设置加载完成
         skipPersistRef.current = true;
 
-        if (!window.go?.services?.Service?.GetPlayerSetting) {
-            console.warn("Wails runtime not ready, skipping settings load");
-            settingsLoadedRef.current = true;
-            return;
-        }
-
-        try {
-            const cachedUserInfo = localStorage.getItem("half-beat.userInfo");
-            if (cachedUserInfo) {
-                setUserInfo(JSON.parse(cachedUserInfo));
+        // 等待 Wails 运行时初始化完成
+        const runInitialization = async () => {
+            try {
+                // 最多等待 5 秒 Wails 初始化
+                await waitForWailsRuntime(50, 100);
+            } catch (err) {
+                console.error('[useAppLifecycle] Wails 初始化超时:', err);
+                settingsLoadedRef.current = true;
+                return;
             }
-        } catch (e) {
-            console.warn("恢复用户信息失败:", e);
-        }
 
-        Services.IsLoggedIn()
-            .then((loggedIn) => {
-                setIsLoggedIn(loggedIn);
-                if (loggedIn && !userInfo) {
-                    Services.GetUserInfo()
-                        .then((info) => {
-                            setUserInfo(info);
-                            localStorage.setItem("half-beat.userInfo", JSON.stringify(info));
-                        })
-                        .catch((err) => console.warn("自动获取用户信息失败:", err));
+            try {
+                const cachedUserInfo = localStorage.getItem("half-beat.userInfo");
+                if (cachedUserInfo) {
+                    setUserInfo(JSON.parse(cachedUserInfo));
                 }
-            })
-            .catch((err) => {
-                setIsLoggedIn(false);
-                console.warn("检查登录状态失败:", err);
-            });
+            } catch (e) {
+                console.warn("恢复用户信息失败:", e);
+            }
 
-        const themesPromise = Services.GetThemes();
+            Services.IsLoggedIn()
+                .then((loggedIn) => {
+                    setIsLoggedIn(loggedIn);
+                    if (loggedIn && !userInfo) {
+                        Services.GetUserInfo()
+                            .then((info) => {
+                                setUserInfo(info);
+                                localStorage.setItem("half-beat.userInfo", JSON.stringify(info));
+                            })
+                            .catch((err) => console.warn("自动获取用户信息失败:", err));
+                    }
+                })
+                .catch((err) => {
+                    setIsLoggedIn(false);
+                    console.warn("检查登录状态失败:", err);
+                });
 
-        Promise.all([Services.GetPlayerSetting(), themesPromise])
-            .then(([s, customThemesList]) => {
-                const convertedThemes = convertThemes(customThemesList || []);
-                saveCachedCustomThemes(convertedThemes);
-                setSetting(s as any);
-                setVolume(s.config?.defaultVolume ?? 0.5);
+            const themesPromise = Services.GetThemes();
 
-                // 验证并设置播放模式，移除旧的 "order" 模式
-                const validModes = ['loop', 'random', 'single'];
-                const savedMode = s.config?.playMode as string;
-                const mode = validModes.includes(savedMode) ? savedMode : 'loop';
-                setPlayMode(mode as any);
+            Promise.all([Services.GetPlayerSetting(), themesPromise])
+                .then(([s, customThemesList]) => {
+                    const convertedThemes = convertThemes(customThemesList || []);
+                    saveCachedCustomThemes(convertedThemes);
+                    setSetting(s as any);
+                    setVolume(s.config?.defaultVolume ?? 0.5);
 
-                const allThemes = [...DEFAULT_THEMES, ...convertedThemes];
-                setThemes(allThemes);
+                    // 验证并设置播放模式，移除旧的 "order" 模式
+                    const validModes = ['loop', 'random', 'single'];
+                    const savedMode = s.config?.playMode as string;
+                    const mode = validModes.includes(savedMode) ? savedMode : 'loop';
+                    setPlayMode(mode as any);
 
-                // 优先从后端配置获取当前主题 ID，如果没有则尝试从 localStorage 获取
-                const preferredThemeId = s.config?.currentThemeId || localStorage.getItem('half-beat.currentThemeId') || "light";
-                const targetTheme = allThemes.find((t: Theme) => t.id === preferredThemeId) || allThemes[0] || DEFAULT_THEMES[0];
+                    const allThemes = [...DEFAULT_THEMES, ...convertedThemes];
+                    setThemes(allThemes);
 
-                // 如果后端记录的主题不存在（例如旧的自定义主题被删除），回退到默认主题并更新后端设置
-                if (targetTheme.id !== preferredThemeId) {
-                    Services.SetCurrentTheme(targetTheme.id).catch((err) => console.warn("SetCurrentTheme fallback failed", err));
-                }
+                    // 优先从后端配置获取当前主题 ID，如果没有则尝试从 localStorage 获取
+                    const preferredThemeId = s.config?.currentThemeId || localStorage.getItem('half-beat.currentThemeId') || "light";
+                    const targetTheme = allThemes.find((t: Theme) => t.id === preferredThemeId) || allThemes[0] || DEFAULT_THEMES[0];
 
-                // 只设置当前主题 ID，ThemeContext 中的 Effect 会自动应用主题的所有字段
-                setCurrentThemeId(targetTheme.id);
+                    // 如果后端记录的主题不存在（例如旧的自定义主题被删除），回退到默认主题并更新后端设置
+                    if (targetTheme.id !== preferredThemeId) {
+                        Services.SetCurrentTheme(targetTheme.id).catch((err) => console.warn("SetCurrentTheme fallback failed", err));
+                    }
 
-                // 设置加载完成，允许后续持久化
-                skipPersistRef.current = false;
-                settingsLoadedRef.current = true;
-            })
-            .catch((e) => {
-                console.warn("加载设置失败", e);
-                skipPersistRef.current = false;
-                settingsLoadedRef.current = true;
-            });
+                    // 只设置当前主题 ID，ThemeContext 中的 Effect 会自动应用主题的所有字段
+                    setCurrentThemeId(targetTheme.id);
+
+                    // 设置加载完成，允许后续持久化
+                    skipPersistRef.current = false;
+                    settingsLoadedRef.current = true;
+                })
+                .catch((e) => {
+                    console.warn("加载设置失败", e);
+                    skipPersistRef.current = false;
+                    settingsLoadedRef.current = true;
+                });
+        };
+
+        // 异步执行初始化
+        runInitialization();
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -164,6 +175,9 @@ export const useAppLifecycle = ({
     useEffect(() => {
         (async () => {
             try {
+                // 等待 Wails 运行时准备好
+                await waitForWailsRuntime(50, 100);
+
                 setStatus("正在加载...");
 
                 const loggedIn = await Services.IsLoggedIn();

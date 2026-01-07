@@ -99,8 +99,9 @@ func (s *Service) CloseWindow() {
 }
 
 func (s *Service) DragWindow() {
-	// 无边框窗口的拖拽由前端 CSS 处理（-webkit-app-region: drag）
-	// 这个方法只是占位，实际拖拽逻辑在 TopBar.tsx 中通过 CSS 实现
+	// Wails v2 frameless window dragging is handled on the frontend via CSS:
+	//   --wails-draggable: drag
+	// This method is kept for backward compatibility.
 }
 
 // 最小化到托盘（隐藏窗口）

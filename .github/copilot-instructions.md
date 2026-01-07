@@ -141,6 +141,14 @@
 - JSON 验证需要保证所有颜色值都是有效的十六进制格式，所有数值都在指定范围内。
 ## 最近更新（亮色/暗色主题配置恢复 & 禁用按钮样式优化）
 
+### 最近更新（窗口顶栏可拖动 - 2026年1月8日）
+- **实现方式**: 使用 Wails v2 的 CSS 自定义属性 `--wails-draggable: drag` 作为可拖拽区域标记（不使用 `-webkit-app-region`）
+- **交互排除**: 通过在可点击元素上设置 `--wails-draggable: no-drag`（如 `.window-control`、`button`、`.app-no-drag`）避免误拖拽
+- **关键文件**:
+  - `frontend/src/components/layouts/TopBar.tsx`
+  - `frontend/src/index.css`
+  - `internal/services/service.go`（`DragWindow()` 保留为兼容占位）
+
 ### 主题配置系统重构
 - **Backend 层改动** (`internal/models/models.go`):
   - 将 Theme 模型从 30+ 个类型化字段改为简化的 5 字段设计

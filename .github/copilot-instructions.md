@@ -200,6 +200,10 @@
 4. **Context**: `ThemeContext.tsx` 维护 colorScheme 状态 + applyTheme() 处理
 5. **组件**: ThemeDetailModal/ThemeEditorModal 提供 GUI 和 JSON 双模式编辑
 
+### ⚠️ 主题“重启回默认”常见根因（2026-01-08）
+- **正确做法**: 主题选择/编辑后，必须调用 `store.actions.applyTheme(theme)`，它会同步 UI 状态并写入 `localStorage`（`half-beat.currentThemeId`）。
+- **错误模式**: 仅调用 `useThemeManagement.applyTheme`（只更新 UI setters）或仅 `setCurrentThemeId`，可能导致 `localStorage` 未更新；下次启动时初始化逻辑会读取旧的 `half-beat.currentThemeId`，从而回退到默认主题。
+
 ### 数据流示例
 ```
 用户选择主题 colorScheme='light'

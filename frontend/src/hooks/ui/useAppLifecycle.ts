@@ -17,6 +17,7 @@ interface UseAppLifecycleParams {
     setPlayMode: (v: any) => void;
     setThemes: (t: Theme[]) => void;
     setCurrentThemeId: (id: string) => void;
+    applyThemeToUi: (theme: Theme) => void;
     setThemeColor: (v: string) => void;
     setBackgroundColor: (v: string) => void;
     setBackgroundOpacity: (v: number) => void;
@@ -48,6 +49,7 @@ export const useAppLifecycle = ({
     setPlayMode,
     setThemes,
     setCurrentThemeId,
+    applyThemeToUi,
     setThemeColor,
     setBackgroundColor,
     setBackgroundOpacity,
@@ -73,6 +75,19 @@ export const useAppLifecycle = ({
         // 跳过初始化期间的持久化，等待设置加载完成
         skipPersistRef.current = true;
 
+        const loadCachedCustomThemes = (): Theme[] => {
+            try {
+                const saved = localStorage.getItem('half-beat.customThemes');
+                if (!saved) return [];
+                const parsed = JSON.parse(saved);
+                if (!Array.isArray(parsed)) return [];
+                return convertThemes(parsed);
+            } catch (e) {
+                console.warn('读取自定义主题缓存失败:', e);
+                return [];
+            }
+        };
+
         // 等待 Wails 运行时初始化完成
         const runInitialization = async () => {
             try {
@@ -82,6 +97,20 @@ export const useAppLifecycle = ({
                 console.error('[useAppLifecycle] Wails 初始化超时:', err);
                 settingsLoadedRef.current = true;
                 return;
+            }
+
+            // 先加载本地主题缓存，避免后端主题加载慢/失败导致自定义主题丢失
+            const cachedCustomThemes = loadCachedCustomThemes();
+            if (cachedCustomThemes.length > 0) {
+                const cachedAllThemes = [...DEFAULT_THEMES, ...cachedCustomThemes];
+                setThemes(cachedAllThemes);
+
+                // 尽早应用当前主题（如果本地有记录且能命中）
+                const cachedThemeId = localStorage.getItem('half-beat.currentThemeId');
+                const cachedTarget = cachedThemeId ? cachedAllThemes.find(t => t.id === cachedThemeId) : null;
+                if (cachedTarget) {
+                    applyThemeToUi(cachedTarget);
+                }
             }
 
             try {
@@ -114,8 +143,14 @@ export const useAppLifecycle = ({
 
             Promise.all([Services.GetPlayerSetting(), themesPromise])
                 .then(([s, customThemesList]) => {
-                    const convertedThemes = convertThemes(customThemesList || []);
-                    saveCachedCustomThemes(convertedThemes);
+                    const backendCustomThemes = convertThemes(customThemesList || []);
+
+                    // 仅在后端返回非空列表时更新缓存，避免覆盖掉本地已有的自定义主题
+                    if (backendCustomThemes.length > 0) {
+                        saveCachedCustomThemes(backendCustomThemes);
+                    }
+
+                    const effectiveCustomThemes = backendCustomThemes.length > 0 ? backendCustomThemes : cachedCustomThemes;
                     setSetting(s as any);
                     setVolume(s.config?.defaultVolume ?? 0.5);
 
@@ -125,7 +160,7 @@ export const useAppLifecycle = ({
                     const mode = validModes.includes(savedMode) ? savedMode : 'loop';
                     setPlayMode(mode as any);
 
-                    const allThemes = [...DEFAULT_THEMES, ...convertedThemes];
+                    const allThemes = [...DEFAULT_THEMES, ...effectiveCustomThemes];
                     setThemes(allThemes);
 
                     // 优先从后端配置获取当前主题 ID，如果没有则尝试从 localStorage 获取
@@ -137,8 +172,8 @@ export const useAppLifecycle = ({
                         Services.SetCurrentTheme(targetTheme.id).catch((err) => console.warn("SetCurrentTheme fallback failed", err));
                     }
 
-                    // 只设置当前主题 ID，ThemeContext 中的 Effect 会自动应用主题的所有字段
-                    setCurrentThemeId(targetTheme.id);
+                    // 应用主题到 UI（同步所有字段）
+                    applyThemeToUi(targetTheme);
 
                     // 设置加载完成，允许后续持久化
                     skipPersistRef.current = false;

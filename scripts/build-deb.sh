@@ -65,11 +65,14 @@ trap 'mv -f "$BACKUP_WAILS_JSON" wails.json 2>/dev/null || true' EXIT
 [[ -f build/bin/${APP_NAME} ]] || { echo "Executable missing"; exit 1; }
 
 rm -rf "${DEB_DIR}"
-mkdir -p "${DEB_DIR}/DEBIAN" "${DEB_DIR}/usr/bin" "${DEB_DIR}/usr/share/applications" "${DEB_DIR}/usr/share/icons/hicolor/256x256/apps" "${DEB_DIR}/usr/share/pixmaps"
+mkdir -p "${DEB_DIR}/DEBIAN" "${DEB_DIR}/usr/bin" "${DEB_DIR}/usr/share/applications" "${DEB_DIR}/usr/share/icons/hicolor/256x256/apps" "${DEB_DIR}/usr/share/pixmaps" "${DEB_DIR}/usr/share/doc/${APP_NAME}"
 
 install -m 0755 build/bin/${APP_NAME} "${DEB_DIR}/usr/bin/${APP_NAME}"
 install -m 0644 assets/icons/appicon-256.png "${DEB_DIR}/usr/share/icons/hicolor/256x256/apps/${APP_NAME}.png"
 install -m 0644 assets/icons/appicon-256.png "${DEB_DIR}/usr/share/pixmaps/${APP_NAME}.png"
+
+# Install license and copyright information
+install -m 0644 LICENSE "${DEB_DIR}/usr/share/doc/${APP_NAME}/copyright"
 
 # Generate desktop entry on the fly (avoid missing template path in CI)
 cat > "${DEB_DIR}/usr/share/applications/half-beat.desktop" << 'EOF'
@@ -98,6 +101,7 @@ Description: 基于 B站 API 的音乐播放器，实现你的「听视频」自
  Half-Beat-Player 是一款轻量的音乐播放器，采用 Wails v2 构建。
  支持 B 站扫码登录、BV 号解析、收藏夹导入、歌单管理等功能。
 Homepage: https://github.com/Sheyiyuan/Half-Beat-Player
+License: MIT
 EOF
 
 cat > "${DEB_DIR}/DEBIAN/postinst" << 'EOF'

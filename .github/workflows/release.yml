@@ -44,7 +44,7 @@ jobs:
           echo "$HOME/go/bin" >> $GITHUB_PATH
       - name: Make scripts executable
         run: |
-          chmod +x scripts/build-deb.sh scripts/build-rpm.sh scripts/windows/build-windows.sh scripts/derive-version.sh
+          chmod +x scripts/build-deb.sh scripts/build-rpm.sh scripts/windows/build-windows.sh scripts/derive-version.sh scripts/generate-icons.sh
 
       - name: Derive version (tag -> release, main -> x.y.(z+1)-dev.date.hash)
         id: version

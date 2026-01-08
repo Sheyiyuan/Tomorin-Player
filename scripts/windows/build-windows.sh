@@ -39,6 +39,30 @@ fi
 echo "Full version: $VERSION"
 echo "NSIS version: $NSIS_VERSION"
 
+# Generate Windows ICO file from PNG source
+echo "Generating Windows icon..."
+if [[ -f scripts/generate-icons.sh ]]; then
+    bash scripts/generate-icons.sh windows
+else
+    # Fallback: inline generation
+    mkdir -p build/windows
+    if command -v convert >/dev/null 2>&1; then
+        convert assets/icons/appicon-256.png \
+            \( -clone 0 -resize 16x16 \) \
+            \( -clone 0 -resize 32x32 \) \
+            \( -clone 0 -resize 48x48 \) \
+            \( -clone 0 -resize 256x256 \) \
+            -delete 0 build/windows/icon.ico
+        echo "Generated build/windows/icon.ico with multiple resolutions"
+    elif command -v icotool >/dev/null 2>&1; then
+        icotool -c -o build/windows/icon.ico assets/icons/appicon-256.png
+        echo "Generated build/windows/icon.ico using icotool"
+    else
+        echo "Warning: Neither ImageMagick nor icotool found, copying PNG as fallback"
+        cp assets/icons/appicon-256.png build/windows/icon.ico
+    fi
+fi
+
 BACKUP_WAILS_JSON="wails.json.bak"
 cp wails.json "$BACKUP_WAILS_JSON"
 jq --arg ver "$NSIS_VERSION" '.windows.info.productVersion = $ver | .info.productVersion = $ver' wails.json > wails.json.tmp && mv wails.json.tmp wails.json

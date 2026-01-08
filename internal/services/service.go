@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"path/filepath"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -44,6 +45,8 @@ func NewService(db *gorm.DB, dataDir string) *Service {
 
     // 确保数据目录存在（跨平台用户级路径）
     _ = os.MkdirAll(dataDir, 0o755)
+	// 确保音频缓存目录存在，便于用户可见且避免首次写入失败
+	_ = os.MkdirAll(filepath.Join(dataDir, cacheDir), 0o755)
 
     service := &Service{
         db:         db,

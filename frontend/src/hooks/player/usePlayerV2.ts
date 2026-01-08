@@ -186,9 +186,10 @@ export const usePlayer = ({
                 const playInfo = await Services.GetPlayURL(song.bvid, 0);
                 if (playInfo?.ProxyURL && playInfo.ProxyURL !== '') {
                     const now = new Date();
+                    const proxyUrlWithSid = song.id ? `${playInfo.ProxyURL}&sid=${encodeURIComponent(song.id)}` : playInfo.ProxyURL;
                     toPlay = {
                         ...toPlay,
-                        streamUrl: playInfo.ProxyURL,
+                        streamUrl: proxyUrlWithSid,
                         streamUrlExpiresAt: new Date(now.getTime() + 6 * 3600 * 1000).toISOString(),
                     };
                     console.log('[playSong] 获取远程 URL 成功');

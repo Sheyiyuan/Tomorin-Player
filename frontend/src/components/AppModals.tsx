@@ -144,12 +144,9 @@ export interface AppModalsProps {
     onSaveEditFavorite: () => void;
 
     onLoginSuccess: () => void;
-    onClearLoginCache: () => void;
-    onClearThemeCache: () => void;
     onOpenDownloadsFolder: () => void;
     onOpenDatabaseFile: () => void;
     onClearMusicCache: () => void;
-    onClearAllCache: () => void;
 
     onDownloadModalClose: () => void;
     onOpenDownloadedFile: () => void;
@@ -296,12 +293,9 @@ const AppModals: React.FC<AppModalsProps> = (props) => {
         onEditingFavNameChange,
         onSaveEditFavorite,
         onLoginSuccess,
-        onClearLoginCache,
-        onClearThemeCache,
         onOpenDownloadsFolder,
         onOpenDatabaseFile,
         onClearMusicCache,
-        onClearAllCache,
         onDownloadModalClose,
         onOpenDownloadedFile,
         onDeleteDownloadedFile,
@@ -568,12 +562,9 @@ const AppModals: React.FC<AppModalsProps> = (props) => {
                 themeColor={themeColor}
                 appVersion={appVersion}
                 cacheSize={cacheSize}
-                onClearLoginCache={onClearLoginCache}
-                onClearThemeCache={onClearThemeCache}
                 onOpenDownloadsFolder={onOpenDownloadsFolder}
                 onOpenDatabaseFile={onOpenDatabaseFile}
                 onClearMusicCache={onClearMusicCache}
-                onClearAllCache={onClearAllCache}
                 panelStyles={panelStyles}
                 derived={derived}
             />

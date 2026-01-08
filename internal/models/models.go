@@ -75,6 +75,25 @@ type Playlist struct {
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 
+// LoginSession stores persisted login cookie (SESSDATA) for restoring session.
+// Single-row table with ID=1.
+type LoginSession struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Sessdata  string    `json:"sessdata"`
+	SavedAt   time.Time `json:"savedAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// PlayHistory stores last played favorite + song.
+// Single-row table with ID=1.
+type PlayHistory struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	FavoriteID string   `json:"favoriteId"`
+	SongID    string    `json:"songId"`
+	Timestamp int64     `json:"timestamp"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 // LyricMapping caches text and offset.
 type LyricMapping struct {
 	ID        string    `gorm:"primaryKey" json:"id"`

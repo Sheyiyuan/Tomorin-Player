@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type AudioProxy struct {
@@ -21,6 +23,9 @@ type AudioProxy struct {
 	baseDir    string
 	mu         sync.RWMutex
 	isRunning  bool
+
+	cacheMu      sync.Mutex
+	cacheInFlight map[string]struct{}
 }
 
 func NewAudioProxy(port int, httpClient *http.Client, baseDir string) *AudioProxy {
@@ -28,7 +33,93 @@ func NewAudioProxy(port int, httpClient *http.Client, baseDir string) *AudioProx
 		port:       port,
 		httpClient: httpClient,
 		baseDir:    baseDir,
+		cacheInFlight: map[string]struct{}{},
 	}
+}
+
+func (ap *AudioProxy) ensureCachedAsync(decodedURL, sid string) {
+	if sid == "" {
+		return
+	}
+	cacheDir := filepath.Join(ap.baseDir, "audio_cache")
+	cachePath := filepath.Join(cacheDir, sid+".m4s")
+
+	if _, err := os.Stat(cachePath); err == nil {
+		return
+	}
+
+	ap.cacheMu.Lock()
+	if _, ok := ap.cacheInFlight[sid]; ok {
+		ap.cacheMu.Unlock()
+		return
+	}
+	ap.cacheInFlight[sid] = struct{}{}
+	ap.cacheMu.Unlock()
+
+	go func() {
+		defer func() {
+			ap.cacheMu.Lock()
+			delete(ap.cacheInFlight, sid)
+			ap.cacheMu.Unlock()
+		}()
+
+		if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+			fmt.Printf("[Proxy] Cache mkdir failed (%s): %v\n", cacheDir, err)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+
+		req, err := http.NewRequestWithContext(ctx, "GET", decodedURL, nil)
+		if err != nil {
+			fmt.Printf("[Proxy] Cache request build failed (%s): %v\n", sid, err)
+			return
+		}
+		// 与实时代理一致的请求头（不带 Range，尝试获取完整文件）
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+		req.Header.Set("Referer", "https://www.bilibili.com")
+		req.Header.Set("Origin", "https://www.bilibili.com")
+		req.Header.Set("Accept", "*/*")
+
+		resp, err := ap.httpClient.Do(req)
+		if err != nil {
+			fmt.Printf("[Proxy] Cache upstream failed (%s): %v\n", sid, err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			// Range-only 或其他情况不缓存
+			fmt.Printf("[Proxy] Cache skip (%s): status=%d\n", sid, resp.StatusCode)
+			return
+		}
+
+		tmp := cachePath + ".part"
+		_ = os.Remove(tmp)
+		f, err := os.Create(tmp)
+		if err != nil {
+			fmt.Printf("[Proxy] Cache create failed (%s): %v\n", sid, err)
+			return
+		}
+		_, copyErr := io.Copy(f, resp.Body)
+		closeErr := f.Close()
+		if copyErr != nil {
+			_ = os.Remove(tmp)
+			fmt.Printf("[Proxy] Cache write failed (%s): %v\n", sid, copyErr)
+			return
+		}
+		if closeErr != nil {
+			_ = os.Remove(tmp)
+			fmt.Printf("[Proxy] Cache close failed (%s): %v\n", sid, closeErr)
+			return
+		}
+		if err := os.Rename(tmp, cachePath); err != nil {
+			_ = os.Remove(tmp)
+			fmt.Printf("[Proxy] Cache rename failed (%s): %v\n", sid, err)
+			return
+		}
+		fmt.Printf("[Proxy] Cached audio: %s\n", cachePath)
+	}()
 }
 
 func (ap *AudioProxy) Start() error {
@@ -108,6 +199,10 @@ func (ap *AudioProxy) handleAudio(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Printf("[Proxy] Fetching upstream: %s\n", decodedURL)
+
+	// 最佳努力：如果前端传了 sid，则后台尝试缓存成 audio_cache/<sid>.m4s
+	sid := r.URL.Query().Get("sid")
+	ap.ensureCachedAsync(decodedURL, sid)
 
 	// Create upstream request with auth headers
 	req, err := http.NewRequest("GET", decodedURL, nil)

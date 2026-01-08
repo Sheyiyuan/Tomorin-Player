@@ -37,7 +37,6 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
     placeholderCover,
     maxSkipLimit,
     formatTime,
-    formatTimeWithMs,
     formatTimeLabel,
     parseTimeLabel,
     onIntervalChange,
@@ -207,7 +206,7 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
                                 max={maxSkipLimit}
                                 step={0.05}
                                 radius={componentRadius}
-                                label={(value) => formatTimeWithMs(value)}
+                                label={(value) => formatTime(value)}
                                 style={{ '--slider-color': themeColor } as any}
                             />
                             <Group gap="sm" grow>

@@ -238,7 +238,7 @@ const App: React.FC = () => {
 
     const handlers = useAppHandlers({ themeEditor, editingThemeId, newThemeName, themeColorDraft, backgroundColorDraft, backgroundOpacityDraft, backgroundImageUrlDraft, backgroundBlurDraft, panelColorDraft, panelOpacityDraft, panelBlurDraft, panelRadiusDraft, controlColorDraft, controlOpacityDraft, controlBlurDraft, textColorPrimaryDraft, textColorSecondaryDraft, favoriteCardColorDraft, cardOpacityDraft, componentRadiusDraft, windowControlsPosDraft, colorSchemeDraft, setBackgroundImageUrlDraftSafe, favoriteActions, editingFavId, editingFavName, setEditingFavId, setEditingFavName, createFavName, setCreateFavName, createFavMode, setCreateFavMode, duplicateSourceId, setDuplicateSourceId, importFid, setImportFid, openModal, setConfirmDeleteFavId, myFavoriteImport, skipIntervalHandler, updateStreamUrl, playMode, setPlayMode, downloadManager, setConfirmDeleteDownloaded, setManagingSong, closeModal, playlistActions, searchAndBV, newFavName, setNewFavName, setFavorites, setBvTargetFavId, bvPreview, sliceStart, sliceEnd, setSliceStart, setSliceEnd, setUserInfo, saveCachedCustomThemes, setCacheSize, bvModal });
 
-    const { handleSelectTheme, handleViewTheme, handleEditTheme, handleDeleteTheme, handleCreateThemeClick, handleSubmitTheme, handleCloseThemeEditor, handleClearBackgroundImageDraft, handleBackgroundFileDraft, handleDeleteFavorite, handleEditFavorite, handleSaveEditFavorite, handleSubmitCreateFavorite, createFavorite, handleIntervalChange, handleSkipStartChange, handleSkipEndChange, handleStreamUrlChange, handlePlayModeToggle, handleDownload, handleDownloadCurrentSong, handleManageDownload, handleDownloadSong, handleDownloadAllFavorite, handleOpenDownloadedFile, handleDeleteDownloadedFile, handleDownloadModalClose, handleAddSongToFavorite, handleRemoveSongFromPlaylist, handleAddToFavoriteFromModal, handlePlaylistSelect, handlePlaylistReorder, handlePlaylistRemove, handleSearchResultClick, handleRemoteSearch, handleAddFromRemote, handleResolveBVAndAdd, handleSliceRangeChange, handleSliceStartChange, handleSliceEndChange, handleCreateFavoriteInModal, handleClearLoginCache, handleClearThemeCache, handleOpenDownloadsFolder, handleOpenDatabaseFile, handleClearMusicCache, handleClearAllCache, handleConfirmBVAdd } = handlers;
+    const { handleSelectTheme, handleViewTheme, handleEditTheme, handleDeleteTheme, handleCreateThemeClick, handleSubmitTheme, handleCloseThemeEditor, handleClearBackgroundImageDraft, handleBackgroundFileDraft, handleDeleteFavorite, handleEditFavorite, handleSaveEditFavorite, handleSubmitCreateFavorite, createFavorite, handleIntervalChange, handleSkipStartChange, handleSkipEndChange, handleStreamUrlChange, handlePlayModeToggle, handleDownload, handleDownloadCurrentSong, handleManageDownload, handleDownloadSong, handleDownloadAllFavorite, handleOpenDownloadedFile, handleDeleteDownloadedFile, handleDownloadModalClose, handleAddSongToFavorite, handleRemoveSongFromPlaylist, handleAddToFavoriteFromModal, handlePlaylistSelect, handlePlaylistReorder, handlePlaylistRemove, handleSearchResultClick, handleRemoteSearch, handleAddFromRemote, handleResolveBVAndAdd, handleSliceRangeChange, handleSliceStartChange, handleSliceEndChange, handleCreateFavoriteInModal, handleOpenDownloadsFolder, handleOpenDatabaseFile, handleClearMusicCache, handleConfirmBVAdd } = handlers;
 
     const onLoginSuccess = async () => {
         myFavoriteImport.clearCollections?.();
@@ -360,12 +360,9 @@ const App: React.FC = () => {
                     onEditingFavNameChange={setEditingFavName}
                     onSaveEditFavorite={handleSaveEditFavorite}
                     onLoginSuccess={onLoginSuccess}
-                    onClearLoginCache={handleClearLoginCache}
-                    onClearThemeCache={handleClearThemeCache}
                     onOpenDownloadsFolder={handleOpenDownloadsFolder}
                     onOpenDatabaseFile={handleOpenDatabaseFile}
                     onClearMusicCache={handleClearMusicCache}
-                    onClearAllCache={handleClearAllCache}
                     onDownloadModalClose={handleDownloadModalClose}
                     onOpenDownloadedFile={handleOpenDownloadedFile}
                     onDeleteDownloadedFile={handleDeleteDownloadedFile}

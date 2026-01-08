@@ -149,6 +149,30 @@
   - `frontend/src/index.css`
   - `internal/services/service.go`（`DragWindow()` 保留为兼容占位）
 
+### 最近更新（登录/播放记录入库 & 音频缓存可见/可落盘 - 2026年1月8日）
+- **播放记录入库（仅上次播放）**:
+  - 新增 `PlayHistory` 单行表（ID=1），替代旧文件 `play_history.json`
+  - 首次读取时支持从旧文件一次性迁移到 SQLite，迁移后 best-effort 删除旧文件
+  - 关键路径：`internal/services/download.go`（`SavePlayHistory` / `GetPlayHistory`）
+- **登录会话入库**:
+  - 新增 `LoginSession` 单行表（ID=1），替代旧文件 `sessdata.json`
+  - `restoreLogin()` 优先从 DB 恢复；找不到记录时从旧文件迁移
+  - `Logout()` 会清理 DB 中的会话记录，并 best-effort 删除旧文件
+  - 关键路径：`internal/services/login.go`
+- **设置页缓存清理精简**:
+  - 设置弹窗仅保留“清除音乐缓存”（移除清登录/清主题/清全部缓存按钮与 handlers）
+  - 清理后会重新调用 `GetAudioCacheSize()` 刷新显示值，避免显示不准确
+  - 关键路径：`frontend/src/components/modals/SettingsModal.tsx`、`frontend/src/hooks/ui/useAppHandlers.ts`
+- **缓存目录命名与可见性**:
+  - 音频缓存目录实际为 `audio_cache`，位于数据目录 `~/.config/half-beat/app_data/audio_cache`（Linux，`~/.config` 为隐藏目录）
+  - 启动时会创建 `audio_cache`，确保用户在文件管理器里“始终可见”
+  - `ClearAudioCache()` 改为“清空目录内容但保留目录本身”
+  - 关键路径：`internal/services/service.go`、`internal/services/download.go`
+- **播放即缓存（落盘到 audio_cache）**:
+  - 前端在代理播放 URL 上追加 `sid=<song.id>`
+  - 后端代理在收到 `/audio` 且带 `sid` 时，后台 best-effort 拉取完整音频并写入 `audio_cache/<sid>.m4s`（不阻塞当前播放）
+  - 关键路径：`frontend/src/hooks/player/usePlaySong.ts`、`frontend/src/hooks/player/usePlayerV2.ts`、`internal/proxy/proxy.go`
+
 ### 主题配置系统重构
 - **Backend 层改动** (`internal/models/models.go`):
   - 将 Theme 模型从 30+ 个类型化字段改为简化的 5 字段设计

@@ -47,7 +47,6 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
     intervalLength,
     duration,
     formatTime,
-    formatTimeWithMs,
     seek,
     playPrev,
     togglePlay,
@@ -146,7 +145,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                         step={0.05}
                         w="100%"
                         radius={componentRadius}
-                        label={(value) => formatTimeWithMs(intervalStart + value)}
+                        label={(value) => formatTime(intervalStart + value)}
                         style={{ '--slider-color': themeColor, marginTop: '12px' } as any}
                     />
                     <Group justify="space-between" align="center">

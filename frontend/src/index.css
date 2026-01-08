@@ -79,14 +79,79 @@ a,
     background-color: transparent !important;
 }
 
-@keyframes scroll {
+@keyframes smoothScroll {
     0% {
         transform: translateX(0);
     }
 
-    100% {
-        transform: translateX(-100%);
+    /* 开始暂停 */
+    15% {
+        transform: translateX(0);
     }
+
+    /* 滚动到结尾 */
+    85% {
+        transform: translateX(var(--scroll-distance, calc(-100% + var(--container-width, 300px))));
+    }
+
+    /* 结尾暂停 */
+    100% {
+        transform: translateX(var(--scroll-distance, calc(-100% + var(--container-width, 300px))));
+    }
+}
+
+/* 滚动文本容器样式 */
+.scrolling-text-container {
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.scrolling-text {
+    display: inline-block;
+    white-space: nowrap;
+    will-change: transform;
+    transition: animation-play-state 0.3s ease;
+}
+
+.scrolling-text.animate {
+    animation: smoothScroll var(--animation-duration, 10s) linear infinite;
+    animation-delay: var(--animation-delay, 0s);
+    animation-fill-mode: both;
+}
+
+.scrolling-text.animate:hover {
+    animation-play-state: paused;
+}
+
+/* 渐变遮罩效果 */
+.scrolling-text-container::before,
+.scrolling-text-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 15px;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+/* 只有在滚动时才显示渐变遮罩 */
+.scrolling-text-container.has-scrolling::before,
+.scrolling-text-container.has-scrolling::after {
+    opacity: 1;
+}
+
+.scrolling-text-container::before {
+    left: 0;
+    background: linear-gradient(to right, var(--text-bg-color, rgba(0, 0, 0, 0.9)), transparent);
+}
+
+.scrolling-text-container::after {
+    right: 0;
+    background: linear-gradient(to left, var(--text-bg-color, rgba(0, 0, 0, 0.9)), transparent);
 }
 
 /* 模糊效果支持类 */

@@ -166,8 +166,6 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                                 fw={600}
                                 style={{
                                     color: textColorPrimary,
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
                                     whiteSpace: "nowrap",
                                     animation: currentSong?.name && currentSong.name.length > 20 ? "scroll 10s linear infinite" : "none",
                                 }}

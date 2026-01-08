@@ -149,6 +149,14 @@
   - `frontend/src/index.css`
   - `internal/services/service.go`（`DragWindow()` 保留为兼容占位）
 
+### 最近更新（UI 文本省略号策略 - 2026年1月8日）
+- **底部播放条**: 歌名滚动展示时不再使用省略号截断（仍由容器裁切）。
+- **列表/面板**: 歌单标题与歌曲列表项在空间不足时使用单行省略号，避免挤压布局。
+- **关键文件**:
+  - `frontend/src/components/layouts/PlayerBar.tsx`
+  - `frontend/src/components/cards/FavoriteListCard.tsx`
+  - `frontend/src/components/cards/CurrentPlaylistCard.tsx`
+
 ### 最近更新（登录/播放记录入库 & 音频缓存可见/可落盘 - 2026年1月8日）
 - **播放记录入库（仅上次播放）**:
   - 新增 `PlayHistory` 单行表（ID=1），替代旧文件 `play_history.json`

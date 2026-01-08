@@ -39,8 +39,9 @@ Half Beat Player 是基于 Bilibili API 的桌面音乐播放器（Wails v2）�
 1. 修改后端 Service 导出方法后，运行 `wails generate module` 更新前端绑定。
 2. 音频播放必须走本地代理（`internal/proxy/`），不要直接把 B 站直链塞给 `<audio>`。
 3. 图片资源（头像、封面）建议使用 `useImageProxy` Hook 处理，特别是在 Windows 环境下。
-4. 并发：谨慎使用 goroutine；确保 context 可取消；后台任务尽量 best-effort，不阻塞播放。
-5. 资源管理：应用关闭时正确停止代理与关闭 DB。
+4. 长文本显示优先使用 `useScrollingText` Hook 或 `ScrollingText` 组件，而非简单的省略号。
+5. 并发：谨慎使用 goroutine；确保 context 可取消；后台任务尽量 best-effort，不阻塞播放。
+6. 资源管理：应用关闭时正确停止代理与关闭 DB。
 
 ## 数据持久化与缓存（关键约束）
 
@@ -92,6 +93,90 @@ const MyComponent = () => {
 - 错误时自动回退到原始 URL
 - 已更新的组件：TopBar（头像）、SongDetailCard（封面）、搜索/BV 模态框
 
+## 滚动文本系统
+
+### 核心组件
+
+- **useScrollingText Hook**: 智能检测文本宽度，动态计算滚动参数
+- **ScrollingText 组件**: 可复用的滚动文本组件，支持所有 Mantine Text 属性
+
+### 特性
+
+1. **智能触发**: 基于实际文本宽度而非字符数量
+2. **平滑动画**: 带开始/结束暂停的滚动效果
+3. **交互友好**: 鼠标悬停暂停滚动
+4. **视觉优化**: 渐变遮罩效果
+5. **响应式**: 窗口大小变化时自动重新计算
+
+### 使用方式
+
+```typescript
+import { useScrollingText } from '../../hooks/ui/useScrollingText';
+
+const MyComponent = () => {
+    const scrollingText = useScrollingText({
+        text: songName,
+        containerWidth: 300,
+        speed: 60, // 像素/秒
+        pauseDuration: 2, // 暂停时间(秒)
+    });
+    
+    return (
+        <div 
+            ref={scrollingText.containerRef}
+            className={scrollingText.containerClassName}
+            style={scrollingText.containerStyle}
+        >
+            <Text 
+                ref={scrollingText.textRef}
+                className={scrollingText.textClassName}
+                style={scrollingText.animationStyle}
+            >
+                {songName}
+            </Text>
+        </div>
+    );
+};
+```
+
+### CSS 类
+
+- `.scrolling-text-container`: 容器样式，支持渐变遮罩
+- `.scrolling-text.animate`: 文本动画样式
+- `.has-scrolling`: 启用滚动时的容器状态类
+
+## Windows 图标生成系统
+
+### 动态生成流程
+
+CI/CD 构建时自动从 PNG 源文件生成多分辨率 ICO 文件：
+
+1. **源文件**: `assets/icons/appicon-256.png`
+2. **目标文件**: `build/windows/icon.ico`
+3. **包含分辨率**: 16x16, 32x32, 48x48, 256x256
+
+### 工具链
+
+- **首选**: ImageMagick (`convert` 命令)
+- **备用**: icoutils (`icotool` 命令)
+- **脚本**: `scripts/generate-icons.sh`
+
+### 手动生成
+
+```bash
+# 生成 Windows 图标
+./scripts/generate-icons.sh windows
+
+# 生成所有平台图标
+./scripts/generate-icons.sh all
+```
+
+### 集成点
+
+- **Windows 构建**: `scripts/windows/build-windows.sh` 自动调用
+- **GitHub Actions**: 工作流中自动执行
+- **Wails 配置**: `wails.json` 中指向生成的 ICO 文件
+
 ## UI 约定（与 Wails 相关）
 
 ### 顶栏拖拽
@@ -101,7 +186,7 @@ const MyComponent = () => {
 
 ### 文本省略号策略
 
-- 底部播放条：歌名滚动展示时不使用省略号（由容器裁切）。
+- 底部播放条：歌名使用智能滚动展示（`useScrollingText` Hook），支持悬停暂停和渐变遮罩。
 - 列表/面板：标题/列表项空间不足时使用单行省略号（通常用 `truncate` 或 `lineClamp={1}`，并确保父容器 `minWidth: 0`）。
 
 ## 主题系统（要点）
@@ -129,7 +214,10 @@ const MyComponent = () => {
 
 ## 最近更新（2026-01-08）
 
+- **滚动文本系统**：实现播放控件歌曲名称的增强滚动效果，支持智能触发、悬停暂停、渐变遮罩。
+- **Windows图标生成**：CI/CD中动态生成多分辨率ICO文件，解决Windows打包图标问题。
 - **图片代理修复**：新增图片代理服务解决 Windows 上 B 站图片资源加载问题（头像、封面等）。
+- **版本号系统优化**：统一版本号生成逻辑，修复dev release标题问题。
 - 顶栏可拖拽：TopBar 使用 `--wails-draggable`，交互元素 no-drag。
 - UI 文本：底部滚动标题不省略；列表项单行省略号。
 - 登录/播放记录：统一迁移到 SQLite 单行表（含旧文件迁移）。

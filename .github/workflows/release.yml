@@ -44,25 +44,13 @@ jobs:
           echo "$HOME/go/bin" >> $GITHUB_PATH
       - name: Make scripts executable
         run: |
-          chmod +x scripts/build-deb.sh scripts/build-rpm.sh scripts/windows/build-windows.sh
+          chmod +x scripts/build-deb.sh scripts/build-rpm.sh scripts/windows/build-windows.sh scripts/derive-version.sh
 
       - name: Derive version (tag -> release, main -> x.y.(z+1)-dev.date.hash)
         id: version
         run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n1)
-            BASE_VER=${LATEST_TAG#v}
-            if [[ -z "$BASE_VER" || "$BASE_VER" == "$LATEST_TAG" ]]; then BASE_VER="0.0.0"; fi
-            # Increment patch version (z+1)
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VER"
-            PATCH=$((PATCH + 1))
-            NEXT_VER="${MAJOR}.${MINOR}.${PATCH}"
-            DATE=$(date -u +%Y%m%d)
-            HASH=${GITHUB_SHA::7}
-            VERSION="${NEXT_VER}-dev.${DATE}.${HASH}"
-          fi
+          VERSION=$(bash scripts/derive-version.sh)
+          echo "Final version: ${VERSION}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
       
       - name: Frontend build (inject version)
@@ -126,23 +114,14 @@ jobs:
       - name: Fetch tags
         run: git fetch --tags --force --prune
 
+      - name: Make scripts executable
+        run: chmod +x scripts/build-macos.sh scripts/derive-version.sh
+
       - name: Derive version (tag -> release, main -> x.y.(z+1)-dev.date.hash)
         id: version
         run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          else
-            LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n1)
-            BASE_VER=${LATEST_TAG#v}
-            if [[ -z "$BASE_VER" || "$BASE_VER" == "$LATEST_TAG" ]]; then BASE_VER="0.0.0"; fi
-            # Increment patch version (z+1)
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VER"
-            PATCH=$((PATCH + 1))
-            NEXT_VER="${MAJOR}.${MINOR}.${PATCH}"
-            DATE=$(date -u +%Y%m%d)
-            HASH=${GITHUB_SHA::7}
-            VERSION="${NEXT_VER}-dev.${DATE}.${HASH}"
-          fi
+          VERSION=$(bash scripts/derive-version.sh)
+          echo "Final version: ${VERSION}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Setup Go
@@ -197,33 +176,40 @@ jobs:
     needs: [build-linux-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch tags
+        run: git fetch --tags --force --prune
+
+      - name: Make scripts executable
+        run: chmod +x scripts/derive-version.sh
+
       - name: Derive release metadata (tag -> release, main -> dev-latest)
         id: meta
         run: |
+          VERSION=$(bash scripts/derive-version.sh)
+          
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
             TAG="${GITHUB_REF_NAME}"
             PRERELEASE=false
             NAME="Release ${VERSION}"
           else
-            LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n1)
-            BASE_VER=${LATEST_TAG#v}
-            if [[ -z "$BASE_VER" || "$BASE_VER" == "$LATEST_TAG" ]]; then BASE_VER="0.0.0"; fi
-            # Increment patch version (z+1)
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE_VER"
-            PATCH=$((PATCH + 1))
-            NEXT_VER="${MAJOR}.${MINOR}.${PATCH}"
-            DATE=$(date -u +%Y%m%d)
-            HASH=${GITHUB_SHA::7}
-            VERSION="${NEXT_VER}-dev.${DATE}.${HASH}"
             TAG="dev-latest"
             PRERELEASE=true
-            NAME="Dev ${VERSION}"
+            NAME="Development Build ${VERSION}"
           fi
+          
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "prerelease=${PRERELEASE}" >> "$GITHUB_OUTPUT"
           echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+          
+          echo "Release metadata:"
+          echo "  Version: ${VERSION}"
+          echo "  Tag: ${TAG}"
+          echo "  Prerelease: ${PRERELEASE}"
+          echo "  Name: ${NAME}"
 
       - name: Remove previous dev release/tag
         if: ${{ steps.meta.outputs.tag == 'dev-latest' }}

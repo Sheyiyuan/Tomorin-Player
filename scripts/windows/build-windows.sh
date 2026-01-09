@@ -39,28 +39,28 @@ fi
 echo "Full version: $VERSION"
 echo "NSIS version: $NSIS_VERSION"
 
-# Generate Windows ICO file from PNG source
-echo "Generating Windows icon..."
-if [[ -f scripts/generate-icons.sh ]]; then
-    bash scripts/generate-icons.sh windows
+# Generate Windows ICO file with auto-resize for maximum compatibility
+echo "Generating Windows ICO file with multiple resolutions..."
+mkdir -p build/windows
+
+if command -v convert >/dev/null 2>&1; then
+    # Use ImageMagick auto-resize feature for clean ICO generation
+    convert assets/icons/appicon-256.png -define icon:auto-resize=256,128,64,48,32,16 build/windows/icon.ico
+    echo "✓ Generated build/windows/icon.ico with auto-resized icons"
+    
+    # Verify the generated ICO file
+    echo "ICO file contents:"
+    identify build/windows/icon.ico
+    echo "File size: $(ls -lh build/windows/icon.ico | awk '{print $5}')"
 else
-    # Fallback: inline generation
-    mkdir -p build/windows
-    if command -v convert >/dev/null 2>&1; then
-        convert assets/icons/appicon-256.png \
-            \( -clone 0 -resize 16x16 \) \
-            \( -clone 0 -resize 32x32 \) \
-            \( -clone 0 -resize 48x48 \) \
-            \( -clone 0 -resize 256x256 \) \
-            -delete 0 build/windows/icon.ico
-        echo "Generated build/windows/icon.ico with multiple resolutions"
-    elif command -v icotool >/dev/null 2>&1; then
-        icotool -c -o build/windows/icon.ico assets/icons/appicon-256.png
-        echo "Generated build/windows/icon.ico using icotool"
-    else
-        echo "Warning: Neither ImageMagick nor icotool found, copying PNG as fallback"
-        cp assets/icons/appicon-256.png build/windows/icon.ico
-    fi
+    echo "Error: ImageMagick not found, cannot generate ICO file"
+    exit 1
+fi
+
+# Verify the icon file exists and is valid
+if [[ ! -f build/windows/icon.ico ]]; then
+    echo "Error: Icon file build/windows/icon.ico was not generated"
+    exit 1
 fi
 
 BACKUP_WAILS_JSON="wails.json.bak"

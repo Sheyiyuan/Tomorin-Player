@@ -30,6 +30,10 @@ type Song struct {
 	LyricOffset        int       `json:"lyricOffset"`
 	SkipStartTime      float64   `json:"skipStartTime"`
 	SkipEndTime        float64   `json:"skipEndTime"`
+	PageNumber         int       `json:"pageNumber"`   // 分P编号 (1, 2, 3...)
+	PageTitle          string    `json:"pageTitle"`    // 分P标题
+	VideoTitle         string    `json:"videoTitle"`   // 视频主标题
+	TotalPages         int       `json:"totalPages"`   // 总分P数
 	CreatedAt          time.Time `json:"createdAt"`
 	UpdatedAt          time.Time `json:"updatedAt"`
 }
@@ -127,4 +131,22 @@ type BiliAudio struct {
 	Cover     string    `json:"cover"`
 	Duration  int64     `json:"duration"`
 	Author    string    `json:"author"`
+}
+
+// PageInfo represents a single page (part) of a Bilibili video
+type PageInfo struct {
+	Page     int    `json:"page"`
+	Cid      int64  `json:"cid"`
+	Part     string `json:"part"`     // 分P标题
+	Duration int64  `json:"duration"`
+}
+
+// CompleteVideoInfo represents complete information about a Bilibili video
+type CompleteVideoInfo struct {
+	BVID     string     `json:"bvid"`
+	Title    string     `json:"title"`    // 主标题
+	Cover    string     `json:"cover"`
+	Author   string     `json:"author"`
+	Duration int64      `json:"duration"` // 总时长
+	Pages    []PageInfo `json:"pages"`    // 所有分P信息
 }

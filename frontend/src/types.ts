@@ -21,6 +21,10 @@ export interface Song {
     lyricOffset: number;
     skipStartTime: number;
     skipEndTime: number;
+    pageNumber: number;
+    pageTitle: string;
+    videoTitle: string;
+    totalPages: number;
     createdAt: string;
     updatedAt: string;
 }
@@ -114,6 +118,10 @@ export function convertSong(s: any): Song {
         lyricOffset: s.lyricOffset || 0,
         skipStartTime: s.skipStartTime || 0,
         skipEndTime: s.skipEndTime || 0,
+        pageNumber: s.pageNumber || 0,
+        pageTitle: s.pageTitle || '',
+        videoTitle: s.videoTitle || '',
+        totalPages: s.totalPages || 0,
         createdAt: s.createdAt?.toString ? s.createdAt.toString() : s.createdAt || '',
         updatedAt: s.updatedAt?.toString ? s.updatedAt.toString() : s.updatedAt || '',
     };

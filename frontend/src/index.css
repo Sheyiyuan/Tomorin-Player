@@ -81,22 +81,22 @@ a,
 
 @keyframes smoothScroll {
     0% {
-        transform: translateX(0);
+        transform: translate3d(0, 0, 0);
     }
 
     /* 开始暂停 */
     15% {
-        transform: translateX(0);
+        transform: translate3d(0, 0, 0);
     }
 
     /* 滚动到结尾 */
     85% {
-        transform: translateX(var(--scroll-distance, calc(-100% + var(--container-width, 300px))));
+        transform: translate3d(var(--scroll-distance, calc(-100% + var(--container-width, 300px))), 0, 0);
     }
 
     /* 结尾暂停 */
     100% {
-        transform: translateX(var(--scroll-distance, calc(-100% + var(--container-width, 300px))));
+        transform: translate3d(var(--scroll-distance, calc(-100% + var(--container-width, 300px))), 0, 0);
     }
 }
 
@@ -105,12 +105,15 @@ a,
     position: relative;
     overflow: hidden;
     white-space: nowrap;
+    /* 启用 CSS 包含以优化性能 */
+    contain: layout style paint;
 }
 
 .scrolling-text {
     display: inline-block;
     white-space: nowrap;
-    will-change: transform;
+    /* 默认不启用硬件加速，节省资源 */
+    will-change: auto;
     transition: animation-play-state 0.3s ease;
 }
 
@@ -118,6 +121,11 @@ a,
     animation: smoothScroll var(--animation-duration, 10s) linear infinite;
     animation-delay: var(--animation-delay, 0s);
     animation-fill-mode: both;
+    /* 只在动画时启用硬件加速 */
+    will-change: transform;
+    transform: translate3d(0, 0, 0);
+    /* 启用 CSS 包含以优化性能 */
+    contain: layout style paint;
 }
 
 .scrolling-text.animate:hover {
@@ -136,6 +144,8 @@ a,
     z-index: 1;
     opacity: 0;
     transition: opacity 0.3s ease;
+    /* 启用硬件加速 */
+    transform: translate3d(0, 0, 0);
 }
 
 /* 只有在滚动时才显示渐变遮罩 */

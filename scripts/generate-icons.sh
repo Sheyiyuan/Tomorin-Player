@@ -18,29 +18,14 @@ generate_windows_ico() {
     mkdir -p build/windows
     
     if command -v convert >/dev/null 2>&1; then
-        # Use ImageMagick to create comprehensive multi-resolution ICO file
-        echo "Using ImageMagick to generate comprehensive multi-resolution ICO..."
+        # Use ImageMagick auto-resize feature for optimal ICO generation
+        echo "Using ImageMagick auto-resize for clean multi-resolution ICO..."
         
-        # Generate all required Windows icon sizes with optimal quality
-        # Using the most comprehensive Windows icon size matrix
-        convert "$SOURCE_PNG" \
-            \( -clone 0 -resize 16x16 -colors 256 \) \
-            \( -clone 0 -resize 20x20 -colors 256 \) \
-            \( -clone 0 -resize 24x24 -colors 256 \) \
-            \( -clone 0 -resize 32x32 -colors 256 \) \
-            \( -clone 0 -resize 40x40 -colors 256 \) \
-            \( -clone 0 -resize 48x48 -colors 256 \) \
-            \( -clone 0 -resize 64x64 -colors 256 \) \
-            \( -clone 0 -resize 72x72 -colors 256 \) \
-            \( -clone 0 -resize 96x96 -colors 256 \) \
-            \( -clone 0 -resize 128x128 -colors 256 \) \
-            \( -clone 0 -resize 256x256 \) \
-            -delete 0 -compress None -background transparent build/windows/icon.ico
-            
-        echo "✓ Generated build/windows/icon.ico with optimized Windows icon sizes:"
-        echo "  Standard sizes: 16x16, 20x20, 24x24, 32x32, 40x40, 48x48"
-        echo "  Large sizes: 64x64, 72x72, 96x96, 128x128, 256x256"
-        echo "  Optimized for: taskbar, system tray, file explorer, Alt+Tab"
+        convert "$SOURCE_PNG" -define icon:auto-resize=256,128,64,48,32,16 build/windows/icon.ico
+        
+        echo "✓ Generated build/windows/icon.ico with auto-resized resolutions:"
+        echo "  Sizes: 256x256(PNG), 128x128, 64x64, 48x48, 32x32, 16x16"
+        echo "  Optimized for all Windows display scenarios"
         
         # Verify the generated ICO file
         if command -v identify >/dev/null 2>&1; then
@@ -51,21 +36,21 @@ generate_windows_ico() {
         fi
         
     elif command -v icotool >/dev/null 2>&1; then
-        # Fallback to icotool - generate multiple sizes manually
-        echo "Using icotool to generate multi-resolution ICO..."
+        # Fallback to icotool - generate standard sizes
+        echo "Using icotool for ICO generation..."
         
         # Create temporary directory for individual icons
         TEMP_DIR=$(mktemp -d)
         trap "rm -rf $TEMP_DIR" EXIT
         
-        # Generate individual PNG files for each size with optimal quality
-        sizes=(16 20 24 32 40 48 64 72 96 128 256)
+        # Generate standard Windows icon sizes
+        sizes=(16 32 48 64 128 256)
         
         for size in "${sizes[@]}"; do
             if command -v convert >/dev/null 2>&1; then
-                convert "$SOURCE_PNG" -resize ${size}x${size} -colors 256 -background transparent "$TEMP_DIR/icon_${size}.png"
+                convert "$SOURCE_PNG" -resize ${size}x${size} -background transparent "$TEMP_DIR/icon_${size}.png"
             else
-                # If no convert, just copy the original for the largest sizes
+                # If no convert, just copy the original for the largest size
                 if [[ $size -eq 256 ]]; then
                     cp "$SOURCE_PNG" "$TEMP_DIR/icon_${size}.png"
                 else
@@ -77,7 +62,7 @@ generate_windows_ico() {
         
         # Combine all sizes into ICO file
         icotool -c -o build/windows/icon.ico "$TEMP_DIR"/icon_*.png
-        echo "✓ Generated build/windows/icon.ico using icotool with optimized resolutions"
+        echo "✓ Generated build/windows/icon.ico using icotool with standard resolutions"
         
     else
         echo "Warning: Neither ImageMagick nor icotool found"

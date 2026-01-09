@@ -37,6 +37,9 @@
     },
     "windows": {
         "icon": "build/windows/icon.ico",
+        "webviewIsTransparent": false,
+        "windowIsTranslucent": false,
+        "dropShadow": false,
         "info": {
             "productVersion": "${APP_VERSION}",
             "productName": "half-beat",

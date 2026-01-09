@@ -99,21 +99,28 @@ func (s *Service) SearchBVID(bvid string) ([]models.Song, error) {
 		return nil, err
 	}
 
-	// 2. 从 B站搜索该 BV 号的视频信息
-	// 这里直接调用 ResolveBiliAudio 获取最新信息
-	audioInfo, err := s.ResolveBiliAudio(bvid)
+	// 2. 从B站获取完整视频信息
+	videoInfo, err := s.getCompleteVideoInfo(bvid)
 	if err == nil {
-		// 创建一个虚拟的歌曲条目表示 B站版本
-		remoteResult := models.Song{
-			ID:       "",
-			BVID:     bvid,
-			Name:     audioInfo.Title,
-			Singer:   audioInfo.Author,
-			SingerID: "",
-			Cover:    audioInfo.Cover,
-			SourceID: "", // 未保存的远程资源
+		// 为每个分P创建一个Song条目
+		for _, page := range videoInfo.Pages {
+			songName := formatSongName(videoInfo.Title, page.Page, page.Part, len(videoInfo.Pages))
+			
+			remoteResult := models.Song{
+				ID:           "",
+				BVID:         bvid,
+				Name:         songName,
+				Singer:       videoInfo.Author,
+				SingerID:     "",
+				Cover:        videoInfo.Cover,
+				SourceID:     "", // 未保存的远程资源
+				PageNumber:   page.Page,
+				PageTitle:    page.Part,
+				VideoTitle:   videoInfo.Title,
+				TotalPages:   len(videoInfo.Pages),
+			}
+			results = append(results, remoteResult)
 		}
-		results = append(results, remoteResult)
 	}
 
 	return results, nil

@@ -217,26 +217,29 @@ func (s *Service) ResolveBiliAudio(input string) (models.BiliAudio, error) {
 		return models.BiliAudio{}, fmt.Errorf("invalid BVID format")
 	}
 
+	// 获取完整的视频信息来正确命名
+	videoInfo, err := s.getCompleteVideoInfo(bvid)
+	if err != nil {
+		return models.BiliAudio{}, err
+	}
+
 	playInfo, err := s.GetPlayURL(bvid, 1)
 	if err != nil {
 		return models.BiliAudio{}, err
 	}
 
-	meta, metaErr := s.getVideoInfo(bvid)
-	if metaErr != nil {
-		// 允许封面缺失，但记录上下文
-		meta = VideoInfo{Title: playInfo.Title, Cover: "", Duration: playInfo.Duration, Author: ""}
-	}
+	// 使用格式化的标题
+	formattedTitle := formatSongName(videoInfo.Title, 1, videoInfo.Pages[0].Part, len(videoInfo.Pages))
 
 	return models.BiliAudio{
 		URL:       playInfo.RawURL,
 		ExpiresAt: playInfo.ExpiresAt,
 		FromCache: false,
-		Title:     playInfo.Title,
+		Title:     formattedTitle,
 		Format:    "m4a",
-		Cover:     meta.Cover,
-		Duration:  meta.Duration,
-		Author:    meta.Author,
+		Cover:     videoInfo.Cover,
+		Duration:  videoInfo.Duration,
+		Author:    videoInfo.Author,
 	}, nil
 }
 
@@ -291,6 +294,81 @@ func normalizeBiliURL(input string) string {
 		return fmt.Sprintf("https://www.bilibili.com/video/%s", trimmed)
 	}
 	return fmt.Sprintf("https://www.bilibili.com/video/%s", trimmed)
+}
+
+// formatSongName formats the song name based on video title, page info and total pages
+func formatSongName(videoTitle string, pageNumber int, pageTitle string, totalPages int) string {
+	if totalPages <= 1 {
+		// 单P视频直接使用主标题
+		return videoTitle
+	}
+	
+	// 多P视频使用格式: 主标题P序号 分P标题
+	if pageTitle == "" {
+		return fmt.Sprintf("%sP%d", videoTitle, pageNumber)
+	}
+	return fmt.Sprintf("%sP%d %s", videoTitle, pageNumber, pageTitle)
+}
+
+// getCompleteVideoInfo gets complete video information including all pages
+func (s *Service) getCompleteVideoInfo(bvid string) (models.CompleteVideoInfo, error) {
+	// Get basic video info
+	videoInfo, err := s.getVideoInfo(bvid)
+	if err != nil {
+		return models.CompleteVideoInfo{}, fmt.Errorf("failed to get video info: %w", err)
+	}
+
+	// Get page list
+	endpoint := fmt.Sprintf("https://api.bilibili.com/x/player/pagelist?bvid=%s", bvid)
+	req, _ := http.NewRequest("GET", endpoint, nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	req.Header.Set("Referer", "https://www.bilibili.com/")
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return models.CompleteVideoInfo{}, fmt.Errorf("pagelist request error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var res struct {
+		Code int    `json:"code"`
+		Msg  string `json:"message"`
+		Data []struct {
+			Cid      int64  `json:"cid"`
+			Page     int    `json:"page"`
+			Part     string `json:"part"`
+			Duration int64  `json:"duration"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return models.CompleteVideoInfo{}, fmt.Errorf("pagelist decode error: %w", err)
+	}
+	if res.Code != 0 {
+		return models.CompleteVideoInfo{}, fmt.Errorf("pagelist API error: code=%d, msg=%s", res.Code, res.Msg)
+	}
+	if len(res.Data) == 0 {
+		return models.CompleteVideoInfo{}, fmt.Errorf("pagelist: no data returned for BVID=%s", bvid)
+	}
+
+	// Convert to PageInfo slice
+	var pages []models.PageInfo
+	for _, page := range res.Data {
+		pages = append(pages, models.PageInfo{
+			Page:     page.Page,
+			Cid:      page.Cid,
+			Part:     page.Part,
+			Duration: page.Duration,
+		})
+	}
+
+	return models.CompleteVideoInfo{
+		BVID:     bvid,
+		Title:    videoInfo.Title,
+		Cover:    videoInfo.Cover,
+		Author:   videoInfo.Author,
+		Duration: videoInfo.Duration,
+		Pages:    pages,
+	}, nil
 }
 
 var bvRegexp = regexp.MustCompile(`BV[0-9A-Za-z]{10}`)

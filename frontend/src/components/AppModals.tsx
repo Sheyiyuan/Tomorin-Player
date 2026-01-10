@@ -2,7 +2,6 @@ import React from "react";
 import { Modal, Stack, TextInput, Group, Button } from "@mantine/core";
 import { ThemeManagerModal, ThemeDetailModal, AddToFavoriteModal, PlaylistModal, LoginModal, SettingsModal, DownloadManagerModal, CreateFavoriteModal, GlobalSearchModal, BVAddModal } from "./modals";
 import { Favorite, Song, Theme } from "../types";
-import { formatTime, formatTimeWithMs } from "../utils/time";
 
 // 导入 GlobalSearchResult 类型
 type GlobalSearchResult = { kind: "song"; song: Song } | { kind: "favorite"; favorite: Favorite };
@@ -185,7 +184,7 @@ export interface AppModalsProps {
     derived?: any;
 }
 
-const AppModals: React.FC<AppModalsProps> = (props) => {
+const AppModals: React.FC<AppModalsProps> = React.memo((props) => {
     const {
         modals,
         themes,
@@ -650,6 +649,6 @@ const AppModals: React.FC<AppModalsProps> = (props) => {
             />
         </>
     );
-};
+});
 
 export default AppModals;

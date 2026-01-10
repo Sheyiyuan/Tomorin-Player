@@ -24,7 +24,7 @@ interface GlobalSearchModalProps {
     derived?: any;
 }
 
-const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
+const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
     opened,
     themeColor,
     globalSearchTerm,
@@ -262,6 +262,6 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             </Stack>
         </Modal>
     );
-};
+});
 
 export default GlobalSearchModal;

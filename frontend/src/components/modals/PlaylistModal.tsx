@@ -15,7 +15,7 @@ export type PlaylistModalProps = {
     derived?: any;
 };
 
-const PlaylistModal: React.FC<PlaylistModalProps> = ({
+const PlaylistModal: React.FC<PlaylistModalProps> = React.memo(({
     opened,
     onClose,
     queue,
@@ -152,6 +152,6 @@ const PlaylistModal: React.FC<PlaylistModalProps> = ({
             </ScrollArea>
         </Modal>
     );
-};
+});
 
 export default PlaylistModal;

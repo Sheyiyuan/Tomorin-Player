@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import { Box, MantineProvider, useComputedColorScheme } from "@mantine/core";
 import * as Services from "../wailsjs/go/services/Service";
 
@@ -16,7 +16,7 @@ import { useHitokoto, useUiDerived, useAppLifecycle, useAppEffects, useAppHandle
 import { useAppStore } from "./hooks";
 
 // Components
-import AppModals from "./components/AppModals";
+import AppModals from "./components/AppModalsOptimized";
 import { AppPanels } from "./components/layouts";
 
 // Utils
@@ -246,6 +246,14 @@ const App: React.FC = () => {
     };
 
     // ========== 构建 Props ==========
+    const derivedStyles = useMemo(() => ({
+        panelBackground,
+        controlBackground,
+        favoriteCardBackground,
+        textColorPrimary: derivedTextColorPrimary,
+        textColorSecondary: derivedTextColorSecondary,
+    }), [panelBackground, controlBackground, favoriteCardBackground, derivedTextColorPrimary, derivedTextColorSecondary]);
+
     const { topBarProps, mainLayoutProps, controlsPanelProps } = useAppPanelsProps({ userInfo, hitokoto, setGlobalSearchTerm, openModal, setThemeColorDraft, setBackgroundColorDraft, setBackgroundOpacityDraft, setBackgroundImageUrlDraftSafe, setPanelColorDraft, setPanelOpacityDraft, themeColor, backgroundColor, backgroundOpacity, backgroundImageUrl, panelColor, panelOpacity, setUserInfo, setStatus, windowControlsPos, currentSong, panelBackground, panelStyles, controlBackground, controlStyles, favoriteCardBackground, textColorPrimary: derivedTextColorPrimary, textColorSecondary: derivedTextColorSecondary, componentRadius: derivedComponentRadius, coverRadius: derivedCoverRadius, computedColorScheme: computedColorScheme as "light" | "dark", placeholderCover: PLACEHOLDER_COVER, maxSkipLimit, formatTime, formatTimeWithMs, formatTimeLabel, parseTimeLabel, handleIntervalChange, handleSkipStartChange, handleSkipEndChange, handleStreamUrlChange, handleSongInfoUpdate: updateSongInfo, currentFav, currentFavSongs, searchQuery, setSearchQuery, playSong, addSong, downloadedSongIds, handleDownloadSong, handleAddSongToFavorite, handleRemoveSongFromPlaylist, confirmRemoveSongId, setConfirmRemoveSongId, playFavorite, handleDownloadAllFavorite, favorites, selectedFavId, setSelectedFavId, setConfirmDeleteFavId, playSingleSong, addCurrentToFavorite, createFavorite, handleEditFavorite, handleDeleteFavorite, confirmDeleteFavId, progressInInterval, intervalStart, intervalLength, duration, seek, playPrev, togglePlay, playNext, isPlaying, playMode, handlePlayModeToggle, handleDownloadCurrentSong, handleManageDownload, volume, changeVolume, songsCount: songs.length });
 
     // ========== 渲染 ==========
@@ -392,13 +400,7 @@ const App: React.FC = () => {
                     formatTime={formatTime}
                     formatTimeWithMs={formatTimeWithMs}
                     panelStyles={panelStyles}
-                    derived={{
-                        panelBackground,
-                        controlBackground,
-                        favoriteCardBackground,
-                        textColorPrimary: derivedTextColorPrimary,
-                        textColorSecondary: derivedTextColorSecondary,
-                    }}
+                    derived={derivedStyles}
                 />
                 <AppPanels topBarProps={topBarProps} mainLayoutProps={mainLayoutProps as any} controlsPanelProps={controlsPanelProps as any} />
             </Box>

@@ -100,7 +100,7 @@ interface ThemeObject {
     colorScheme: string;
 }
 
-const ThemeDetailModal: React.FC<ThemeDetailModalProps> = ({
+const ThemeDetailModal: React.FC<ThemeDetailModalProps> = React.memo(({
     opened,
     onClose,
     onCancel,
@@ -926,6 +926,6 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = ({
             </Group>
         </Modal>
     );
-};
+});
 
 export default ThemeDetailModal;

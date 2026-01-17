@@ -28,6 +28,12 @@ interface UseSearchAndBVProps {
 
 type GlobalSearchResult = { kind: "song"; song: Song } | { kind: "favorite"; favorite: Favorite };
 
+type RemoteSearchOptions = {
+    order?: string;
+    page?: number;
+    pageSize?: number;
+};
+
 export const useSearchAndBV = ({
     themeColor,
     selectedFavId,
@@ -49,6 +55,31 @@ export const useSearchAndBV = ({
     openModal,
     closeModal,
 }: UseSearchAndBVProps) => {
+    const normalizeRemotePages = useCallback((items: Song[]) => {
+        const remoteOnly = items.filter((s) => !s.id || s.id.trim() === "");
+        const seen = new Set<string>();
+        const deduped: Song[] = [];
+        for (const s of remoteOnly) {
+            const key = `${s.bvid || ""}-${s.pageNumber || 0}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            deduped.push(s);
+        }
+        deduped.sort((a, b) => (a.pageNumber || 0) - (b.pageNumber || 0));
+        return deduped;
+    }, []);
+
+    const loadRemotePages = useCallback(async (bvid: string) => {
+        if (!bvid) return [] as Song[];
+        try {
+            const list = await Services.SearchBVID(bvid);
+            return normalizeRemotePages(convertSongs(list || []));
+        } catch (err) {
+            console.warn("[loadRemotePages] SearchBVID failed:", err);
+            throw err;
+        }
+    }, [normalizeRemotePages]);
+
     const searchResultClick = useCallback((result: GlobalSearchResult) => {
         if (result.kind === "song") {
             playSingleSong(result.song);
@@ -59,9 +90,13 @@ export const useSearchAndBV = ({
         closeModal("globalSearchModal");
     }, [playSingleSong, playFavorite, setSelectedFavId, closeModal]);
 
-    const remoteSearch = useCallback(async () => {
+    const remoteSearch = useCallback(async (options?: RemoteSearchOptions) => {
         const term = globalSearchTerm.trim();
         if (!term) return;
+
+        const page = options?.page ?? 1;
+        const pageSize = options?.pageSize ?? 10;
+        const order = options?.order ?? "totalrank";
 
         setRemoteLoading(true);
         try {
@@ -72,8 +107,22 @@ export const useSearchAndBV = ({
                 // BV号搜索：调用 SearchBVID
                 const extractedBV = term.match(bvPattern)?.[0] || term;
                 try {
-                    const list = await Services.SearchBVID(extractedBV);
-                    setRemoteResults(convertSongs(list || []));
+                    const pages = await loadRemotePages(extractedBV);
+                    if (pages.length > 0) {
+                        const first = pages[0];
+                        const baseTitle = first.videoTitle || first.name || "未命名视频";
+                        setRemoteResults([{
+                            ...first,
+                            id: "",
+                            name: baseTitle,
+                            pageNumber: 0,
+                            pageTitle: "",
+                            totalPages: first.totalPages || pages.length,
+                            videoTitle: baseTitle,
+                        }]);
+                    } else {
+                        setRemoteResults([]);
+                    }
                 } catch (err) {
                     console.warn("[remoteSearch] SearchBVID failed:", err);
                     // 静默失败，不显示错误提示，因为可能会在resolveBVAndAdd中再次尝试
@@ -82,13 +131,19 @@ export const useSearchAndBV = ({
             } else {
                 // 关键字搜索：调用 SearchBiliVideos
                 try {
-                    const list = await Services.SearchBiliVideos(term, 1, 10);
+                    let list: any[] = [];
+                    try {
+                        list = await (Services as any).SearchBiliVideos(term, page, pageSize, order);
+                    } catch (err) {
+                        // 兼容旧后端签名（无 order 参数）
+                        list = await (Services as any).SearchBiliVideos(term, page, pageSize);
+                    }
                     setRemoteResults(convertSongs(list || []));
                 } catch (err) {
                     console.warn("[remoteSearch] SearchBiliVideos failed:", err);
                     notifications.show({
                         title: "B站搜索失败",
-                        message: err instanceof Error ? err.message : "未知错误",
+                        message: err instanceof Error ? err.message : String(err || "未知错误"),
                         color: "orange",
                     });
                     setRemoteResults([]);
@@ -105,7 +160,7 @@ export const useSearchAndBV = ({
         } finally {
             setRemoteLoading(false);
         }
-    }, [globalSearchTerm, setRemoteResults, setRemoteLoading]);
+    }, [globalSearchTerm, loadRemotePages, setRemoteResults, setRemoteLoading]);
 
     const addFromRemote = useCallback(async (item: Song) => {
         const bvid = item.bvid || "";
@@ -231,6 +286,30 @@ export const useSearchAndBV = ({
             }
         }, 100);
     }, [themeColor, selectedFavId, favorites, setGlobalSearchTerm, setBvPreview, setBvSongName, setBvSinger, setBvTargetFavId, setBvModalOpen, setResolvingBV, setIsLoggedIn, openModal, closeModal]);
+
+    const addSingleRemotePage = useCallback((page: Song) => {
+        const bvid = page.bvid || "";
+        if (!bvid) return;
+
+        setGlobalSearchTerm(bvid);
+        setBvPreview({
+            bvid,
+            title: page.name || page.videoTitle || "未命名分P",
+            cover: page.cover || "",
+            url: "",
+            expiresAt: "",
+            duration: 0,
+            isLocal: false,
+            pageNumber: page.pageNumber || 1,
+            pageTitle: page.pageTitle || "",
+            singlePageOnly: true,
+        });
+        setBvSongName(page.name || page.videoTitle || "未命名分P");
+        setBvSinger((page.singer || "").replace(/\s+/g, " ").trim());
+        setBvTargetFavId(selectedFavId || favorites[0]?.id || null);
+        setBvModalOpen(true);
+        closeModal("globalSearchModal");
+    }, [selectedFavId, favorites, setGlobalSearchTerm, setBvPreview, setBvSongName, setBvSinger, setBvTargetFavId, setBvModalOpen, closeModal]);
 
     const resolveBVAndAdd = useCallback(async () => {
         const term = globalSearchTerm.trim();
@@ -389,6 +468,8 @@ export const useSearchAndBV = ({
         searchResultClick,
         remoteSearch,
         addFromRemote,
+        addSingleRemotePage,
         resolveBVAndAdd,
+        loadRemotePages,
     };
 };

@@ -163,9 +163,11 @@ export interface AppModalsProps {
 
     onGlobalTermChange: (v: string) => void;
     onResolveBVAndAdd: () => void | Promise<void>;
-    onRemoteSearch: () => void | Promise<void>;
+    onRemoteSearch: (options?: { order?: string; page?: number; pageSize?: number }) => void | Promise<void>;
     onResultClick: (result: GlobalSearchResult) => void;
     onAddFromRemote: (song: Song) => void;
+    onAddSingleRemotePage: (song: Song) => void;
+    onLoadRemotePages: (bvid: string) => Promise<Song[]>;
 
     onSliceRangeChange: (start: number, end: number) => void;
     onSliceStartChange: (v: number | string) => void;
@@ -317,6 +319,8 @@ const AppModalsOptimized: React.FC<AppModalsProps> = React.memo((props) => {
         onRemoteSearch,
         onResultClick,
         onAddFromRemote,
+        onAddSingleRemotePage,
+        onLoadRemotePages,
         onSliceRangeChange,
         onSliceStartChange,
         onSliceEndChange,
@@ -645,6 +649,8 @@ const AppModalsOptimized: React.FC<AppModalsProps> = React.memo((props) => {
                     onRemoteSearch={onRemoteSearch}
                     onResultClick={onResultClick}
                     onAddFromRemote={onAddFromRemote}
+                    onAddSingleRemotePage={onAddSingleRemotePage}
+                    onLoadRemotePages={onLoadRemotePages}
                     panelStyles={panelStyles}
                     derived={derived}
                 />

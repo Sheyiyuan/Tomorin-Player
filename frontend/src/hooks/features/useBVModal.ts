@@ -63,7 +63,13 @@ export const useBVModal = ({
             try {
                 const rawPages = await Services.SearchBVID(bvPreview.bvid || '');
                 const converted = convertSongs(rawPages || []);
-                pagesToAdd = converted.filter((s) => !s.id || s.id.trim() === '');
+                const remotePages = converted.filter((s) => !s.id || s.id.trim() === '');
+
+                if (bvPreview.singlePageOnly && bvPreview.pageNumber && bvPreview.pageNumber > 0) {
+                    pagesToAdd = remotePages.filter((s) => s.pageNumber === bvPreview.pageNumber);
+                } else {
+                    pagesToAdd = remotePages;
+                }
             } catch (err) {
                 console.warn('获取分P信息失败，回退为单首添加:', err);
             }
@@ -84,10 +90,10 @@ export const useBVModal = ({
                     lyricOffset: 0,
                     skipStartTime: start,
                     skipEndTime: end,
-                    pageNumber: 1,
-                    pageTitle: '',
+                    pageNumber: bvPreview.pageNumber || 1,
+                    pageTitle: bvPreview.pageTitle || '',
                     videoTitle: bvPreview.title || '',
-                    totalPages: 1,
+                    totalPages: bvPreview.singlePageOnly ? 1 : 1,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                 } as Song];
@@ -107,7 +113,9 @@ export const useBVModal = ({
                 );
                 createdSourceIds.push(sourceId);
 
-                const displayName = pagesToAdd.length > 1 ? (page.name || bvPreview.title || '') : (bvSongName || page.name || bvPreview.title || '');
+                const displayName = pagesToAdd.length > 1 && !bvPreview.singlePageOnly
+                    ? (page.name || bvPreview.title || '')
+                    : (bvSongName || page.name || bvPreview.title || '');
 
                 newSongs.push(new SongClass({
                     id: '',

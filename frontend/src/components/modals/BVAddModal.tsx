@@ -9,6 +9,9 @@ interface BVPreview {
     title?: string;
     duration?: number;
     url?: string;
+    pageNumber?: number;
+    pageTitle?: string;
+    singlePageOnly?: boolean;
 }
 
 interface BVAddModalProps {

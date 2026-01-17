@@ -82,8 +82,6 @@ export const useAppHandlers = (config: {
     searchAndBV: any;
     newFavName: string;
     setNewFavName: (name: string) => void;
-    setFavorites: (favs: any[]) => void;
-    setBvTargetFavId: (id: string | null) => void;
     bvPreview: any;
     sliceStart: number;
     sliceEnd: number;
@@ -242,7 +240,9 @@ export const useAppHandlers = (config: {
     const handleSearchResultClick = searchAndBV.searchResultClick;
     const handleRemoteSearch = searchAndBV.remoteSearch;
     const handleAddFromRemote = searchAndBV.addFromRemote;
+    const handleAddSingleRemotePage = searchAndBV.addSingleRemotePage;
     const handleResolveBVAndAdd = searchAndBV.resolveBVAndAdd;
+    const handleLoadRemotePages = searchAndBV.loadRemotePages;
 
     // ========== BV 切片处理 ==========
     const handleSliceRangeChange = (startVal: number, endVal: number) => {
@@ -400,6 +400,7 @@ export const useAppHandlers = (config: {
         handleRemoteSearch,
         handleAddFromRemote,
         handleResolveBVAndAdd,
+        handleLoadRemotePages,
         // BV 切片
         handleSliceRangeChange,
         handleSliceStartChange,

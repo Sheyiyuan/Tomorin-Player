@@ -206,8 +206,8 @@ export function SearchBVID(arg1) {
   return window['go']['services']['Service']['SearchBVID'](arg1);
 }
 
-export function SearchBiliVideos(arg1, arg2, arg3) {
-  return window['go']['services']['Service']['SearchBiliVideos'](arg1, arg2, arg3);
+export function SearchBiliVideos(arg1, arg2, arg3, arg4) {
+  return window['go']['services']['Service']['SearchBiliVideos'](arg1, arg2, arg3, arg4);
 }
 
 export function SearchLocalSongs(arg1) {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"half-beat-player/internal/models"
 
@@ -26,31 +27,70 @@ func (s *Service) SearchLocalSongs(keyword string) ([]models.Song, error) {
 }
 
 // SearchBiliVideos queries Bilibili video search and returns lightweight Song-like items.
-func (s *Service) SearchBiliVideos(keyword string, page int, pageSize int) ([]models.Song, error) {
+// order uses Bilibili search order values (e.g. totalrank, pubdate, click, favorite, danmaku).
+func (s *Service) SearchBiliVideos(keyword string, page int, pageSize int, order string) ([]models.Song, error) {
 	if page <= 0 {
 		page = 1
 	}
 	if pageSize <= 0 || pageSize > 30 {
 		pageSize = 10
 	}
+	_ = s.warmupBiliCookies()
 	api := "https://api.bilibili.com/x/web-interface/search/type"
 	q := url.Values{}
 	q.Set("search_type", "video")
 	q.Set("keyword", keyword)
 	q.Set("page", fmt.Sprintf("%d", page))
 	q.Set("page_size", fmt.Sprintf("%d", pageSize))
-	q.Set("order", "totalrank")
+	if order == "" {
+		order = "totalrank"
+	}
+	q.Set("order", order)
 	endpoint := api + "?" + q.Encode()
 
 	req, _ := http.NewRequest("GET", endpoint, nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0")
-	req.Header.Set("Referer", "https://www.bilibili.com/")
-	resp, err := http.DefaultClient.Do(req)
+	req.Header.Set("Referer", "https://search.bilibili.com/")
+	req.Header.Set("Origin", "https://www.bilibili.com")
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+	if cookieHeader := s.buildBiliCookieHeader("https://api.bilibili.com"); cookieHeader != "" {
+		req.Header.Set("Cookie", cookieHeader)
+	}
+	client := s.httpClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode == http.StatusPreconditionFailed {
+		_ = s.warmupBiliCookies()
+		resp.Body.Close()
+		req2, _ := http.NewRequest("GET", endpoint, nil)
+		req2.Header = req.Header.Clone()
+		resp, err = client.Do(req2)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		body, _ = io.ReadAll(resp.Body)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("bili search http %d", resp.StatusCode)
+	}
+	if ct := resp.Header.Get("Content-Type"); ct != "" && !strings.Contains(ct, "application/json") {
+		snippet := string(body)
+		if len(snippet) > 200 {
+			snippet = snippet[:200]
+		}
+		return nil, fmt.Errorf("bili search non-json response: %s", snippet)
+	}
 
 	var parsed struct {
 		Code int `json:"code"`
@@ -87,6 +127,61 @@ func (s *Service) SearchBiliVideos(keyword string, page int, pageSize int) ([]mo
 		})
 	}
 	return out, nil
+}
+
+func (s *Service) warmupBiliCookies() error {
+	client := s.httpClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+	// Visit homepage to seed buvid cookies
+	req, _ := http.NewRequest("GET", "https://www.bilibili.com/", nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	req.Header.Set("Referer", "https://www.bilibili.com/")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	_, _ = io.ReadAll(resp.Body)
+
+	// Touch API endpoint to ensure cookies for api.bilibili.com are present
+	apiReq, _ := http.NewRequest("GET", "https://api.bilibili.com/x/web-interface/nav", nil)
+	apiReq.Header.Set("User-Agent", "Mozilla/5.0")
+	apiReq.Header.Set("Referer", "https://www.bilibili.com/")
+	apiReq.Header.Set("Accept", "application/json, text/plain, */*")
+	if cookieHeader := s.buildBiliCookieHeader("https://www.bilibili.com"); cookieHeader != "" {
+		apiReq.Header.Set("Cookie", cookieHeader)
+	}
+	apiResp, apiErr := client.Do(apiReq)
+	if apiErr == nil {
+		defer apiResp.Body.Close()
+		_, _ = io.ReadAll(apiResp.Body)
+	}
+	return nil
+}
+
+func (s *Service) buildBiliCookieHeader(rawURL string) string {
+	if s.cookieJar == nil {
+		return ""
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	cookies := s.cookieJar.Cookies(u)
+	if len(cookies) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(cookies))
+	for _, c := range cookies {
+		if c == nil || c.Name == "" {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s=%s", c.Name, c.Value))
+	}
+	return strings.Join(parts, "; ")
 }
 
 // SearchBVID searches for a BV number in both local database and Bilibili.

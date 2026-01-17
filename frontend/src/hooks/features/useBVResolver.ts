@@ -16,6 +16,9 @@ export interface BVPreview {
     expiresAt: string;
     duration: number;
     isLocal: boolean; // 标记是否来自本地数据库
+    pageNumber?: number;
+    pageTitle?: string;
+    singlePageOnly?: boolean;
 }
 
 export interface UseBVResolverReturn {

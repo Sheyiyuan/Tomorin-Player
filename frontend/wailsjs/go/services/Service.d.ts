@@ -108,7 +108,7 @@ export function SavePlaylist(arg1:string,arg2:number):Promise<void>;
 
 export function SearchBVID(arg1:string):Promise<Array<models.Song>>;
 
-export function SearchBiliVideos(arg1:string,arg2:number,arg3:number):Promise<Array<models.Song>>;
+export function SearchBiliVideos(arg1:string,arg2:number,arg3:number,arg4:string):Promise<Array<models.Song>>;
 
 export function SearchLocalSongs(arg1:string):Promise<Array<models.Song>>;
 

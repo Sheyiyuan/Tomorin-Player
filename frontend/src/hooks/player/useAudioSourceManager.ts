@@ -84,13 +84,10 @@ export const useAudioSourceManager = ({
         if (!audio || !currentSong?.streamUrl) return;
 
         if (isPlaying && audio.paused) {
-            // 只有在音频已经准备好的情况下才播放
-            if (audio.readyState >= 3) { // HAVE_FUTURE_DATA
-                audio.play().catch((err) => {
-                    console.error("播放失败:", err);
-                    setIsPlaying(false);
-                });
-            }
+            audio.play().catch((err) => {
+                console.error("播放失败:", err);
+                setIsPlaying(false);
+            });
         } else if (!isPlaying && !audio.paused) {
             audio.pause();
         }

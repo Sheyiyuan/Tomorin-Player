@@ -45,6 +45,15 @@ export const useAudioEvents = ({
     playSong,
     playNext,
 }: UseAudioEventsProps) => {
+    // 切歌时重置进度/时长，避免沿用上一首状态
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (audio) {
+            audio.currentTime = 0;
+        }
+        setProgress(0);
+        setDuration(0);
+    }, [currentSong?.id, currentSong?.streamUrl, audioRef, setProgress, setDuration]);
     // 使用 Ref 跟踪 isPlaying 状态，避免频繁重新注册事件
     const isPlayingRef = useRef(isPlaying);
     useEffect(() => {
@@ -171,6 +180,12 @@ export const useAudioEvents = ({
             const t = audio.currentTime;
             const { start, end } = intervalRef.current;
 
+            // 元数据尚未就绪或时长异常时，避免区间判断导致误暂停
+            if (!Number.isFinite(audio.duration) || audio.duration <= 0) {
+                setProgress(t);
+                return;
+            }
+
             if (t < start) {
                 // 如果播放时间早于区间起点，调整回起点
                 audio.currentTime = start;
@@ -197,7 +212,22 @@ export const useAudioEvents = ({
         // 元数据加载处理
         const onLoaded = () => {
             const loadedDuration = audio.duration || 0;
+
+            // 时长异常（Infinity/NaN/<=0）时不更新区间与结束时间
+            if (!Number.isFinite(loadedDuration) || loadedDuration <= 0) {
+                setDuration(0);
+                return;
+            }
+
             setDuration(loadedDuration);
+
+            // 元数据加载完成后，补触发自动播放
+            if (isPlayingRef.current && audio.paused) {
+                audio.play().catch((err) => {
+                    console.error("自动播放失败:", err);
+                    setIsPlaying(false);
+                });
+            }
 
             // 如果当前歌曲的 skipEndTime 为 0，自动设置为实际时长
             if (currentSong && loadedDuration > 0 && currentSong.skipEndTime === 0) {
@@ -273,7 +303,7 @@ export const useAudioEvents = ({
         audio.addEventListener('timeupdate', onTime);
         audio.addEventListener('loadedmetadata', onLoaded);
         audio.addEventListener('ended', onEnded);
-        audio.addEventListener('canplaythrough', onCanPlay);
+        audio.addEventListener('canplay', onCanPlay);
         audio.addEventListener('play', onPlay);
         audio.addEventListener('pause', onPause);
 
@@ -282,7 +312,7 @@ export const useAudioEvents = ({
             audio.removeEventListener('timeupdate', onTime);
             audio.removeEventListener('loadedmetadata', onLoaded);
             audio.removeEventListener('ended', onEnded);
-            audio.removeEventListener('canplaythrough', onCanPlay);
+            audio.removeEventListener('canplay', onCanPlay);
             audio.removeEventListener('play', onPlay);
             audio.removeEventListener('pause', onPause);
         };

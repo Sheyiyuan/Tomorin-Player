@@ -8,6 +8,7 @@ interface UseAudioSourceManagerProps {
     playbackRetryRef: React.MutableRefObject<Map<string, number>>;
     isPlaying: boolean;
     setIsPlaying: (playing: boolean) => void;
+    onBeforePlay?: () => void;
 }
 
 /**
@@ -22,6 +23,7 @@ export const useAudioSourceManager = ({
     playbackRetryRef,
     isPlaying,
     setIsPlaying,
+    onBeforePlay,
 }: UseAudioSourceManagerProps) => {
     // 缓存上次处理的歌曲ID和URL，避免重复处理
     const lastProcessedSongIdRef = useRef<string | null>(null);
@@ -84,6 +86,11 @@ export const useAudioSourceManager = ({
         if (!audio || !currentSong?.streamUrl) return;
 
         if (isPlaying && audio.paused) {
+            try {
+                onBeforePlay?.();
+            } catch (e) {
+                console.warn('onBeforePlay 执行失败:', e);
+            }
             audio.play().catch((err) => {
                 console.error("播放失败:", err);
                 setIsPlaying(false);
@@ -91,5 +98,5 @@ export const useAudioSourceManager = ({
         } else if (!isPlaying && !audio.paused) {
             audio.pause();
         }
-    }, [currentSong?.id, isPlaying, audioRef, setIsPlaying]);
+    }, [currentSong?.id, isPlaying, audioRef, setIsPlaying, onBeforePlay]);
 };

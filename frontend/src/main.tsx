@@ -10,9 +10,17 @@ import "@mantine/core/styles.css";
 import { Notifications } from "@mantine/notifications";
 import "@mantine/notifications/styles.css";
 import "./index.css";
-import "../wailsjs/runtime/runtime";
+import { onWailsReady } from "./utils/wails";
 import App from "./App";
 import { AppProvider } from "./context/AppContext";
+
+// Wails runtime 在部分环境（尤其 Linux WebKit）存在异步注入时序。
+// 延迟加载可避免启动阶段出现 "window.wails.Callback" 为 undefined 的错误。
+onWailsReady(() => {
+    import("../wailsjs/runtime/runtime").catch((e) => {
+        console.warn("[Wails] runtime 加载失败（可能不在 Wails 环境）:", e);
+    });
+});
 
 const container = document.getElementById("root");
 if (!container) throw new Error("Root container missing");

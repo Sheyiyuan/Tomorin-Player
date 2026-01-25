@@ -50,10 +50,12 @@ func (s *Service) GetPlayerSetting() (models.PlayerSetting, error) {
 			setting = models.PlayerSetting{
 				ID: 1,
 				Config: map[string]any{
-					"playMode":       "order",
-					"defaultVolume":  0.5,
-					"themes":         themesJSON,
-					"currentThemeId": "light",
+					"playMode":             "order",
+					"defaultVolume":        0.5,
+					"themes":               themesJSON,
+					"currentThemeId":       "light",
+					"volumeCompensationDb": 0,
+					"songVolumeOffsets":    map[string]any{},
 				},
 			}
 			if err := s.db.Create(&setting).Error; err != nil {

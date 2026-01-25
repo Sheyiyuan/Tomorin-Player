@@ -21,6 +21,9 @@ interface MainLayoutProps {
     onSkipEndChange: (value: number) => void;
     onStreamUrlChange: (url: string) => void;
     onSongInfoUpdate?: (songId: string, updates: { name?: string; singer?: string; cover?: string }) => void;
+    volumeCompensationDb?: number;
+    songVolumeOffsetDb?: number | null;
+    onSongVolumeOffsetChange?: (songId: string, offsetDb: number | null) => void;
     componentRadius?: number;
     coverRadius?: number;
 
@@ -77,6 +80,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     onSkipEndChange,
     onStreamUrlChange,
     onSongInfoUpdate,
+    volumeCompensationDb,
+    songVolumeOffsetDb,
+    onSongVolumeOffsetChange,
 
     // CurrentPlaylistCard props
     currentFav,
@@ -133,6 +139,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 onSkipEndChange={onSkipEndChange}
                 onStreamUrlChange={onStreamUrlChange}
                 onSongInfoUpdate={onSongInfoUpdate}
+                volumeCompensationDb={volumeCompensationDb}
+                songVolumeOffsetDb={songVolumeOffsetDb}
+                onSongVolumeOffsetChange={onSongVolumeOffsetChange}
                 componentRadius={componentRadius}
                 coverRadius={coverRadius}
                 controlBackground={controlBackground}

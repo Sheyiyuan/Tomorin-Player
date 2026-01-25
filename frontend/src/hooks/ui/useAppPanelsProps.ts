@@ -41,6 +41,9 @@ interface UseAppPanelsPropsParams {
     handleSkipEndChange: (val: number) => void;
     handleStreamUrlChange: (val: string) => void;
     handleSongInfoUpdate: (songId: string, updates: { name?: string; singer?: string; cover?: string }) => void;
+    globalVolumeCompensationDb: number;
+    songVolumeOffsetDb: number | null;
+    onSongVolumeOffsetChange: (songId: string, offsetDb: number | null) => void;
     currentFav: Favorite | null;
     currentFavSongs: Song[];
     searchQuery: string;
@@ -131,6 +134,9 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             handleSkipEndChange,
             handleStreamUrlChange,
             handleSongInfoUpdate,
+            globalVolumeCompensationDb,
+            songVolumeOffsetDb,
+            onSongVolumeOffsetChange,
             currentFav,
             currentFavSongs,
             searchQuery,
@@ -227,6 +233,9 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             onSkipEndChange: handleSkipEndChange,
             onStreamUrlChange: handleStreamUrlChange,
             onSongInfoUpdate: handleSongInfoUpdate,
+            volumeCompensationDb: globalVolumeCompensationDb,
+            songVolumeOffsetDb,
+            onSongVolumeOffsetChange,
             currentFav,
             currentFavSongs,
             searchQuery,

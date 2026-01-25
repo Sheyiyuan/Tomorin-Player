@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ActionIcon, Box, Button, Card, Flex, Group, Image, NumberInput, RangeSlider, ScrollArea, Stack, Text, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Box, Button, Card, Flex, Group, Image, NumberInput, RangeSlider, ScrollArea, Slider, Stack, Switch, Text, TextInput, Tooltip } from "@mantine/core";
 import { IconEdit, IconCheck, IconX } from "@tabler/icons-react";
 import { Song } from "../../types";
 import { useImageProxy } from "../../hooks/ui/useImageProxy";
@@ -21,6 +21,9 @@ export type SongDetailCardProps = {
     onSkipEndChange: (value: number) => void;
     onStreamUrlChange: (value: string) => void;
     onSongInfoUpdate?: (songId: string, updates: { name?: string; singer?: string; cover?: string }) => void;
+    volumeCompensationDb?: number;
+    songVolumeOffsetDb?: number | null;
+    onSongVolumeOffsetChange?: (songId: string, offsetDb: number | null) => void;
     componentRadius?: number;
     coverRadius?: number;
     controlBackground?: string;
@@ -45,6 +48,9 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
     onSkipEndChange,
     onStreamUrlChange,
     onSongInfoUpdate,
+    volumeCompensationDb = 0,
+    songVolumeOffsetDb,
+    onSongVolumeOffsetChange,
     componentRadius = 8,
     coverRadius = 8,
     controlBackground,
@@ -57,6 +63,8 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
     const [editName, setEditName] = useState("");
     const [editSinger, setEditSinger] = useState("");
     const [editCover, setEditCover] = useState("");
+    const usingGlobalCompensation = !(Number.isFinite(songVolumeOffsetDb as number));
+    const displayCompensationDb = usingGlobalCompensation ? volumeCompensationDb : (songVolumeOffsetDb as number);
 
     const handleStartEdit = () => {
         if (!song) return;
@@ -237,6 +245,61 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
                                     styles={inputStyles}
                                 />
                             </Group>
+                        </Stack>
+
+                        <Stack gap="xs">
+                            <Group justify="space-between" align="center">
+                                <Text size="xs" style={{ color: textColorSecondary }}>单曲音量补偿（dB）</Text>
+                                <Switch
+                                    size="sm"
+                                    checked={usingGlobalCompensation}
+                                    onChange={(event) => {
+                                        if (!song || !onSongVolumeOffsetChange) return;
+                                        if (event.currentTarget.checked) {
+                                            onSongVolumeOffsetChange(song.id, null);
+                                        } else {
+                                            onSongVolumeOffsetChange(song.id, volumeCompensationDb);
+                                        }
+                                    }}
+                                    label="使用全局"
+                                    styles={{
+                                        label: { color: textColorSecondary, fontSize: 12 },
+                                    }}
+                                />
+                            </Group>
+                            <Group gap="sm" align="center">
+                                <Slider
+                                    value={displayCompensationDb}
+                                    onChange={(value) => {
+                                        if (!song || !onSongVolumeOffsetChange) return;
+                                        onSongVolumeOffsetChange(song.id, Number(value));
+                                    }}
+                                    min={-12}
+                                    max={12}
+                                    step={0.5}
+                                    label={(value) => `${value} dB`}
+                                    style={{ '--slider-color': themeColor } as any}
+                                    w="100%"
+                                />
+                                <NumberInput
+                                    value={displayCompensationDb}
+                                    onChange={(value) => {
+                                        if (!song || !onSongVolumeOffsetChange || value === undefined) return;
+                                        onSongVolumeOffsetChange(song.id, Number(value));
+                                    }}
+                                    min={-12}
+                                    max={12}
+                                    step={0.5}
+                                    decimalScale={1}
+                                    hideControls
+                                    w={90}
+                                    size="sm"
+                                    styles={inputStyles}
+                                />
+                            </Group>
+                            <Text size="xs" style={{ color: textColorSecondary }}>
+                                {usingGlobalCompensation ? `当前：使用全局 ${volumeCompensationDb} dB` : `当前：${displayCompensationDb} dB`}
+                            </Text>
                         </Stack>
 
 

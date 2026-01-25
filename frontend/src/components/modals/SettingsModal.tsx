@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Group, Modal, Stack, Text } from "@mantine/core";
+import { Button, Group, Modal, NumberInput, Slider, Stack, Text } from "@mantine/core";
 import { SettingsExitBehavior } from "../cards";
 
 interface SettingsModalProps {
@@ -7,6 +7,8 @@ interface SettingsModalProps {
     themeColor: string;
     appVersion: string | number;
     cacheSize: number;
+    volumeCompensationDb: number;
+    onVolumeCompensationChange: (value: number) => void;
     onClose: () => void;
     onOpenDownloadsFolder: () => void;
     onOpenDatabaseFile: () => void;
@@ -20,6 +22,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     themeColor,
     appVersion,
     cacheSize,
+    volumeCompensationDb,
+    onVolumeCompensationChange,
     onClose,
     onOpenDownloadsFolder,
     onOpenDatabaseFile,
@@ -55,6 +59,39 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Text fw={600} c={derived?.textColorPrimary}>软件信息</Text>
                 <Text c={derived?.textColorPrimary}>half-beat v{appVersion}</Text>
                 <Text size="sm" c={derived?.textColorSecondary}>更好的 bilibili 音乐播放器</Text>
+
+                <Text fw={600} mt="sm" c={derived?.textColorPrimary}>音量补偿</Text>
+                <Text size="sm" c={derived?.textColorSecondary}>调整所有歌曲的默认响度（单位 dB）</Text>
+                <Group gap="sm" align="center">
+                    <Slider
+                        value={volumeCompensationDb}
+                        onChange={(value) => onVolumeCompensationChange(value)}
+                        min={-12}
+                        max={12}
+                        step={0.5}
+                        label={(value) => `${value} dB`}
+                        style={{ '--slider-color': themeColor } as any}
+                        w="100%"
+                    />
+                    <NumberInput
+                        value={volumeCompensationDb}
+                        onChange={(value) => value !== undefined && onVolumeCompensationChange(Number(value))}
+                        min={-12}
+                        max={12}
+                        step={0.5}
+                        decimalScale={1}
+                        hideControls
+                        w={90}
+                        size="sm"
+                        styles={{
+                            input: {
+                                backgroundColor: derived?.controlBackground,
+                                color: derived?.textColorPrimary,
+                                borderColor: 'transparent',
+                            },
+                        }}
+                    />
+                </Group>
 
                 <Text fw={600} mt="sm" c={derived?.textColorPrimary}>缓存</Text>
                 <Group>

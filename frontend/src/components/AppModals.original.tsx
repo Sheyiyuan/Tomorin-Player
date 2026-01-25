@@ -99,6 +99,7 @@ export interface AppModalsProps {
     // misc
     appVersion: string;
     cacheSize: number;
+    volumeCompensationDb: number;
     createFavName: string;
     createFavMode: "blank" | "duplicate" | "importMine" | "importFid";
     duplicateSourceId: string | null;
@@ -158,6 +159,7 @@ export interface AppModalsProps {
     onOpenDownloadsFolder: () => void;
     onOpenDatabaseFile: () => void;
     onClearMusicCache: () => void;
+    onVolumeCompensationChange: (value: number) => void;
 
     onDownloadModalClose: () => void;
     onOpenDownloadedFile: () => void;
@@ -329,6 +331,7 @@ const {
     confirmDeleteDownloaded,
     appVersion,
     cacheSize,
+    volumeCompensationDb,
     createFavName,
     createFavMode,
     duplicateSourceId,
@@ -383,6 +386,7 @@ const {
     onOpenDownloadsFolder,
     onOpenDatabaseFile,
     onClearMusicCache,
+    onVolumeCompensationChange,
     onDownloadModalClose,
     onOpenDownloadedFile,
     onDeleteDownloadedFile,
@@ -651,6 +655,8 @@ return (
             themeColor={themeColor}
             appVersion={appVersion}
             cacheSize={cacheSize}
+            volumeCompensationDb={volumeCompensationDb}
+            onVolumeCompensationChange={onVolumeCompensationChange}
             onOpenDownloadsFolder={onOpenDownloadsFolder}
             onOpenDatabaseFile={onOpenDatabaseFile}
             onClearMusicCache={onClearMusicCache}

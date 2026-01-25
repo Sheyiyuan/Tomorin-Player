@@ -7,7 +7,6 @@ interface UseAudioEventsProps {
     currentSong: Song | null;
     queue: Song[];
     currentIndex: number;
-    volume: number;
     playMode: 'loop' | 'random' | 'single';
     isPlaying: boolean;
     intervalRef: React.MutableRefObject<{ start: number; end: number; length: number }>;
@@ -29,7 +28,6 @@ export const useAudioEvents = ({
     currentSong,
     queue,
     currentIndex,
-    volume,
     playMode,
     isPlaying,
     intervalRef,
@@ -64,7 +62,6 @@ export const useAudioEvents = ({
     useEffect(() => {
         const audio = (audioRef.current ||= new Audio());
         audio.crossOrigin = "anonymous";
-        audio.volume = volume;
 
         // 错误处理
         const handleError = (e: ErrorEvent | Event) => {
@@ -321,7 +318,6 @@ export const useAudioEvents = ({
         currentSong,
         queue,
         currentIndex,
-        volume,
         playMode,
         intervalRef,
         setIsPlaying,

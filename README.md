@@ -103,6 +103,38 @@ _使用 Wails v2 构建的跨平台桌面应用_
 
 ---
 
+## 安装方法
+
+### 1. 下载安装包
+
+前往 [Releases 页面](https://github.com/Sheyiyuan/Half-Beat-Player/releases) 下载适合您操作系统的安装包。
+
+- **Windows**: 下载 `.exe` 安装程序并运行。
+- **macOS**: 下载 `.dmg` 文件并双击安装。
+- **Linux**: 下载 `.deb` 或 `.rpm` 包，使用以下命令安装：
+
+```bash
+# Debian/Ubuntu
+sudo dpkg -i half-beat-player_<version>.deb
+sudo apt-get install -f  # 修复依赖
+
+# Fedora/RHEL
+sudo rpm -i half-beat-player-<version>.rpm
+```
+
+### 2. Arch 用户
+
+Arch Linux 用户可以通过 AUR 安装 `half-beat-bin` 包：
+
+```bash
+# yay
+yay -S half-beat-bin
+# paru
+paru -S half-beat-bin
+```
+
+---
+
 ## 开发环境
 
 ### 前置要求

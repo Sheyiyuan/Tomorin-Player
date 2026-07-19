@@ -106,6 +106,17 @@ describe("theme draft helpers", () => {
         expect(result.draft?.backgroundImageUrl).toBe("");
     });
 
+    it("allows an empty JSON name so save can use the unnamed theme fallback", () => {
+        const draft = createDefaultThemeDraft("dark");
+        const result = parseThemeDraftJson(JSON.stringify({
+            ...createThemeDataFromDraft(draft, { backgroundImage: "", backgroundImageSourceUrl: "" }),
+            name: "",
+        }), draft);
+
+        expect(result.errors).toEqual([]);
+        expect(result.draft?.name).toBe("");
+    });
+
     it("rejects invalid colors, ranges, and enums", () => {
         const draft = createDefaultThemeDraft("dark");
         const result = parseThemeDraftJson(JSON.stringify({

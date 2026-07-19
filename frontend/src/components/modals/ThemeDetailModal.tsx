@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Alert,
     Box,
@@ -7,7 +7,6 @@ import {
     Divider,
     Fieldset,
     Group,
-    Loader,
     Modal,
     ScrollArea,
     SegmentedControl,
@@ -17,6 +16,7 @@ import {
     Tabs,
     Text,
     TextInput,
+    Textarea,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { AlertCircle, Check, Copy, ImagePlus, Trash2 } from "lucide-react";
@@ -32,8 +32,6 @@ import {
 } from "../../hooks/features/themeDraft";
 import { useImageProxy } from "../../hooks/ui/useImageProxy";
 import { getContrastRatio } from "../../utils/accessibility";
-
-const ThemeJsonCodeEditor = lazy(() => import("./ThemeJsonCodeEditor"));
 
 type ThemeDraftSession = ReturnType<typeof useThemeDraftState>["session"];
 type ThemeDraftActions = ReturnType<typeof useThemeDraftState>["actions"];
@@ -384,19 +382,37 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = React.memo(({
                             <Box style={{ flex: 1, minHeight: 0, overflow: "hidden", backgroundColor: derived?.controlBackground, borderRadius: derived?.componentRadius }}>
                                 <ScrollArea type="auto" offsetScrollbars style={{ height: "100%", overscrollBehavior: "contain" }}>
                                     <Box p="sm">
-                                        <Suspense fallback={<Group justify="center" p="xl"><Loader size="sm" color={draft.themeColor} /></Group>}>
-                                            <ThemeJsonCodeEditor
-                                                value={jsonText}
-                                                colorMode={draft.colorScheme}
-                                                disabled={readOnly}
-                                                backgroundColor={derived?.controlBackground}
-                                                textColor={derived?.textColorPrimary}
-                                                onChange={(value) => {
-                                                    setJsonText(value);
-                                                    setJsonError("");
-                                                }}
-                                            />
-                                        </Suspense>
+                                        <Textarea
+                                            value={jsonText}
+                                            placeholder="粘贴或编辑 JSON 配置..."
+                                            onChange={(event) => {
+                                                setJsonText(event.currentTarget.value);
+                                                setJsonError("");
+                                            }}
+                                            autosize
+                                            minRows={14}
+                                            maxRows={28}
+                                            spellCheck={false}
+                                            wrap="off"
+                                            readOnly={readOnly}
+                                            styles={{
+                                                input: {
+                                                    width: "100%",
+                                                    minHeight: 260,
+                                                    fontFamily: "monospace",
+                                                    fontSize: "14px",
+                                                    lineHeight: "1.5",
+                                                    color: derived?.textColorPrimary,
+                                                    backgroundColor: derived?.controlBackground,
+                                                    borderColor: "transparent",
+                                                    borderRadius: derived?.componentRadius,
+                                                    whiteSpace: "pre",
+                                                },
+                                                label: {
+                                                    color: derived?.textColorPrimary,
+                                                },
+                                            }}
+                                        />
                                     </Box>
                                 </ScrollArea>
                             </Box>

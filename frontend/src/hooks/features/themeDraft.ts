@@ -339,7 +339,6 @@ export const parseThemeDraftJson = (text: string, baseDraft: ThemeDraft): Parsed
 
     const errors: string[] = [];
     const requiredKeys = [
-        "name",
         "themeColor",
         "backgroundColor",
         "backgroundOpacity",

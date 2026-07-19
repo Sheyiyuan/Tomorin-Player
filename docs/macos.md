@@ -3,25 +3,19 @@
 ## 系统要求
 - macOS 12+（Intel/Apple Silicon）
 - Xcode Command Line Tools
-- Wails CLI, Go 1.22+, Node.js 18+, pnpm
+- Wails CLI v2.11.0, Go 1.22+, Node.js 20+, pnpm 11.4.0, `create-dmg`
 
 ## 构建
 ```bash
-# 安装前端依赖
-cd frontend
-pnpm install
-pnpm build
-cd ..
-
 # 构建（统一版本注入）
-export APP_VERSION=1.2.3
-scripts/build-macos.sh -c
+make package-macos VERSION=1.2.0 CLEAN=1
 ```
 
 脚本行为：
 - 使用 `APP_VERSION`/`VITE_APP_VERSION` 注入版本
+- 由 Wails 按锁文件安装依赖并构建前端
 - 执行 `wails build -platform darwin/universal`
-- 如安装了 `create-dmg`，会尝试生成 DMG：`build/bin/half-beat-<version>.dmg`
+- 要求 `create-dmg` 成功生成 DMG：`build/bin/half-beat-<version>.dmg`；生成失败时构建失败
 
 ## 安装
 - `.app` 直接拖入 `/Applications`
@@ -32,4 +26,4 @@ scripts/build-macos.sh -c
 
 ## 常见问题
 - `wails` 未找到：确认已安装并在 PATH（或放在 `$HOME/go/bin`）
-- 缺少 `create-dmg`：通过 `brew install create-dmg` 安装，或直接使用 `.app`
+- 缺少 `create-dmg`：通过 `brew install create-dmg` 安装

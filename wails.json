@@ -8,28 +8,10 @@
     },
     "version": "2",
     "outputfilename": "half-beat",
-    "build": {
-        "frontend": {
-            "dir": "frontend",
-            "install": "pnpm install",
-            "build": "pnpm run build",
-            "dev": "pnpm run dev"
-        },
-        "devServerURL": "http://localhost:5173",
-        "watcher": {
-            "paths": [
-                ".",
-                "frontend"
-            ],
-            "ignore": [
-                "node_modules",
-                "build",
-                "frontend/node_modules",
-                "frontend/dist",
-                "frontend/.vite"
-            ]
-        }
-    },
+    "frontend:install": "pnpm install --frozen-lockfile",
+    "frontend:build": "pnpm run build",
+    "frontend:dev:watcher": "pnpm run dev",
+    "frontend:dev:serverUrl": "auto",
     "platform": "linux",
     "linux": {
         "icon": "assets/icons/appicon.png",

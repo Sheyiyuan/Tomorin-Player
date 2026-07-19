@@ -53,22 +53,31 @@ git push origin v1.0.0
 
 ## 本地构建
 
-如果需要本地构建特定平台：
+统一入口位于根目录 Makefile：
 
 ```bash
-# Windows
-wails build -platform windows/amd64
+# 安装依赖与质量检查
+make install
+make check
 
-# macOS (Intel)
-wails build -platform darwin/amd64
+# 当前平台开发与构建
+make dev
+make build
 
-# macOS (Apple Silicon)
-wails build -platform darwin/arm64
-
-# Linux
-wails build -platform linux/amd64
-wails build -platform linux/arm64
+# 平台安装包
+make package-linux VERSION=1.2.0
+make package-windows VERSION=1.2.0
+make package-macos VERSION=1.2.0
 ```
+
+只生成一种 Linux 包时可以使用：
+
+```bash
+make package-deb VERSION=1.2.0
+make package-rpm VERSION=1.2.0
+```
+
+Makefile 调用 `scripts/` 中的平台实现；Linux 上的 Wails 包装器会自动选择 WebKitGTK 4.0/4.1 构建标签。
 
 ## 注意事项
 
@@ -84,11 +93,11 @@ wails build -platform linux/arm64
 3. **依赖要求**：
 
    - 所有构建需要 Go 1.22+
-   - 前端构建需要 Node.js 18+ 和 pnpm
+   - 前端构建需要 Node.js 20+ 和 pnpm 11.4.0
 
 ## 自定义配置
 
-修改 `.github/workflows/build.yml` 可以：
+修改 `.github/workflows/release.yml` 可以：
 
 - 调整触发条件
 - 添加更多架构支持

@@ -44,7 +44,8 @@ else
     
     # Add dev suffix with date and commit hash
     DATE=$(date -u +%Y%m%d)
-    HASH=${GITHUB_SHA::7}
+    COMMIT_SHA=${GITHUB_SHA:-$(git rev-parse HEAD 2>/dev/null || printf 'unknown')}
+    HASH=${COMMIT_SHA:0:7}
     VERSION="${NEXT_VER}-dev.${DATE}.${HASH}"
     
     echo "Generated dev version: ${VERSION}" >&2

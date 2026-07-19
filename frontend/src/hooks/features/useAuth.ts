@@ -3,88 +3,19 @@
  * 管理登录状态和用户信息
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import * as Services from '../../../wailsjs/go/services/Service';
-import { storage, STORAGE_KEYS } from '../../utils/storage';
+import { useState } from 'react';
 import { UserInfo } from '../../types';
 
 export interface UseAuthReturn {
-    isLoggedIn: boolean;
     userInfo: UserInfo | null;
-    loginModalOpened: boolean;
-
-    setIsLoggedIn: React.Dispatch<React.SetStateAction<boolean>>;
     setUserInfo: React.Dispatch<React.SetStateAction<UserInfo | null>>;
-    setLoginModalOpened: React.Dispatch<React.SetStateAction<boolean>>;
-
-    checkLoginStatus: () => Promise<boolean>;
-    getUserInfo: () => Promise<void>;
-    logout: () => void;
 }
 
 export const useAuth = () => {
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-    const [loginModalOpened, setLoginModalOpened] = useState(false);
-
-    // 检查登录状态
-    const checkLoginStatus = useCallback(async () => {
-        try {
-            const loggedIn = await Services.IsLoggedIn();
-            setIsLoggedIn(loggedIn);
-            return loggedIn;
-        } catch (error) {
-            console.error('检查登录状态失败:', error);
-            setIsLoggedIn(false);
-            return false;
-        }
-    }, []);
-
-    // 获取用户信息
-    const getUserInfo = useCallback(async () => {
-        try {
-            const info = await Services.GetUserInfo();
-            const mappedInfo: UserInfo = {
-                uid: info.uid || 0,
-                username: info.username || '',
-                face: info.face || '',
-                level: info.level || 0,
-                vipType: (info as any).vip_type || 0,
-            };
-            setUserInfo(mappedInfo);
-            storage.set(STORAGE_KEYS.USER_INFO, mappedInfo);
-        } catch (error) {
-            console.error('获取用户信息失败:', error);
-            throw error;
-        }
-    }, []);
-
-    // 退出登录
-    const logout = useCallback(() => {
-        setIsLoggedIn(false);
-        setUserInfo(null);
-        storage.remove(STORAGE_KEYS.USER_INFO);
-    }, []);
-
-    // 初始化时尝试从缓存恢复用户信息
-    useEffect(() => {
-        const cachedUserInfo = storage.get<UserInfo>(STORAGE_KEYS.USER_INFO);
-        if (cachedUserInfo) {
-            setUserInfo(cachedUserInfo);
-        }
-    }, []);
 
     return {
-        isLoggedIn,
         userInfo,
-        loginModalOpened,
-
-        setIsLoggedIn,
         setUserInfo,
-        setLoginModalOpened,
-
-        checkLoginStatus,
-        getUserInfo,
-        logout,
     };
 };

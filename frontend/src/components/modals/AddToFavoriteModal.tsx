@@ -1,6 +1,6 @@
 import React from "react";
 import { Button, Modal, Stack, Text } from "@mantine/core";
-import { Favorite, Song } from "../../types";
+import { Favorite, Song, type DerivedStyles } from "../../types";
 
 export type AddToFavoriteModalProps = {
     opened: boolean;
@@ -11,7 +11,7 @@ export type AddToFavoriteModalProps = {
     themeColor: string;
     onAdd: (fav: Favorite) => void;
     panelStyles?: React.CSSProperties;
-    derived?: any;
+    derived?: DerivedStyles;
 };
 
 const AddToFavoriteModal: React.FC<AddToFavoriteModalProps> = ({ opened, onClose, favorites, currentSong, pendingFavoriteSong, themeColor, onAdd, panelStyles, derived }) => {
@@ -27,6 +27,7 @@ const AddToFavoriteModal: React.FC<AddToFavoriteModalProps> = ({ opened, onClose
             styles={{
                 content: {
                     backgroundColor: derived?.modalBackground,
+                    backdropFilter: panelStyles?.backdropFilter,
                     color: derived?.textColorPrimary,
                 },
                 header: {

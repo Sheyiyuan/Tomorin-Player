@@ -1,7 +1,8 @@
 import React from "react";
 import { AspectRatio, Button, Group, Image, Modal, NumberInput, RangeSlider, Select, Stack, Text, TextInput, ScrollArea } from "@mantine/core";
-import type { Favorite } from "../../types";
+import type { Favorite, DerivedStyles } from "../../types";
 import { useImageProxy } from "../../hooks/ui/useImageProxy";
+import { PLACEHOLDER_COVER } from "../../utils/constants";
 
 interface BVPreview {
     bvid?: string;
@@ -37,8 +38,8 @@ interface BVAddModalProps {
     onConfirmAdd: () => void;
     formatTime: (value: number) => string;
     formatTimeWithMs: (value: number) => string;
-    panelStyles?: any;
-    derived?: any;
+    panelStyles?: React.CSSProperties;
+    derived?: DerivedStyles;
 }
 
 const BVAddModal: React.FC<BVAddModalProps> = ({
@@ -71,6 +72,7 @@ const BVAddModal: React.FC<BVAddModalProps> = ({
     const modalStyles = derived ? {
         content: {
             backgroundColor: derived.modalBackground,
+            backdropFilter: panelStyles?.backdropFilter,
             color: derived.textColorPrimary,
         },
         header: {
@@ -107,7 +109,7 @@ const BVAddModal: React.FC<BVAddModalProps> = ({
             styles={modalStyles}
             className="normal-panel"
         >
-            <ScrollArea type="auto" style={{ maxHeight: "70vh", height: "70vh" }}>
+            <ScrollArea type="auto" style={{ maxHeight: "calc(100dvh - 180px)" }}>
                 {bvPreview ? (
                     <div style={{ paddingRight: 16 }}>
                         <Stack gap="md">
@@ -127,7 +129,7 @@ const BVAddModal: React.FC<BVAddModalProps> = ({
                                         fit="cover"
                                         w="100%"
                                         radius={derived?.componentRadius}
-                                        fallbackSrc="https://via.placeholder.com/640x360?text=No+Cover"
+                                        fallbackSrc={PLACEHOLDER_COVER}
                                     />
                                 )}
                             </AspectRatio>

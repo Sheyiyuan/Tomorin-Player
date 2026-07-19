@@ -1,6 +1,6 @@
 import React from "react";
 import { Button, Group, Modal, Stack, Text } from "@mantine/core";
-import type { Song } from "../../types";
+import type { Song, DerivedStyles } from "../../types";
 
 interface DownloadManagerModalProps {
     opened: boolean;
@@ -10,8 +10,8 @@ interface DownloadManagerModalProps {
     onOpenFile: () => void;
     onDeleteFile: () => void;
     onToggleConfirmDelete: (value: boolean) => void;
-    panelStyles?: any;
-    derived?: any;
+    panelStyles?: React.CSSProperties;
+    derived?: DerivedStyles;
 }
 
 const DownloadManagerModal: React.FC<DownloadManagerModalProps> = ({

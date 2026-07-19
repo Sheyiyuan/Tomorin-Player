@@ -10,7 +10,6 @@ export const useAppSearchState = () => {
     // ========== 搜索相关 ==========
     const [searchQuery, setSearchQuery] = useState("");
     const [globalSearchTerm, setGlobalSearchTerm] = useState("");
-    const [selectedFavId, setSelectedFavId] = useState<string | null>(null);
     const [remoteResults, setRemoteResults] = useState<Song[]>([]);
     const [remoteLoading, setRemoteLoading] = useState(false);
 
@@ -29,8 +28,6 @@ export const useAppSearchState = () => {
         setSearchQuery,
         globalSearchTerm,
         setGlobalSearchTerm,
-        selectedFavId,
-        setSelectedFavId,
         remoteResults,
         setRemoteResults,
         remoteLoading,

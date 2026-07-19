@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { Song, LyricMapping } from '../../types';
+import { toLyricMappingModel, type Song, type LyricMapping } from '../../types';
 import * as Services from '../../../wailsjs/go/services/Service';
 
 interface UseLyricManagementProps {
@@ -18,15 +18,14 @@ export const useLyricManagement = ({
      */
     const saveLyric = useCallback(async (value: string) => {
         if (!currentSong) return;
-        const next = {
+        const next: LyricMapping = {
             id: currentSong.id,
             lyric: value,
             offsetMs: lyric?.offsetMs ?? 0,
-            createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         };
-        await Services.SaveLyricMapping(next as any);
-        setLyric(next as any);
+        await Services.SaveLyricMapping(toLyricMappingModel(next));
+        setLyric(next);
     }, [currentSong, lyric?.offsetMs, setLyric]);
 
     /**
@@ -34,15 +33,14 @@ export const useLyricManagement = ({
      */
     const saveLyricOffset = useCallback(async (offset: number) => {
         if (!currentSong) return;
-        const next = {
+        const next: LyricMapping = {
             id: currentSong.id,
             lyric: lyric?.lyric ?? "",
             offsetMs: offset,
-            createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         };
-        await Services.SaveLyricMapping(next as any);
-        setLyric(next as any);
+        await Services.SaveLyricMapping(toLyricMappingModel(next));
+        setLyric(next);
     }, [currentSong, lyric?.lyric, setLyric]);
 
     return {

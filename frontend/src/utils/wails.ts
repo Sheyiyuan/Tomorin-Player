@@ -6,8 +6,14 @@
 
 declare global {
     interface Window {
-        wails?: any;
-        go?: any;
+        wails?: { Callback?: unknown };
+        go?: {
+            services?: {
+                Service?: {
+                    GetPlayerSetting?: unknown;
+                };
+            };
+        };
     }
 }
 

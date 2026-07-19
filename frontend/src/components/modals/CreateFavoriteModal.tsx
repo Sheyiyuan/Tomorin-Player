@@ -1,6 +1,6 @@
 import React from "react";
 import { Button, Group, Modal, Select, Stack, Text, TextInput, Loader } from "@mantine/core";
-import type { Favorite } from "../../types";
+import type { Favorite, DerivedStyles } from "../../types";
 
 type CreateFavMode = "blank" | "duplicate" | "importMine" | "importFid";
 
@@ -36,8 +36,8 @@ interface CreateFavoriteModalProps {
 
     onSubmit: () => void;
 
-    panelStyles?: any;
-    derived?: any;
+    panelStyles?: React.CSSProperties;
+    derived?: DerivedStyles;
 }
 
 const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({

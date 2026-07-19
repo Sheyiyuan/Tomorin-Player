@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { notifications } from '@mantine/notifications';
-import type { Song } from '../../types';
+import { toSongModel, type Song } from '../../types';
 import * as Services from '../../../wailsjs/go/services/Service';
+import { clearImageProxyCache } from '../ui/useImageProxy';
 
 interface UseAudioEventsProps {
     audioRef: React.MutableRefObject<HTMLAudioElement | null>;
@@ -19,7 +20,6 @@ interface UseAudioEventsProps {
     setStatus: (status: string) => void;
     playbackRetryRef: React.MutableRefObject<Map<string, number>>;
     isHandlingErrorRef: React.MutableRefObject<Set<string>>;
-    upsertSongs: (songs: Song[]) => Promise<void>;
     playSong: (song: Song, list?: Song[]) => Promise<void>;
     playNext: () => void;
     onBeforePlay?: () => void;
@@ -41,7 +41,6 @@ export const useAudioEvents = ({
     setStatus,
     playbackRetryRef,
     isHandlingErrorRef,
-    upsertSongs,
     playSong,
     playNext,
     onBeforePlay,
@@ -137,8 +136,6 @@ export const useAudioEvents = ({
                         streamUrl: '__SKIP_LOCAL__', // 标记跳过本地文件
                         streamUrlExpiresAt: new Date().toISOString(),
                     } satisfies Song;
-                    upsertSongs([clearedSong]).catch(console.error);
-
                     // 延迟后重试播放
                     setTimeout(() => {
                         if (clearedSong && clearedSong.id) {
@@ -178,12 +175,6 @@ export const useAudioEvents = ({
                     audio.src = '';
 
                     // Best-effort: ensure local proxy is running (fixes 127.0.0.1:* connection refused)
-                    if (typeof Services.EnsureAudioProxyRunning === 'function') {
-                        void Services.EnsureAudioProxyRunning().catch((ensureErr) => {
-                            console.warn('[错误恢复] EnsureAudioProxyRunning 失败（继续尝试刷新 URL）:', ensureErr);
-                        });
-                    }
-
                     // 强制清除 streamUrl 以便 playSong 重新获取
                     const urlExpiredSong = {
                         ...currentSong,
@@ -191,8 +182,16 @@ export const useAudioEvents = ({
                         streamUrlExpiresAt: new Date().toISOString(),
                     } satisfies Song;
 
-                    // 延迟一下再刷新，避免立即重试
-                    setTimeout(() => {
+                    // Wait for proxy recovery before requesting a fresh signed URL.
+                    const recoverProxy = typeof Services.EnsureAudioProxyRunning === 'function'
+                        ? Services.EnsureAudioProxyRunning()
+                        : Promise.resolve('');
+                    void recoverProxy
+                        .then(() => clearImageProxyCache())
+                        .catch((ensureErr) => {
+                            console.warn('[错误恢复] EnsureAudioProxyRunning 失败（继续尝试刷新 URL）:', ensureErr);
+                        })
+                        .finally(() => setTimeout(() => {
                         if (urlExpiredSong && urlExpiredSong.id) {
                             // allow retry handler to run again
                             isHandlingErrorRef.current.delete(urlExpiredSong.id);
@@ -200,7 +199,7 @@ export const useAudioEvents = ({
                                 console.error('[错误恢复] 音频重试播放失败:', err);
                             });
                         }
-                    }, 500);
+                        }, 500));
                     return;
                 }
 
@@ -269,7 +268,7 @@ export const useAudioEvents = ({
                     setCurrentSong(updatedSong);
 
                     // 自动保存到数据库
-                    upsertSongs([updatedSong]).catch((err) => {
+                    Services.UpsertSongs([toSongModel(updatedSong)]).catch((err: unknown) => {
                         console.warn('自动保存结束时间失败:', err);
                     });
                 }
@@ -369,7 +368,6 @@ export const useAudioEvents = ({
         setStatus,
         playbackRetryRef,
         isHandlingErrorRef,
-        upsertSongs,
         playSong,
         playNext,
         onBeforePlay,

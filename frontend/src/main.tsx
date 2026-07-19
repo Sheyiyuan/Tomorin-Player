@@ -12,7 +12,7 @@ import "@mantine/notifications/styles.css";
 import "./index.css";
 import { onWailsReady } from "./utils/wails";
 import App from "./App";
-import { AppProvider } from "./context/AppContext";
+import { AppProvider } from "./context/AppProvider";
 
 // Wails runtime 在部分环境（尤其 Linux WebKit）存在异步注入时序。
 // 延迟加载可避免启动阶段出现 "window.wails.Callback" 为 undefined 的错误。
@@ -46,4 +46,3 @@ createRoot(container).render(
         </MantineProvider>
     </React.StrictMode>
 );
-

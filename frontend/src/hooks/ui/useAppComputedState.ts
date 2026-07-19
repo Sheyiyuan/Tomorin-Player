@@ -4,6 +4,7 @@
  */
 
 import { useMemo } from 'react';
+import type { Song } from '../../types';
 
 interface UseAppComputedStateProps {
     duration: number;
@@ -14,8 +15,7 @@ interface UseAppComputedStateProps {
     derivedModalRadius: number;
     derivedNotificationRadius: number;
     derivedTextColorPrimary: string;
-    themeColorLight: string;
-    songs: any[];
+    songs: Song[];
     searchQuery: string;
 }
 
@@ -28,7 +28,6 @@ export const useAppComputedState = ({
     derivedModalRadius,
     derivedNotificationRadius,
     derivedTextColorPrimary,
-    themeColorLight,
     songs,
     searchQuery,
 }: UseAppComputedStateProps) => {

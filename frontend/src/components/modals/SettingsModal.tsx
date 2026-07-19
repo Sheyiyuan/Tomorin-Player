@@ -1,6 +1,7 @@
 import React from "react";
 import { Button, Group, Modal, NumberInput, Slider, Stack, Text } from "@mantine/core";
 import { SettingsExitBehavior } from "../cards";
+import type { DerivedStyles } from "../../types";
 
 interface SettingsModalProps {
     opened: boolean;
@@ -14,7 +15,7 @@ interface SettingsModalProps {
     onOpenDatabaseFile: () => void;
     onClearMusicCache: () => void;
     panelStyles?: React.CSSProperties;
-    derived?: any;
+    derived?: DerivedStyles;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -43,6 +44,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             styles={{
                 content: {
                     backgroundColor: derived?.modalBackground,
+                    backdropFilter: panelStyles?.backdropFilter,
                     color: derived?.textColorPrimary,
                 },
                 header: {
@@ -70,7 +72,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         max={12}
                         step={0.5}
                         label={(value) => `${value} dB`}
-                        style={{ '--slider-color': themeColor } as any}
+                        style={{ '--slider-color': themeColor } as React.CSSProperties}
                         w="100%"
                     />
                     <NumberInput

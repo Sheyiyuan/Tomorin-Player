@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 import type { Song } from '../../types';
+import { getNextIndex } from '../../utils/player';
+import { shouldRefreshStream } from '../../utils/stream';
 
 interface UsePlaybackControlsProps {
     audioRef: React.MutableRefObject<HTMLAudioElement | null>;
@@ -65,20 +67,8 @@ export const usePlaybackControls = ({
             return;
         }
 
-        let nextIdx: number;
-
-        if (playMode === "random") {
-            // 随机播放：随机选择下一首（可能重复）
-            nextIdx = Math.floor(Math.random() * queue.length);
-            console.log('[playNext] 随机模式，选择索引:', nextIdx);
-        } else {
-            // 列表循环/单曲循环：手动切歌按列表顺序
-            nextIdx = currentIndex + 1;
-            if (nextIdx >= queue.length) {
-                nextIdx = 0;
-            }
-            console.log('[playNext] 顺序切歌，当前索引:', currentIndex, '下一个索引:', nextIdx, '模式:', playMode);
-        }
+        const nextIdx = getNextIndex(queue.length, currentIndex, playMode, false);
+        if (nextIdx === null) return;
 
         setCurrentIndex(nextIdx);
         const nextSong = queue[nextIdx];
@@ -131,14 +121,18 @@ export const usePlaybackControls = ({
         // 自动播放上一首
         setIsPlaying(true);
         playSong(prevSong, queue);
-    }, [currentIndex, queue, setCurrentIndex, setCurrentSong, setIsPlaying, playSong, playbackRetryRef, isHandlingErrorRef]);
+    }, [currentIndex, queue, playMode, setCurrentIndex, setCurrentSong, setIsPlaying, playSong, playbackRetryRef, isHandlingErrorRef]);
 
     /**
      * 切换播放/暂停
      */
     const togglePlay = useCallback(async () => {
         const audio = audioRef.current;
-        if (!audio || !currentSong?.streamUrl) return;
+        if (!audio || !currentSong) return;
+        if (shouldRefreshStream(currentSong)) {
+            await playSong({ ...currentSong, streamUrl: '' }, queue);
+            return;
+        }
         const target = Math.max(intervalStart, Math.min(audio.currentTime || 0, intervalEnd));
         audio.currentTime = target;
         if (audio.paused) {

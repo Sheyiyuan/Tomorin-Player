@@ -1,23 +1,20 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
-import { Song, Favorite, convertSongs, convertFavorites } from '../../types';
+import { Song, Favorite, convertSong, convertSongs, convertFavorites, toFavoriteModel, toSongModels, type BVPreview } from '../../types';
 import { SongClass } from '../../types';
+import { getPagePlaybackInterval, selectRemotePagesForPreview } from '../../utils/bv';
 
 interface UseBVModalProps {
-    bvPreview: any | null;
+    bvPreview: BVPreview | null;
     sliceStart: number;
     sliceEnd: number;
     bvSongName: string;
     bvSinger: string;
     bvTargetFavId: string | null;
-    selectedFavId: string | null;
     favorites: Favorite[];
-    songs: Song[];
-    currentSong: Song | null;
-    themeColor: string;
-    setBvModalOpen: (open: boolean) => void;
-    setBvPreview: (preview: any) => void;
+    closeBvModal: () => void;
+    setBvPreview: (preview: BVPreview | null) => void;
     setBvSongName: (name: string) => void;
     setBvSinger: (singer: string) => void;
     setSliceStart: (start: number) => void;
@@ -34,12 +31,8 @@ export const useBVModal = ({
     bvSongName,
     bvSinger,
     bvTargetFavId,
-    selectedFavId,
     favorites,
-    songs,
-    currentSong,
-    themeColor,
-    setBvModalOpen,
+    closeBvModal,
     setBvPreview,
     setBvSongName,
     setBvSinger,
@@ -60,21 +53,22 @@ export const useBVModal = ({
         try {
             // 1. 获取分P信息（多P将拆分为多首）
             let pagesToAdd: Song[] = [];
+            let remoteLookupCompleted = false;
             try {
                 const rawPages = await Services.SearchBVID(bvPreview.bvid || '');
                 const converted = convertSongs(rawPages || []);
                 const remotePages = converted.filter((s) => !s.id || s.id.trim() === '');
-
-                if (bvPreview.singlePageOnly && bvPreview.pageNumber && bvPreview.pageNumber > 0) {
-                    pagesToAdd = remotePages.filter((s) => s.pageNumber === bvPreview.pageNumber);
-                } else {
-                    pagesToAdd = remotePages;
-                }
+                remoteLookupCompleted = true;
+                pagesToAdd = selectRemotePagesForPreview(remotePages, bvPreview);
             } catch (err) {
+                if (remoteLookupCompleted) throw err;
                 console.warn('获取分P信息失败，回退为单首添加:', err);
             }
 
             if (pagesToAdd.length === 0) {
+                if (bvPreview.singlePageOnly && (!Number.isInteger(bvPreview.pageNumber) || (bvPreview.pageNumber ?? 0) < 1)) {
+                    throw new Error('分 P 页码无效');
+                }
                 pagesToAdd = [{
                     id: '',
                     bvid: bvPreview.bvid || '',
@@ -102,6 +96,7 @@ export const useBVModal = ({
             // 2. 为每个分P创建独立流源与歌曲实例
             const newSongs: Song[] = [];
             const createdSourceIds: string[] = [];
+            const isMultiPageBatch = pagesToAdd.length > 1 && !bvPreview.singlePageOnly;
 
             for (const page of pagesToAdd) {
                 const pageNumber = page.pageNumber > 0 ? page.pageNumber : 1;
@@ -112,12 +107,18 @@ export const useBVModal = ({
                     playInfo.ExpiresAt
                 );
                 createdSourceIds.push(sourceId);
+                const pageInterval = getPagePlaybackInterval(
+                    isMultiPageBatch,
+                    start,
+                    end,
+                    Number(playInfo.Duration) || 0,
+                );
 
                 const displayName = pagesToAdd.length > 1 && !bvPreview.singlePageOnly
                     ? (page.name || bvPreview.title || '')
                     : (bvSongName || page.name || bvPreview.title || '');
 
-                newSongs.push(new SongClass({
+                newSongs.push(convertSong(new SongClass({
                     id: '',
                     bvid: page.bvid || bvPreview.bvid || '',
                     name: displayName,
@@ -127,19 +128,19 @@ export const useBVModal = ({
                     sourceId: sourceId,
                     lyric: '',
                     lyricOffset: 0,
-                    skipStartTime: start,
-                    skipEndTime: end,
+                    skipStartTime: pageInterval.start,
+                    skipEndTime: pageInterval.end,
                     pageNumber: page.pageNumber || 1,
                     pageTitle: page.pageTitle || '',
                     videoTitle: page.videoTitle || bvPreview.title || '',
                     totalPages: page.totalPages || pagesToAdd.length || 1,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
-                }));
+                })));
             }
 
             try {
-                await Services.UpsertSongs(newSongs as any);
+                await Services.UpsertSongs(toSongModels(newSongs));
             } catch (err) {
                 throw new Error(`保存歌曲失败: ${err instanceof Error ? err.message : String(err)}`);
             }
@@ -154,9 +155,9 @@ export const useBVModal = ({
 
             setSongs(refreshed);
 
-            // 找到刚添加的歌曲（按 sourceId 和 skipStartTime 匹配）
+            // 每个流源只对应本次创建的一首歌曲。
             const sourceIdSet = new Set(createdSourceIds);
-            const addedSongs = refreshed.filter((s) => sourceIdSet.has(s.sourceId) && s.skipStartTime === start);
+            const addedSongs = refreshed.filter((s) => sourceIdSet.has(s.sourceId));
 
             if (addedSongs.length > 0 && targetFavId) {
                 const fav = favorites.find((f) => f.id === targetFavId);
@@ -166,7 +167,7 @@ export const useBVModal = ({
                         songIds: [...fav.songIds, ...addedSongs.map((s) => ({ id: 0, songId: s.id, favoriteId: fav.id }))],
                     };
                     try {
-                        await Services.SaveFavorite(updatedFav as any);
+                        await Services.SaveFavorite(toFavoriteModel(updatedFav));
                     } catch (err) {
                         throw new Error(`保存歌单失败: ${err instanceof Error ? err.message : String(err)}`);
                     }
@@ -191,7 +192,7 @@ export const useBVModal = ({
                 color: 'teal',
             });
 
-            setBvModalOpen(false);
+            closeBvModal();
             setBvPreview(null);
             setBvSongName('');
             setBvSinger('');
@@ -205,7 +206,7 @@ export const useBVModal = ({
                 color: 'red',
             });
         }
-    }, [bvPreview, bvTargetFavId, sliceStart, sliceEnd, bvSongName, bvSinger, favorites, songs, setSongs, setFavorites, setSelectedFavId, setBvModalOpen, setBvPreview, setBvSongName, setBvSinger, setSliceStart, setSliceEnd]);
+    }, [bvPreview, bvTargetFavId, sliceStart, sliceEnd, bvSongName, bvSinger, favorites, setSongs, setFavorites, setSelectedFavId, closeBvModal, setBvPreview, setBvSongName, setBvSinger, setSliceStart, setSliceEnd]);
 
     return {
         handleConfirmBVAdd,

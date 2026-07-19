@@ -3,7 +3,7 @@
  * 管理播放器相关的所有状态：播放状态、队列、控制设置
  */
 
-import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, ReactNode } from 'react';
 import {
     PlayerContextValue,
     PlaybackState,
@@ -12,6 +12,7 @@ import {
     PlayerActions,
 } from '../types/contexts';
 import { Song } from '../../types';
+import * as Services from '../../../wailsjs/go/services/Service';
 
 const PlayerContext = createContext<PlayerContextValue | undefined>(undefined);
 
@@ -25,115 +26,35 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     // ========== 队列状态 ==========
     const [songs, setSongs] = useState<Song[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [playlistHydrated, setPlaylistHydrated] = useState(false);
 
     // ========== 控制状态 ==========
-    const [volume, setVolume] = useState(1);
-    const [playMode, setPlayMode] = useState<ControlsState['playMode']>('loop-all');
-    const [skipStartTime, setSkipStartTime] = useState(0);
-    const [skipEndTime, setSkipEndTime] = useState(0);
-    const [skipEnabled, setSkipEnabled] = useState(false);
-
-    // ========== 播放控制操作 ==========
-    const play = useCallback(() => {
-        setIsPlaying(true);
-    }, []);
-
-    const pause = useCallback(() => {
-        setIsPlaying(false);
-    }, []);
-
-    const togglePlay = useCallback(() => {
-        setIsPlaying(prev => !prev);
-    }, []);
-
-    const seek = useCallback((time: number) => {
-        setProgress(time);
-    }, []);
-
+    const [volume, setVolume] = useState(0.5);
+    const [playMode, setPlayMode] = useState<ControlsState['playMode']>('loop');
     // ========== 队列控制操作 ==========
-    const setQueue = useCallback((newSongs: Song[]) => {
-        setSongs(newSongs);
-        if (newSongs.length > 0 && currentIndex >= newSongs.length) {
-            setCurrentIndex(0);
-            setCurrentSong(newSongs[0]);
-        }
-    }, [currentIndex]);
+    const setQueue = useCallback<React.Dispatch<React.SetStateAction<Song[]>>>((nextQueue) => {
+        setSongs(nextQueue);
+    }, []);
 
     const setCurrentIndexSafe = useCallback((index: number) => {
-        if (index >= 0 && index < songs.length) {
-            setCurrentIndex(index);
-            setCurrentSong(songs[index]);
-        }
-    }, [songs]);
+        setCurrentIndex(Math.max(0, index));
+    }, []);
 
-    const nextSong = useCallback(() => {
-        if (songs.length === 0) return;
+    useEffect(() => {
+        if (!playlistHydrated) return;
 
-        let nextIndex: number;
-        switch (playMode) {
-            case 'shuffle':
-                nextIndex = Math.floor(Math.random() * songs.length);
-                break;
-            case 'loop-one':
-                nextIndex = currentIndex; // 保持当前歌曲
-                break;
-            case 'no-loop':
-                nextIndex = currentIndex + 1;
-                if (nextIndex >= songs.length) {
-                    setIsPlaying(false);
-                    return;
-                }
-                break;
-            case 'loop-all':
-            default:
-                nextIndex = (currentIndex + 1) % songs.length;
-                break;
-        }
-
-        setCurrentIndex(nextIndex);
-        setCurrentSong(songs[nextIndex]);
-    }, [songs, currentIndex, playMode]);
-
-    const prevSong = useCallback(() => {
-        if (songs.length === 0) return;
-
-        let prevIndex: number;
-        switch (playMode) {
-            case 'shuffle':
-                prevIndex = Math.floor(Math.random() * songs.length);
-                break;
-            case 'loop-one':
-                prevIndex = currentIndex; // 保持当前歌曲
-                break;
-            case 'no-loop':
-                prevIndex = currentIndex - 1;
-                if (prevIndex < 0) {
-                    prevIndex = 0;
-                }
-                break;
-            case 'loop-all':
-            default:
-                prevIndex = currentIndex === 0 ? songs.length - 1 : currentIndex - 1;
-                break;
-        }
-
-        setCurrentIndex(prevIndex);
-        setCurrentSong(songs[prevIndex]);
-    }, [songs, currentIndex, playMode]);
+        const queueJSON = JSON.stringify(songs.map((song) => song.id));
+        const persistedIndex = songs.length === 0 ? 0 : Math.min(currentIndex, songs.length - 1);
+        Services.SavePlaylist(queueJSON, persistedIndex)
+            .catch((error) => console.warn('保存播放列表失败', error));
+    }, [songs, currentIndex, playlistHydrated]);
 
     // ========== 稳定的 Actions 对象 ==========
     const actions: PlayerActions = useMemo(() => ({
-        // 播放控制
-        play,
-        pause,
-        togglePlay,
-        seek,
-
         // 队列控制
         setQueue,
         setCurrentIndex: setCurrentIndexSafe,
-        nextSong,
-        prevSong,
+        setPlaylistHydrated,
 
         // 状态更新
         setSong: setCurrentSong,
@@ -144,12 +65,8 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         // 控制设置
         setVolume,
         setPlayMode,
-        setSkipStartTime,
-        setSkipEndTime,
-        setSkipEnabled,
     }), [
-        play, pause, togglePlay, seek,
-        setQueue, setCurrentIndexSafe, nextSong, prevSong,
+        setQueue, setCurrentIndexSafe,
     ]);
 
     // ========== 状态对象 ==========
@@ -168,10 +85,7 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const controls: ControlsState = useMemo(() => ({
         volume,
         playMode,
-        skipStartTime,
-        skipEndTime,
-        skipEnabled,
-    }), [volume, playMode, skipStartTime, skipEndTime, skipEnabled]);
+    }), [volume, playMode]);
 
     // ========== Context Value ==========
     const contextValue: PlayerContextValue = useMemo(() => ({

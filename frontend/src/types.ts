@@ -30,9 +30,9 @@ export interface Song {
 }
 
 export interface SongRef {
+    id: number;
     favoriteId: string;
     songId: string;
-    addedAt: string;
 }
 
 export interface Favorite {
@@ -43,8 +43,18 @@ export interface Favorite {
     updatedAt: string;
 }
 
-export type PlayerSetting = models.PlayerSetting;
-export type LyricMapping = models.LyricMapping;
+export interface PlayerSetting {
+    id: number;
+    config: Record<string, unknown>;
+    updatedAt: string;
+}
+
+export interface LyricMapping {
+    id: string;
+    lyric: string;
+    offsetMs: number;
+    updatedAt: string;
+}
 export type Playlist = models.Playlist;
 export type ExportData = services.ExportData;
 export type BiliAudio = models.BiliAudio;
@@ -95,6 +105,30 @@ export interface UserInfo {
     vipType: number;
 }
 
+export interface BVPreview {
+    bvid: string;
+    title: string;
+    cover: string;
+    duration: number;
+    author?: string;
+    url?: string;
+    expiresAt?: string;
+    isLocal?: boolean;
+    pageNumber?: number;
+    pageTitle?: string;
+    singlePageOnly?: boolean;
+}
+
+export interface DerivedStyles {
+    panelBackground?: string;
+    controlBackground?: string;
+    favoriteCardBackground?: string;
+    modalBackground?: string;
+    componentRadius?: number;
+    textColorPrimary?: string;
+    textColorSecondary?: string;
+}
+
 // Export classes for runtime use
 export const SongClass = models.Song;
 export const FavoriteClass = models.Favorite;
@@ -103,104 +137,167 @@ export const PlayerSettingClass = models.PlayerSetting;
 export const LyricMappingClass = models.LyricMapping;
 
 // Type conversion functions
-export function convertSong(s: any): Song {
+const asRecord = (value: unknown): Record<string, unknown> =>
+    typeof value === 'object' && value !== null ? value as Record<string, unknown> : {};
+
+const asString = (value: unknown): string => {
+    if (typeof value === 'string') return value;
+    if (value && typeof value === 'object' && 'toString' in value) return String(value);
+    return '';
+};
+
+const asNumber = (value: unknown): number => typeof value === 'number' && Number.isFinite(value) ? value : 0;
+const asBoolean = (value: unknown): boolean => value === true;
+const stringOr = (value: unknown, fallback: string): string => typeof value === 'string' ? value : fallback;
+const numberOr = (value: unknown, fallback: number): number => typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+
+export function convertSong(value: unknown): Song {
+    const s = asRecord(value);
     return {
-        id: s.id || '',
-        bvid: s.bvid || '',
-        name: s.name || '',
-        singer: s.singer || '',
-        singerId: s.singerId || '',
-        cover: s.cover || '',
-        coverLocal: s.coverLocal || '',
-        sourceId: s.sourceId || '',
-        streamUrl: s.streamUrl || '',
-        streamUrlExpiresAt: s.streamUrlExpiresAt?.toString ? s.streamUrlExpiresAt.toString() : s.streamUrlExpiresAt || '',
-        lyric: s.lyric || '',
-        lyricOffset: s.lyricOffset || 0,
-        skipStartTime: s.skipStartTime || 0,
-        skipEndTime: s.skipEndTime || 0,
-        pageNumber: s.pageNumber || 0,
-        pageTitle: s.pageTitle || '',
-        videoTitle: s.videoTitle || '',
-        totalPages: s.totalPages || 0,
-        createdAt: s.createdAt?.toString ? s.createdAt.toString() : s.createdAt || '',
-        updatedAt: s.updatedAt?.toString ? s.updatedAt.toString() : s.updatedAt || '',
+        id: asString(s.id),
+        bvid: asString(s.bvid),
+        name: asString(s.name),
+        singer: asString(s.singer),
+        singerId: asString(s.singerId),
+        cover: asString(s.cover),
+        coverLocal: asString(s.coverLocal),
+        sourceId: asString(s.sourceId),
+        streamUrl: asString(s.streamUrl),
+        streamUrlExpiresAt: asString(s.streamUrlExpiresAt),
+        lyric: asString(s.lyric),
+        lyricOffset: asNumber(s.lyricOffset),
+        skipStartTime: asNumber(s.skipStartTime),
+        skipEndTime: asNumber(s.skipEndTime),
+        pageNumber: asNumber(s.pageNumber),
+        pageTitle: asString(s.pageTitle),
+        videoTitle: asString(s.videoTitle),
+        totalPages: asNumber(s.totalPages),
+        createdAt: asString(s.createdAt),
+        updatedAt: asString(s.updatedAt),
     };
 }
 
-export function convertSongs(songs: any[]): Song[] {
+export function convertSongs(songs: readonly unknown[]): Song[] {
     return songs.map(convertSong);
 }
 
-export function convertSongRef(ref: any): SongRef {
+export function convertSongRef(value: unknown): SongRef {
+    const ref = asRecord(value);
     return {
-        favoriteId: ref.favoriteId || '',
-        songId: ref.songId || '',
-        addedAt: ref.addedAt?.toString ? ref.addedAt.toString() : ref.addedAt || '',
+        id: asNumber(ref.id),
+        favoriteId: asString(ref.favoriteId),
+        songId: asString(ref.songId),
     };
 }
 
-export function convertFavorite(f: any): Favorite {
+export function convertFavorite(value: unknown): Favorite {
+    const f = asRecord(value);
     return {
-        id: f.id || '',
-        title: f.title || '',
-        songIds: (f.songIds || []).map(convertSongRef),
-        createdAt: f.createdAt?.toString ? f.createdAt.toString() : f.createdAt || '',
-        updatedAt: f.updatedAt?.toString ? f.updatedAt.toString() : f.updatedAt || '',
+        id: asString(f.id),
+        title: asString(f.title),
+        songIds: Array.isArray(f.songIds) ? f.songIds.map(convertSongRef) : [],
+        createdAt: asString(f.createdAt),
+        updatedAt: asString(f.updatedAt),
     };
 }
 
-export function convertFavorites(favs: any[]): Favorite[] {
+export function convertFavorites(favs: readonly unknown[]): Favorite[] {
     return favs.map(convertFavorite);
 }
 
-export function convertTheme(t: any): Theme {
+export function convertTheme(value: unknown): Theme {
+    const t = asRecord(value);
     // 如果 data 字段存在，解析 JSON 配置
-    let themeConfig: any = {};
+    let themeConfig: Record<string, unknown> = {};
     if (t.data) {
         try {
-            themeConfig = typeof t.data === 'string' ? JSON.parse(t.data) : t.data;
+            themeConfig = asRecord(typeof t.data === 'string' ? JSON.parse(t.data) : t.data);
         } catch (e) {
             console.warn('Failed to parse theme data:', e);
         }
     }
 
     return {
-        id: t.id || '',
-        name: t.name || '',
-        data: t.data || '',
-        isDefault: t.isDefault || false,
-        isReadOnly: t.isReadOnly || false,
+        id: asString(t.id),
+        name: asString(t.name),
+        data: asString(t.data),
+        isDefault: asBoolean(t.isDefault),
+        isReadOnly: asBoolean(t.isReadOnly),
         // 展开配置数据到主题对象供前端使用
-        themeColor: themeConfig.themeColor || '#1f77f0',
-        backgroundColor: themeConfig.backgroundColor || '#0a0e27',
-        backgroundOpacity: themeConfig.backgroundOpacity ?? 1,
-        backgroundImage: themeConfig.backgroundImage || '',
-        backgroundImageSourceUrl: themeConfig.backgroundImageSourceUrl || '',
-        backgroundBlur: themeConfig.backgroundBlur ?? 0,
-        panelColor: themeConfig.panelColor || '#1a1f3a',
-        panelOpacity: themeConfig.panelOpacity ?? 0.6,
-        panelBlur: themeConfig.panelBlur ?? 10,
-        panelRadius: themeConfig.panelRadius ?? 8,
-        controlColor: themeConfig.controlColor || '#2a2f4a',
-        controlOpacity: themeConfig.controlOpacity ?? 1,
-        controlBlur: themeConfig.controlBlur ?? 0,
-        textColorPrimary: themeConfig.textColorPrimary || '#ffffff',
-        textColorSecondary: themeConfig.textColorSecondary || '#909296',
-        favoriteCardColor: themeConfig.favoriteCardColor || '#2a2f4a',
-        cardOpacity: themeConfig.cardOpacity ?? 0.5,
-        componentRadius: themeConfig.componentRadius ?? 6,
-        modalRadius: themeConfig.modalRadius ?? 8,
-        notificationRadius: themeConfig.notificationRadius ?? 4,
-        coverRadius: themeConfig.coverRadius ?? 4,
-        modalColor: themeConfig.modalColor || '#1a1f3a',
-        modalOpacity: themeConfig.modalOpacity ?? 0.95,
-        modalBlur: themeConfig.modalBlur ?? 10,
-        windowControlsPos: themeConfig.windowControlsPos || 'left',
-        colorScheme: themeConfig.colorScheme || 'dark',
+        themeColor: stringOr(themeConfig.themeColor, '#1f77f0'),
+        backgroundColor: stringOr(themeConfig.backgroundColor, '#0a0e27'),
+        backgroundOpacity: numberOr(themeConfig.backgroundOpacity, 1),
+        backgroundImage: stringOr(themeConfig.backgroundImage, ''),
+        backgroundImageSourceUrl: stringOr(themeConfig.backgroundImageSourceUrl, ''),
+        backgroundBlur: numberOr(themeConfig.backgroundBlur, 0),
+        panelColor: stringOr(themeConfig.panelColor, '#1a1f3a'),
+        panelOpacity: numberOr(themeConfig.panelOpacity, 0.6),
+        panelBlur: numberOr(themeConfig.panelBlur, 10),
+        panelRadius: numberOr(themeConfig.panelRadius, 8),
+        controlColor: stringOr(themeConfig.controlColor, '#2a2f4a'),
+        controlOpacity: numberOr(themeConfig.controlOpacity, 1),
+        controlBlur: numberOr(themeConfig.controlBlur, 0),
+        textColorPrimary: stringOr(themeConfig.textColorPrimary, '#ffffff'),
+        textColorSecondary: stringOr(themeConfig.textColorSecondary, '#909296'),
+        favoriteCardColor: stringOr(themeConfig.favoriteCardColor, '#2a2f4a'),
+        cardOpacity: numberOr(themeConfig.cardOpacity, 0.5),
+        componentRadius: numberOr(themeConfig.componentRadius, 6),
+        modalRadius: numberOr(themeConfig.modalRadius, 8),
+        notificationRadius: numberOr(themeConfig.notificationRadius, 4),
+        coverRadius: numberOr(themeConfig.coverRadius, 4),
+        modalColor: stringOr(themeConfig.modalColor, '#1a1f3a'),
+        modalOpacity: numberOr(themeConfig.modalOpacity, 0.95),
+        modalBlur: numberOr(themeConfig.modalBlur, 10),
+        windowControlsPos: stringOr(themeConfig.windowControlsPos, 'left'),
+        colorScheme: stringOr(themeConfig.colorScheme, 'dark'),
     };
 }
 
-export function convertThemes(themes: any[]): Theme[] {
+export function convertThemes(themes: readonly unknown[]): Theme[] {
     return themes.map(convertTheme);
 }
+
+export const toSongModel = (song: Song): models.Song => Object.assign(new models.Song(), song);
+export const toSongModels = (songs: readonly Song[]): models.Song[] => songs.map(toSongModel);
+export const toFavoriteModel = (favorite: Favorite): models.Favorite => Object.assign(new models.Favorite(), favorite);
+export const toPlayerSettingModel = (setting: PlayerSetting): models.PlayerSetting => Object.assign(new models.PlayerSetting(), setting);
+export const toLyricMappingModel = (mapping: LyricMapping): models.LyricMapping => Object.assign(new models.LyricMapping(), mapping);
+
+export const convertPlayerSetting = (value: unknown): PlayerSetting => {
+    const setting = asRecord(value);
+    return {
+        id: asNumber(setting.id) || 1,
+        config: asRecord(setting.config),
+        updatedAt: asString(setting.updatedAt),
+    };
+};
+
+export const convertLyricMapping = (value: unknown): LyricMapping => {
+    const mapping = asRecord(value);
+    return {
+        id: asString(mapping.id),
+        lyric: asString(mapping.lyric),
+        offsetMs: asNumber(mapping.offsetMs),
+        updatedAt: asString(mapping.updatedAt),
+    };
+};
+
+export const convertUserInfo = (value: unknown): UserInfo => {
+    const info = asRecord(value);
+    return {
+        uid: asNumber(info.uid),
+        username: asString(info.username),
+        face: asString(info.face),
+        level: asNumber(info.level),
+        vipType: asNumber(info.vip_type ?? info.vipType),
+    };
+};
+
+export const mergePlayerSetting = (
+    setting: PlayerSetting | null,
+    configUpdates: Record<string, unknown>,
+): PlayerSetting => ({
+    id: setting?.id ?? 1,
+    config: { ...(setting?.config ?? {}), ...configUpdates },
+    updatedAt: new Date().toISOString(),
+});

@@ -1,10 +1,10 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
-import { Favorite, Song, convertFavorites, convertSongs } from '../../types';
+import { Favorite, Song, convertFavorites, convertSongs, toFavoriteModel, toSongModels } from '../../types';
 import { useFidImport } from './useFidImport';
 import { useMyFavoriteImport } from './useMyFavoriteImport';
-import type { ModalStates } from '../ui/useModalManager';
+import type { ModalName } from '../../context/types/contexts';
 
 interface UseFavoriteActionsProps {
     favorites: Favorite[];
@@ -14,10 +14,9 @@ interface UseFavoriteActionsProps {
     selectedFavId: string | null;
     setSelectedFavId: (id: string | null) => void;
     setStatus: (status: string) => void;
-    isLoggedIn: boolean;
     themeColor: string;
-    openModal: (name: keyof ModalStates) => void;
-    closeModal: (name: keyof ModalStates) => void;
+    openModal: (name: ModalName) => void;
+    closeModal: (name: ModalName) => void;
 }
 
 interface CreateFavoriteOptions {
@@ -36,7 +35,6 @@ export const useFavoriteActions = ({
     selectedFavId,
     setSelectedFavId,
     setStatus,
-    isLoggedIn,
     themeColor,
     openModal,
     closeModal,
@@ -88,7 +86,7 @@ export const useFavoriteActions = ({
         } catch (error) {
             notifications.show({ title: "删除失败", message: String(error), color: "red" });
         }
-    }, [favorites, setFavorites, selectedFavId, setSelectedFavId, setSongs]);
+    }, [setFavorites, selectedFavId, setSelectedFavId, setSongs]);
 
     const editFavorite = useCallback((fav: Favorite, setEditingFavId: (id: string | null) => void, setEditingFavName: (name: string) => void) => {
         setEditingFavId(fav.id);
@@ -106,7 +104,7 @@ export const useFavoriteActions = ({
                 return;
             }
             const updated = { ...target, title: name };
-            await Services.SaveFavorite(updated as any);
+            await Services.SaveFavorite(toFavoriteModel(updated));
             const rawRefreshed = await Services.ListFavorites();
             setFavorites(convertFavorites(rawRefreshed || []));
             closeModal("editFavModal");
@@ -122,7 +120,13 @@ export const useFavoriteActions = ({
 
         try {
             if (mode === "blank") {
-                await Services.SaveFavorite({ id: "", title: name, songIds: [] } as any);
+                await Services.SaveFavorite(toFavoriteModel({
+                    id: "",
+                    title: name,
+                    songIds: [],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                }));
             } else if (mode === "duplicate") {
                 if (!duplicateSourceId) {
                     notifications.show({ title: "请选择要复制的歌单", message: "", color: "orange" });
@@ -136,11 +140,11 @@ export const useFavoriteActions = ({
                 const cloned = {
                     id: "",
                     title: name,
-                    songIds: source.songIds.map((ref: any) => ({ id: 0, songId: ref.songId, favoriteId: "" })),
+                    songIds: source.songIds.map((ref) => ({ id: 0, songId: ref.songId, favoriteId: "" })),
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                 };
-                await Services.SaveFavorite(cloned as any);
+                await Services.SaveFavorite(toFavoriteModel(cloned));
             } else if (mode === "importMine" || mode === "importFid") {
                 let fidToImport: string | null = null;
 
@@ -193,7 +197,7 @@ export const useFavoriteActions = ({
                 // 保存新增歌曲到数据库
                 if (newSongs.length > 0) {
                     console.log('[createFavorite] 保存新增歌曲到数据库...');
-                    await Services.UpsertSongs(newSongs as any);
+                    await Services.UpsertSongs(toSongModels(newSongs));
                 }
 
                 // 刷新歌曲列表
@@ -204,7 +208,7 @@ export const useFavoriteActions = ({
                 // 组装歌单 songIds（包含新增和已存在的）
                 const allImportedSongs = [...newSongs, ...existingSongs];
                 const allSongIds = allImportedSongs.map(song => {
-                    const found = rawRefreshedSongs.find((s: any) => s.bvid === song.bvid);
+                    const found = rawRefreshedSongs.find((candidate) => candidate.bvid === song.bvid);
                     return found ? found.id : song.id;
                 });
                 console.log('[createFavorite] 组装歌单 songIds，共', allSongIds.length, '首');
@@ -219,7 +223,7 @@ export const useFavoriteActions = ({
                 };
 
                 console.log('[createFavorite] 保存新歌单:', newFav.title);
-                await Services.SaveFavorite(newFav as any);
+                await Services.SaveFavorite(toFavoriteModel(newFav));
 
                 // 刷新歌单列表并选中新建的歌单
                 console.log('[createFavorite] 刷新歌单列表...');
@@ -227,7 +231,7 @@ export const useFavoriteActions = ({
                 setFavorites(convertFavorites(rawRefreshedFavs || []));
                 console.log('[createFavorite] 歌单列表刷新完成，共', rawRefreshedFavs.length, '个歌单');
 
-                const created = rawRefreshedFavs.find((f: any) => f.title === finalName) || rawRefreshedFavs[rawRefreshedFavs.length - 1];
+                const created = rawRefreshedFavs.find((favorite) => favorite.title === finalName) || rawRefreshedFavs[rawRefreshedFavs.length - 1];
                 if (created) {
                     console.log('[createFavorite] 找到新创建的歌单:', created.id, created.title);
                     setSelectedFavId(created.id);
@@ -242,7 +246,7 @@ export const useFavoriteActions = ({
 
             const rawRefreshedFavs = await Services.ListFavorites();
             setFavorites(convertFavorites(rawRefreshedFavs || []));
-            const created = rawRefreshedFavs.find((f: any) => f.title === name) || rawRefreshedFavs[rawRefreshedFavs.length - 1];
+            const created = rawRefreshedFavs.find((favorite) => favorite.title === name) || rawRefreshedFavs[rawRefreshedFavs.length - 1];
             if (created) {
                 setSelectedFavId(created.id);
             }
@@ -250,13 +254,13 @@ export const useFavoriteActions = ({
         } catch (error) {
             notifications.show({ title: "创建失败", message: String(error), color: "red" });
         }
-    }, [favorites, setFavorites, songs, setSongs, setSelectedFavId, setStatus, isLoggedIn, themeColor, openModal, closeModal, importFromFid]);
+    }, [favorites, setFavorites, setSongs, setSelectedFavId, openModal, closeModal, importFromFid]);
 
     const addToFavorite = useCallback(async (favId: string, song: Song) => {
         const target = favorites.find((f: Favorite) => f.id === favId);
         if (!target) return;
 
-        const alreadyExists = target.songIds.some((ref: any) => ref.songId === song.id);
+        const alreadyExists = target.songIds.some((ref) => ref.songId === song.id);
         if (alreadyExists) {
             notifications.show({
                 title: "已在歌单中",
@@ -272,7 +276,7 @@ export const useFavoriteActions = ({
         };
 
         try {
-            await Services.SaveFavorite(updated as any);
+            await Services.SaveFavorite(toFavoriteModel(updated));
             const rawRefreshed = await Services.ListFavorites();
             setFavorites(convertFavorites(rawRefreshed || []));
             notifications.show({
@@ -286,6 +290,7 @@ export const useFavoriteActions = ({
                 message: String(error),
                 color: "red",
             });
+            throw error;
         }
     }, [favorites, setFavorites]);
 

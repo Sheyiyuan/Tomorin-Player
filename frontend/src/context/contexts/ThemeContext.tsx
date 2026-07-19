@@ -134,54 +134,11 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         localStorage.setItem('half-beat.currentThemeId', theme.id);
     }, [computedColorScheme, setMantineColorScheme]);
 
-    // ========== 颜色设置操作 ==========
-    const setColorSchemeWithMantine = useCallback((scheme: 'light' | 'dark') => {
-        setColorScheme(scheme);
-        setMantineColorScheme(scheme);
-    }, [setMantineColorScheme]);
-
-    const setBackgroundImageUrlSafe = useCallback((url: string) => {
-        setBackgroundImageUrl(normalizeThemeImageUrl(url));
-    }, []);
-
     // ========== 稳定的 Actions 对象 ==========
     const actions: ThemeActions = useMemo(() => ({
-        // 主题管理
         setThemes,
-        setCurrentThemeId,
         applyTheme,
-
-        // 颜色设置
-        setThemeColor,
-        setColorScheme: setColorSchemeWithMantine,
-        setBackgroundColor,
-        setPanelColor,
-        setControlColor,
-        setTextColorPrimary,
-        setTextColorSecondary,
-        setFavoriteCardColor,
-        setModalColor,
-
-        // 效果设置
-        setBackgroundOpacity,
-        setBackgroundImageUrl: setBackgroundImageUrlSafe,
-        setBackgroundBlur,
-        setPanelOpacity,
-        setPanelBlur,
-        setControlOpacity,
-        setControlBlur,
-        setCardOpacity,
-        setModalOpacity,
-        setModalBlur,
-
-        // 布局设置
-        setPanelRadius,
-        setComponentRadius,
-        setModalRadius,
-        setNotificationRadius,
-        setCoverRadius,
-        setWindowControlsPos,
-    }), [applyTheme, setColorSchemeWithMantine, setBackgroundImageUrlSafe]);
+    }), [applyTheme]);
 
     // ========== 状态对象 ==========
     const theme: ThemeInfo = useMemo(() => ({

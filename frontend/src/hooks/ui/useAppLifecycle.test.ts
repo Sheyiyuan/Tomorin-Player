@@ -1,0 +1,86 @@
+import { renderHook, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { DEFAULT_THEMES } from '../../utils/constants';
+import { useAppLifecycle } from './useAppLifecycle';
+
+const serviceMocks = vi.hoisted(() => ({
+    getThemes: vi.fn(),
+    getPlayerSetting: vi.fn(),
+    isLoggedIn: vi.fn(),
+    seed: vi.fn(),
+    listSongs: vi.fn(),
+    listFavorites: vi.fn(),
+    getPlaylist: vi.fn(),
+    getPlayHistory: vi.fn(),
+}));
+
+vi.mock('../../../wailsjs/go/services/Service', () => ({
+    GetThemes: serviceMocks.getThemes,
+    GetPlayerSetting: serviceMocks.getPlayerSetting,
+    IsLoggedIn: serviceMocks.isLoggedIn,
+    Seed: serviceMocks.seed,
+    ListSongs: serviceMocks.listSongs,
+    ListFavorites: serviceMocks.listFavorites,
+    GetPlaylist: serviceMocks.getPlaylist,
+    GetPlayHistory: serviceMocks.getPlayHistory,
+}));
+vi.mock('../../utils/wails', () => ({
+    waitForWailsRuntime: vi.fn().mockResolvedValue(undefined),
+}));
+
+describe('useAppLifecycle theme hydration', () => {
+    it('treats an empty backend theme list as authoritative', async () => {
+        localStorage.setItem('half-beat.customThemes', JSON.stringify([{
+            id: 'deleted-theme',
+            name: 'Deleted',
+            data: '{}',
+            isDefault: false,
+            isReadOnly: false,
+        }]));
+        serviceMocks.getThemes.mockResolvedValue([]);
+        serviceMocks.getPlayerSetting.mockResolvedValue({
+            id: 1,
+            config: { currentThemeId: 'light', defaultVolume: 0.5, playMode: 'loop' },
+            updatedAt: '',
+        });
+        serviceMocks.isLoggedIn.mockResolvedValue(false);
+        serviceMocks.seed.mockResolvedValue(undefined);
+        serviceMocks.listSongs.mockResolvedValue([]);
+        serviceMocks.listFavorites.mockResolvedValue([]);
+        serviceMocks.getPlaylist.mockResolvedValue({ queue: '[]', currentIndex: 0 });
+        serviceMocks.getPlayHistory.mockResolvedValue({});
+
+        const setThemes = vi.fn();
+        const saveCachedCustomThemes = vi.fn();
+        const settingsLoadedRef = { current: false };
+        const skipPersistRef = { current: false };
+        renderHook(() => useAppLifecycle({
+            setUserInfo: vi.fn(),
+            saveCachedCustomThemes,
+            setSetting: vi.fn(),
+            setVolume: vi.fn(),
+            setPlayMode: vi.fn(),
+            setThemes,
+            applyThemeToUi: vi.fn(),
+            settingsLoadedRef,
+            modalsSettingsModal: false,
+            setCacheSize: vi.fn(),
+            setStatus: vi.fn(),
+            setSongs: vi.fn(),
+            setFavorites: vi.fn(),
+            setQueue: vi.fn(),
+            setCurrentIndex: vi.fn(),
+            setPlaylistHydrated: vi.fn(),
+            setCurrentSong: vi.fn(),
+            setSelectedFavId: vi.fn(),
+            skipPersistRef,
+        }));
+
+        await waitFor(() => expect(saveCachedCustomThemes).toHaveBeenCalledWith([]));
+        const lastThemes = setThemes.mock.calls.at(-1)?.[0];
+        expect(lastThemes).toHaveLength(DEFAULT_THEMES.length);
+        expect(lastThemes).not.toEqual(expect.arrayContaining([
+            expect.objectContaining({ id: 'deleted-theme' }),
+        ]));
+    });
+});

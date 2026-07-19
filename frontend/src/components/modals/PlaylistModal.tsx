@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ActionIcon, Group, Modal, Paper, ScrollArea, Stack, Text } from "@mantine/core";
-import { GripVertical, X } from "lucide-react";
-import { Song } from "../../types";
+import { ArrowDown, ArrowUp, GripVertical, X } from "lucide-react";
+import { Song, type DerivedStyles } from "../../types";
 
 export type PlaylistModalProps = {
     opened: boolean;
@@ -12,7 +12,7 @@ export type PlaylistModalProps = {
     onSelect: (song: Song, index: number) => void;
     onReorder: (fromIndex: number, toIndex: number) => void;
     onRemove: (index: number) => void;
-    derived?: any;
+    derived?: DerivedStyles;
 };
 
 const PlaylistModal: React.FC<PlaylistModalProps> = React.memo(({
@@ -83,7 +83,7 @@ const PlaylistModal: React.FC<PlaylistModalProps> = React.memo(({
             styles={modalStyles}
             className="normal-panel"
         >
-            <ScrollArea style={{ height: '450px' }}>
+            <ScrollArea style={{ height: 'min(450px, calc(100dvh - 180px))' }}>
                 <Stack gap="xs">
                     {queue.length === 0 ? (
                         <Text c={derived?.textColorSecondary}>播放列表为空</Text>
@@ -120,7 +120,16 @@ const PlaylistModal: React.FC<PlaylistModalProps> = React.memo(({
                                         <GripVertical size={20} style={{ flexShrink: 0, cursor: 'grab' }} color={derived?.textColorSecondary} />
                                         <div
                                             style={{ flex: 1, minWidth: 0, cursor: 'pointer', textAlign: 'left' }}
+                                            role="button"
+                                            tabIndex={0}
+                                            aria-label={`播放 ${song.name}`}
                                             onClick={() => onSelect(song, index)}
+                                            onKeyDown={(event) => {
+                                                if (event.key === "Enter" || event.key === " ") {
+                                                    event.preventDefault();
+                                                    onSelect(song, index);
+                                                }
+                                            }}
                                         >
                                             <Text fw={index === currentIndex ? 600 : 400} truncate c={index === currentIndex ? themeColorHighlight : derived?.textColorPrimary} style={{ textAlign: 'left' }}>{song.name}</Text>
                                             <Text size="sm" c={derived?.textColorSecondary} truncate style={{ textAlign: 'left' }}>{song.singer}</Text>
@@ -134,12 +143,31 @@ const PlaylistModal: React.FC<PlaylistModalProps> = React.memo(({
                                         )}
                                         <ActionIcon
                                             variant="subtle"
+                                            onClick={() => onReorder(index, index - 1)}
+                                            disabled={index === 0}
+                                            title="上移"
+                                            aria-label={`上移 ${song.name}`}
+                                        >
+                                            <ArrowUp size={16} />
+                                        </ActionIcon>
+                                        <ActionIcon
+                                            variant="subtle"
+                                            onClick={() => onReorder(index, index + 1)}
+                                            disabled={index === queue.length - 1}
+                                            title="下移"
+                                            aria-label={`下移 ${song.name}`}
+                                        >
+                                            <ArrowDown size={16} />
+                                        </ActionIcon>
+                                        <ActionIcon
+                                            variant="subtle"
                                             color="red"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 onRemove(index);
                                             }}
                                             title="从播放列表移除"
+                                            aria-label={`从播放列表移除 ${song.name}`}
                                         >
                                             <X size={16} />
                                         </ActionIcon>

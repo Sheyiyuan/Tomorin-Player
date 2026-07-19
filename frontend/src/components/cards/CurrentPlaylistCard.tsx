@@ -12,7 +12,6 @@ export type CurrentPlaylistCardProps = {
     searchQuery: string;
     onSearchChange: (value: string) => void;
     onPlaySong: (song: Song) => void;  // 只需要 song 参数，不再需要 list
-    onAddSong: () => void;
     themeColor: string;
     downloadedSongIds: Set<string>;
     onDownloadSong: (song: Song) => void;
@@ -38,7 +37,6 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
     searchQuery,
     onSearchChange,
     onPlaySong,
-    onAddSong,
     themeColor,
     downloadedSongIds,
     onDownloadSong,
@@ -64,7 +62,7 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
         : currentFavSongs;
 
     return (
-        <Card flex={1} shadow="sm" padding="md" withBorder miw={0} h="100%" className="glass-panel" style={{ ...panelStyles, minHeight: 0, backgroundColor: panelBackground, display: "flex", flexDirection: "column" }}>
+        <Card flex={1} shadow="sm" padding="md" withBorder miw={0} h="100%" className="glass-panel current-playlist-card" style={{ ...panelStyles, minHeight: 0, backgroundColor: panelBackground, display: "flex", flexDirection: "column" }}>
             <Group justify="space-between" mb="sm">
                 <Text fw={600} size="sm" style={{ color: textColorPrimary, flex: 1, minWidth: 0 }} lineClamp={1}>
                     {currentFav?.title || "选择歌单"}
@@ -89,7 +87,7 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
                     }
                 }}
             />
-            <ScrollArea style={{ flex: 1, minHeight: 0 }}>
+            <ScrollArea className="card-scroll-area current-playlist-scroll-area" type="auto" scrollbarSize={6} style={{ flex: 1, minHeight: 0 }}>
                 {currentFav ? (
                     <Stack gap="xs" pb="sm">
                         {displayedSongs.length === 0 && (
@@ -135,6 +133,7 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
                                                 onDownloadSong(s);
                                             }}
                                             title={isDownloaded ? "已下载：管理下载文件" : "下载歌曲"}
+                                            aria-label={isDownloaded ? "已下载：管理下载文件" : "下载歌曲"}
                                             style={{
                                                 ...(isDownloaded ? { backgroundColor: themeColor } : controlStyles),
                                                 color: isDownloaded ? "white" : textColorPrimary,
@@ -152,6 +151,7 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
                                                 onAddSongToFavorite(s);
                                             }}
                                             title="添加到收藏"
+                                            aria-label="添加到收藏"
                                             style={{
                                                 ...controlStyles,
                                                 color: textColorPrimary,
@@ -175,6 +175,7 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
                                                         onToggleConfirmRemove(s.id);
                                                     }}
                                                     title="移出歌单"
+                                                    aria-label="移出歌单"
                                                     style={{
                                                         ...styles,
                                                         ...controlStyles,
@@ -202,6 +203,7 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
                                                         onRemoveSongFromPlaylist(s);
                                                     }}
                                                     title="确认移出"
+                                                    aria-label="确认移出"
                                                     style={styles}
                                                 >
                                                     <Trash2 size={16} />

@@ -1,6 +1,6 @@
 import React from "react";
 import { Button, Card, Group, ScrollArea, Stack, Text, Transition } from "@mantine/core";
-import { Favorite, Song } from "../../types";
+import { Favorite } from "../../types";
 
 export type FavoriteListCardProps = {
     panelBackground: string;
@@ -9,14 +9,11 @@ export type FavoriteListCardProps = {
     selectedFavId: string | null;
     onSelectFavorite: (id: string) => void;
     onPlayFavorite: (fav: Favorite) => void;
-    onPlaySongInFavorite: (song: Song, list: Song[]) => void;
-    onAddCurrentToFavorite: (favId: string) => void;
     onCreateFavorite: () => void;
     onEditFavorite: (fav: Favorite) => void;
     onDeleteFavorite: (id: string) => void;
     onToggleConfirmDelete: (id: string | null) => void;
     confirmDeleteFavId: string | null;
-    currentSong: Song | null;
     themeColor: string;
     componentRadius?: number;
     controlBackground?: string;
@@ -32,14 +29,11 @@ const FavoriteListCard: React.FC<FavoriteListCardProps> = ({
     selectedFavId,
     onSelectFavorite,
     onPlayFavorite,
-    onPlaySongInFavorite,
-    onAddCurrentToFavorite,
     onCreateFavorite,
     onEditFavorite,
     onDeleteFavorite,
     onToggleConfirmDelete,
     confirmDeleteFavId,
-    currentSong,
     themeColor,
     componentRadius = 8,
     controlBackground,
@@ -47,13 +41,18 @@ const FavoriteListCard: React.FC<FavoriteListCardProps> = ({
     textColorPrimary,
     textColorSecondary,
 }) => {
+    const selectFavorite = (favoriteId: string) => {
+        onSelectFavorite(favoriteId);
+        onToggleConfirmDelete(null);
+    };
+
     return (
-        <Card shadow="sm" padding="md" w={300} withBorder h="100%" className="glass-panel" style={{ ...panelStyles, display: "flex", flexDirection: "column", minHeight: 0, backgroundColor: panelBackground }}>
+        <Card shadow="sm" padding="md" w={300} withBorder h="100%" className="glass-panel favorite-list-card" style={{ ...panelStyles, display: "flex", flexDirection: "column", minHeight: 0, backgroundColor: panelBackground }}>
             <Group justify="space-between" mb="sm">
                 <Text fw={600} size="sm" style={{ color: textColorPrimary }}>我的歌单</Text>
                 <Button size="xs" variant="light" color={themeColor} onClick={onCreateFavorite} radius={componentRadius}>+ 新建</Button>
             </Group>
-            <ScrollArea style={{ flex: 1, minHeight: 0 }}>
+            <ScrollArea className="card-scroll-area favorite-list-scroll-area" type="auto" scrollbarSize={6} style={{ flex: 1, minHeight: 0 }}>
                 <Stack gap="xs" pb="sm">
                     {favorites.map((f) => {
                         const isSelected = selectedFavId === f.id;
@@ -65,9 +64,16 @@ const FavoriteListCard: React.FC<FavoriteListCardProps> = ({
                                 radius={componentRadius}
                                 withBorder
                                 shadow="xs"
-                                onClick={() => {
-                                    onSelectFavorite(f.id);
-                                    onToggleConfirmDelete(null);
+                                role="button"
+                                tabIndex={0}
+                                aria-pressed={isSelected}
+                                aria-label={`选择歌单 ${f.title}`}
+                                onClick={() => selectFavorite(f.id)}
+                                onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                        event.preventDefault();
+                                        selectFavorite(f.id);
+                                    }
                                 }}
                                 style={{
                                     cursor: "pointer",

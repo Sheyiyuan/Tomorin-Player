@@ -21,7 +21,7 @@ interface ControlsPanelProps {
     isPlaying: boolean;
     playMode: "loop" | "random" | "single";
     onTogglePlayMode: () => void;
-    // onAddToFavorite: () => void; // 移除，使用 PlayerBar 内部实现
+    onAddToFavorite: () => void;
     onShowPlaylist: () => void;
     onDownloadSong: () => void;
     onManageDownload: () => void;
@@ -57,7 +57,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
     isPlaying,
     playMode,
     onTogglePlayMode,
-    // onAddToFavorite, // 移除
+    onAddToFavorite,
     onShowPlaylist,
     onDownloadSong,
     onManageDownload,
@@ -84,7 +84,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
             pos="sticky"
             bottom={0}
             className="glass-panel"
-            style={{ ...panelStyles, zIndex: 5, backgroundColor: panelBackground }}
+            style={{ ...panelStyles, zIndex: 5, backgroundColor: panelBackground, flexShrink: 0, minWidth: 0, overflow: "hidden" }}
         >
             <PlayerBar
                 themeColor={themeColor}
@@ -104,7 +104,7 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({
                 isPlaying={isPlaying}
                 playMode={playMode}
                 onTogglePlayMode={onTogglePlayMode}
-                // onAddToFavorite={onAddToFavorite} // 移除，使用 PlayerBar 内部实现
+                onAddToFavorite={onAddToFavorite}
                 onShowPlaylist={onShowPlaylist}
                 onDownloadSong={onDownloadSong}
                 onManageDownload={onManageDownload}

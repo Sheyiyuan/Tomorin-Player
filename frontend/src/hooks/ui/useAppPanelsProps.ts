@@ -1,27 +1,16 @@
 import { useMemo } from "react";
-import type { Favorite, Song } from "../../types";
-import type { ModalStates } from './useModalManager';
+import type { Favorite, Song, UserInfo } from "../../types";
+import type { ModalName, PlayMode } from '../../context/types/contexts';
 import { useImageProxy } from "./useImageProxy";
 
 interface UseAppPanelsPropsParams {
     // TopBar deps
-    userInfo: any;
+    userInfo: UserInfo | null;
     hitokoto: string;
     setGlobalSearchTerm: (val: string) => void;
-    openModal: (name: keyof ModalStates) => void;
-    setThemeColorDraft: (val: string) => void;
-    setBackgroundColorDraft: (val: string) => void;
-    setBackgroundOpacityDraft: (val: number) => void;
-    setBackgroundImageUrlDraftSafe: (val: string) => void;
-    setPanelColorDraft: (val: string) => void;
-    setPanelOpacityDraft: (val: number) => void;
+    openModal: (name: ModalName) => void;
     themeColor: string;
-    backgroundColor: string;
-    backgroundOpacity: number;
-    backgroundImageUrl: string;
-    panelColor: string;
-    panelOpacity: number;
-    setUserInfo: (val: any) => void;
+    setUserInfo: (val: UserInfo | null) => void;
     setStatus: (val: string) => void;
     windowControlsPos?: string;
 
@@ -34,12 +23,9 @@ interface UseAppPanelsPropsParams {
     maxSkipLimit: number;
     formatTime: (v: number) => string;
     formatTimeWithMs: (v: number) => string;
-    formatTimeLabel: (v: number) => string;
-    parseTimeLabel: (v: string) => number;
     handleIntervalChange: (start: number, end: number) => void;
     handleSkipStartChange: (val: number) => void;
     handleSkipEndChange: (val: number) => void;
-    handleStreamUrlChange: (val: string) => void;
     handleSongInfoUpdate: (songId: string, updates: { name?: string; singer?: string; cover?: string }) => void;
     globalVolumeCompensationDb: number;
     songVolumeOffsetDb: number | null;
@@ -48,12 +34,10 @@ interface UseAppPanelsPropsParams {
     currentFavSongs: Song[];
     searchQuery: string;
     setSearchQuery: (val: string) => void;
-    playSong: (song: Song, list?: Song[]) => void;
-    addSong: (song: Song, targetFavId?: string | null) => Promise<void>;
     downloadedSongIds: Set<string>;
     handleDownloadSong: (song: Song) => Promise<void>;
-    handleAddSongToFavorite: (song: Song, favId: string | null) => Promise<void>;
-    handleRemoveSongFromPlaylist: (songId: string) => void;
+    handleAddSongToFavorite: (song: Song) => void;
+    handleRemoveSongFromPlaylist: (song: Song) => void;
     confirmRemoveSongId: string | null;
     setConfirmRemoveSongId: (id: string | null) => void;
     playFavorite: (fav: Favorite) => void;
@@ -63,10 +47,9 @@ interface UseAppPanelsPropsParams {
     setSelectedFavId: (id: string | null) => void;
     setConfirmDeleteFavId: (id: string | null) => void;
     playSingleSong: (song: Song, songFavorite?: Favorite) => Promise<void>;
-    addCurrentToFavorite: (favId: string) => Promise<void>;
     createFavorite: () => void;
     handleEditFavorite: (fav: Favorite) => void;
-    handleDeleteFavorite: (id: string) => void;
+    handleDeleteFavorite: (id: string) => Promise<void>;
     confirmDeleteFavId: string | null;
 
     // ControlsPanel deps
@@ -79,8 +62,9 @@ interface UseAppPanelsPropsParams {
     togglePlay: () => void;
     playNext: () => void;
     isPlaying: boolean;
-    playMode: string;
+    playMode: PlayMode;
     handlePlayModeToggle: () => void;
+    handleAddCurrentSongToFavorite: () => void;
     handleDownloadCurrentSong: () => void;
     handleManageDownload: () => void;
     volume: number;
@@ -104,18 +88,7 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             hitokoto,
             setGlobalSearchTerm,
             openModal,
-            setThemeColorDraft,
-            setBackgroundColorDraft,
-            setBackgroundOpacityDraft,
-            setBackgroundImageUrlDraftSafe,
-            setPanelColorDraft,
-            setPanelOpacityDraft,
             themeColor,
-            backgroundColor,
-            backgroundOpacity,
-            backgroundImageUrl,
-            panelColor,
-            panelOpacity,
             setUserInfo,
             setStatus,
             windowControlsPos,
@@ -127,12 +100,9 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             maxSkipLimit,
             formatTime,
             formatTimeWithMs,
-            formatTimeLabel,
-            parseTimeLabel,
             handleIntervalChange,
             handleSkipStartChange,
             handleSkipEndChange,
-            handleStreamUrlChange,
             handleSongInfoUpdate,
             globalVolumeCompensationDb,
             songVolumeOffsetDb,
@@ -141,8 +111,6 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             currentFavSongs,
             searchQuery,
             setSearchQuery,
-            playSong,
-            addSong,
             downloadedSongIds,
             handleDownloadSong,
             handleAddSongToFavorite,
@@ -156,7 +124,6 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             setSelectedFavId,
             setConfirmDeleteFavId,
             playSingleSong,
-            addCurrentToFavorite,
             createFavorite,
             handleEditFavorite,
             handleDeleteFavorite,
@@ -172,6 +139,7 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             isPlaying,
             playMode,
             handlePlayModeToggle,
+            handleAddCurrentSongToFavorite,
             handleDownloadCurrentSong,
             handleManageDownload,
             volume,
@@ -194,12 +162,6 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
                 openModal("globalSearchModal");
             },
             onThemeClick: () => {
-                setThemeColorDraft(themeColor);
-                setBackgroundColorDraft(backgroundColor);
-                setBackgroundOpacityDraft(backgroundOpacity);
-                setBackgroundImageUrlDraftSafe(backgroundImageUrl);
-                setPanelColorDraft(panelColor);
-                setPanelOpacityDraft(panelOpacity);
                 openModal("themeManagerModal");
             },
             onSettingsClick: () => openModal("settingsModal"),
@@ -226,12 +188,9 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             maxSkipLimit,
             formatTime,
             formatTimeWithMs,
-            formatTimeLabel,
-            parseTimeLabel,
             onIntervalChange: handleIntervalChange,
             onSkipStartChange: handleSkipStartChange,
             onSkipEndChange: handleSkipEndChange,
-            onStreamUrlChange: handleStreamUrlChange,
             onSongInfoUpdate: handleSongInfoUpdate,
             volumeCompensationDb: globalVolumeCompensationDb,
             songVolumeOffsetDb,
@@ -245,7 +204,6 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
                 const fav = currentFav || favorites.find(f => f.songIds.some(ref => ref.songId === song.id));
                 playSingleSong(song, fav);
             },
-            onAddSong: addSong,
             downloadedSongIds,
             onDownloadSong: handleDownloadSong,
             onAddSongToFavorite: handleAddSongToFavorite,
@@ -269,11 +227,6 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
                 setConfirmDeleteFavId(null);
             },
             onPlayFavorite: playFavorite,
-            onPlaySongInFavorite: (song: Song) => {
-                const fav = currentFav || favorites.find(f => f.songIds.some(ref => ref.songId === song.id));
-                playSingleSong(song, fav);
-            },
-            onAddCurrentToFavorite: addCurrentToFavorite,
             onCreateFavorite: createFavorite,
             onEditFavorite: handleEditFavorite,
             onDeleteFavorite: handleDeleteFavorite,
@@ -306,7 +259,7 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             isPlaying,
             playMode,
             onTogglePlayMode: handlePlayModeToggle,
-            // onAddToFavorite: () => openModal("addFavoriteModal"), // 移除，使用 PlayerBar 内部实现
+            onAddToFavorite: handleAddCurrentSongToFavorite,
             onShowPlaylist: () => openModal("playlistModal"),
             onDownloadSong: handleDownloadCurrentSong,
             onManageDownload: handleManageDownload,

@@ -14,12 +14,9 @@ export type SongDetailCardProps = {
     maxSkipLimit: number;
     formatTime: (seconds: number) => string;
     formatTimeWithMs: (seconds: number) => string;
-    formatTimeLabel: (value: number | string) => string;
-    parseTimeLabel: (value: string) => number;
     onIntervalChange: (start: number, end: number) => void;
     onSkipStartChange: (value: number) => void;
     onSkipEndChange: (value: number) => void;
-    onStreamUrlChange: (value: string) => void;
     onSongInfoUpdate?: (songId: string, updates: { name?: string; singer?: string; cover?: string }) => void;
     volumeCompensationDb?: number;
     songVolumeOffsetDb?: number | null;
@@ -41,12 +38,9 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
     placeholderCover,
     maxSkipLimit,
     formatTime,
-    formatTimeLabel,
-    parseTimeLabel,
     onIntervalChange,
     onSkipStartChange,
     onSkipEndChange,
-    onStreamUrlChange,
     onSongInfoUpdate,
     volumeCompensationDb = 0,
     songVolumeOffsetDb,
@@ -102,9 +96,9 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
     };
 
     return (
-        <Card shadow="sm" padding="md" w={300} withBorder h="100%" className="glass-panel" style={{ ...panelStyles, minHeight: 0, backgroundColor: panelBackground, display: "flex", flexDirection: "column" }}>
+        <Card shadow="sm" padding="md" w={300} withBorder h="100%" className="glass-panel song-detail-card" style={{ ...panelStyles, minHeight: 0, backgroundColor: panelBackground, display: "flex", flexDirection: "column" }}>
             {song ? (
-                <ScrollArea style={{ flex: 1, minHeight: 0 }}>
+                <ScrollArea className="card-scroll-area song-detail-scroll-area" type="auto" scrollbarSize={6} style={{ flex: 1, minHeight: 0 }}>
                     <Stack gap="md" pb="sm">
                         <Box
                             w="100%"
@@ -122,6 +116,7 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
                         >
                             <Image
                                 src={getProxiedImageUrlSync(song.cover || placeholderCover)}
+                                alt={`${song.name} 封面`}
                                 w="100%"
                                 h="100%"
                                 radius={coverRadius}
@@ -193,6 +188,7 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
                                                     variant="subtle"
                                                     color={themeColor}
                                                     onClick={handleStartEdit}
+                                                    aria-label="编辑歌曲信息"
                                                 >
                                                     <IconEdit size={16} />
                                                 </ActionIcon>
@@ -217,7 +213,7 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
                                 step={0.05}
                                 radius={componentRadius}
                                 label={(value) => formatTime(value)}
-                                style={{ '--slider-color': themeColor } as any}
+                                style={{ '--slider-color': themeColor } as React.CSSProperties}
                             />
                             <Group gap="sm" grow>
                                 <NumberInput
@@ -278,7 +274,7 @@ const SongDetailCard: React.FC<SongDetailCardProps> = ({
                                     max={12}
                                     step={0.5}
                                     label={(value) => `${value} dB`}
-                                    style={{ '--slider-color': themeColor } as any}
+                                    style={{ '--slider-color': themeColor } as React.CSSProperties}
                                     w="100%"
                                 />
                                 <NumberInput

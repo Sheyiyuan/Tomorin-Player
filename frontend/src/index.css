@@ -18,6 +18,154 @@ body {
     background-color: transparent !important;
 }
 
+.app-shell {
+    height: 100dvh;
+    overflow: hidden;
+}
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+[role="button"]:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+.main-layout {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(280px, 300px) minmax(360px, 1fr) minmax(280px, 300px);
+    grid-template-areas: "song playlist favorites";
+    gap: 16px;
+}
+
+.song-detail-card {
+    grid-area: song;
+}
+
+.current-playlist-card {
+    grid-area: playlist;
+}
+
+.favorite-list-card {
+    grid-area: favorites;
+}
+
+.song-detail-card,
+.current-playlist-card,
+.favorite-list-card {
+    width: 100% !important;
+    max-width: 100%;
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.card-scroll-area {
+    width: 100%;
+    min-width: 0;
+    overscroll-behavior: contain;
+}
+
+.card-scroll-area .mantine-ScrollArea-viewport {
+    padding-right: 12px;
+}
+
+.card-scroll-area .mantine-ScrollArea-scrollbar {
+    width: 6px;
+    padding: 1px;
+    inset-inline-end: 1px;
+}
+
+.card-scroll-area .mantine-ScrollArea-thumb {
+    border-radius: 999px;
+}
+
+.song-detail-scroll-area .mantine-ScrollArea-viewport {
+    padding-right: 22px;
+}
+
+.song-detail-scroll-area {
+    margin-right: -12px;
+}
+
+.song-detail-scroll-area .mantine-ScrollArea-scrollbar {
+    inset-inline-end: 2px;
+}
+
+@media (max-width: 1100px) {
+    .main-layout {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-rows: minmax(0, 0.95fr) minmax(0, 1fr);
+        grid-template-areas:
+            "playlist playlist"
+            "song favorites";
+    }
+
+    .player-bar-main {
+        flex-wrap: wrap;
+    }
+
+    .player-bar-track {
+        flex: 1 1 240px !important;
+        max-width: none !important;
+    }
+
+    .player-bar-playback {
+        flex: 0 0 auto;
+    }
+
+    .player-bar-actions {
+        flex: 1 0 100%;
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 760px) {
+    .main-layout {
+        overflow-y: auto;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: repeat(3, minmax(260px, 48dvh));
+        grid-template-areas:
+            "playlist"
+            "song"
+            "favorites";
+        overscroll-behavior: contain;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        transition-delay: 0ms !important;
+    }
+
+    .scrolling-text,
+    .scrolling-text.animate {
+        animation: none !important;
+        transform: none !important;
+    }
+}
+
 /*
  * Wails Frameless Window Drag
  *
@@ -79,21 +227,21 @@ a,
     background-color: transparent !important;
 }
 
-@keyframes scrollText {
-    0% {
-        transform: translateX(0);
-    }
+.theme-editor-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 16px;
+    align-items: start;
+}
 
-    25% {
-        transform: translateX(0);
-    }
+.theme-editor-actions {
+    border-top: 1px solid rgba(127, 127, 127, 0.18);
+    padding-top: 12px;
+}
 
-    75% {
-        transform: translateX(calc(-100% + 300px));
-    }
-
-    100% {
-        transform: translateX(calc(-100% + 300px));
+@media (max-width: 900px), (max-height: 640px) {
+    .theme-editor-grid {
+        grid-template-columns: 1fr;
     }
 }
 

@@ -1,7 +1,7 @@
 import React from "react";
-import { Flex } from "@mantine/core";
+import { Box } from "@mantine/core";
 import { SongDetailCard, CurrentPlaylistCard, FavoriteListCard } from "../cards";
-import { Song, Favorite, SongClass } from "../../types";
+import { Song, Favorite } from "../../types";
 
 interface MainLayoutProps {
     // SongDetailCard props
@@ -14,12 +14,9 @@ interface MainLayoutProps {
     maxSkipLimit: number;
     formatTime: (ms: number) => string;
     formatTimeWithMs: (ms: number) => string;
-    formatTimeLabel: (value: number | string) => string;
-    parseTimeLabel: (value: string) => number;
     onIntervalChange: (start: number, end: number) => void;
     onSkipStartChange: (value: number) => void;
     onSkipEndChange: (value: number) => void;
-    onStreamUrlChange: (url: string) => void;
     onSongInfoUpdate?: (songId: string, updates: { name?: string; singer?: string; cover?: string }) => void;
     volumeCompensationDb?: number;
     songVolumeOffsetDb?: number | null;
@@ -33,7 +30,6 @@ interface MainLayoutProps {
     searchQuery: string;
     onSearchChange: (query: string) => void;
     onPlaySong: (song: Song) => void;
-    onAddSong: () => void;
     downloadedSongIds: Set<string>;
     onDownloadSong: (song: Song) => void;
     onAddSongToFavorite: (song: Song) => void;
@@ -48,8 +44,6 @@ interface MainLayoutProps {
     selectedFavId: string | null;
     onSelectFavorite: (id: string) => void;
     onPlayFavorite: (favorite: Favorite) => void;
-    onPlaySongInFavorite: (song: Song, list: Song[]) => void;
-    onAddCurrentToFavorite: (favId: string) => void;
     onCreateFavorite: () => void;
     onEditFavorite: (fav: Favorite) => void;
     onDeleteFavorite: (id: string) => Promise<void>;
@@ -73,12 +67,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     maxSkipLimit,
     formatTime,
     formatTimeWithMs,
-    formatTimeLabel,
-    parseTimeLabel,
     onIntervalChange,
     onSkipStartChange,
     onSkipEndChange,
-    onStreamUrlChange,
     onSongInfoUpdate,
     volumeCompensationDb,
     songVolumeOffsetDb,
@@ -90,7 +81,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     searchQuery,
     onSearchChange,
     onPlaySong,
-    onAddSong,
     downloadedSongIds,
     onDownloadSong,
     onAddSongToFavorite,
@@ -105,8 +95,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     selectedFavId,
     onSelectFavorite,
     onPlayFavorite,
-    onPlaySongInFavorite,
-    onAddCurrentToFavorite,
     onCreateFavorite,
     onEditFavorite,
     onDeleteFavorite,
@@ -121,7 +109,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     textColorSecondary,
 }) => {
     return (
-        <Flex flex={1} gap="md" miw={0} style={{ minHeight: 0 }}>
+        <Box className="main-layout">
             <SongDetailCard
                 song={currentSong}
                 panelBackground={panelBackground}
@@ -132,12 +120,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 maxSkipLimit={maxSkipLimit}
                 formatTime={formatTime}
                 formatTimeWithMs={formatTimeWithMs}
-                formatTimeLabel={formatTimeLabel}
-                parseTimeLabel={parseTimeLabel}
                 onIntervalChange={onIntervalChange}
                 onSkipStartChange={onSkipStartChange}
                 onSkipEndChange={onSkipEndChange}
-                onStreamUrlChange={onStreamUrlChange}
                 onSongInfoUpdate={onSongInfoUpdate}
                 volumeCompensationDb={volumeCompensationDb}
                 songVolumeOffsetDb={songVolumeOffsetDb}
@@ -159,7 +144,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 searchQuery={searchQuery}
                 onSearchChange={onSearchChange}
                 onPlaySong={onPlaySong}
-                onAddSong={onAddSong}
                 themeColor={themeColor}
                 downloadedSongIds={downloadedSongIds}
                 onDownloadSong={onDownloadSong}
@@ -183,14 +167,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 selectedFavId={selectedFavId}
                 onSelectFavorite={onSelectFavorite}
                 onPlayFavorite={onPlayFavorite}
-                onPlaySongInFavorite={onPlaySongInFavorite}
-                onAddCurrentToFavorite={onAddCurrentToFavorite}
                 onCreateFavorite={onCreateFavorite}
                 onEditFavorite={onEditFavorite}
                 onDeleteFavorite={onDeleteFavorite}
                 onToggleConfirmDelete={onToggleConfirmDelete}
                 confirmDeleteFavId={confirmDeleteFavId}
-                currentSong={currentSong}
                 themeColor={themeColor}
                 componentRadius={componentRadius}
                 controlBackground={controlBackground}
@@ -198,7 +179,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                 textColorPrimary={textColorPrimary}
                 textColorSecondary={textColorSecondary}
             />
-        </Flex>
+        </Box>
     );
 };
 

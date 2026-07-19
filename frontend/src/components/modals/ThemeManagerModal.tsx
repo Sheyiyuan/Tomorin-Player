@@ -1,6 +1,6 @@
 import React from "react";
 import { Box, Button, Card, Group, Modal, Stack, Text } from "@mantine/core";
-import { Theme } from "../../types";
+import { Theme, type DerivedStyles } from "../../types";
 
 export type ThemeManagerModalProps = {
     opened: boolean;
@@ -13,8 +13,8 @@ export type ThemeManagerModalProps = {
     onDeleteTheme: (id: string) => void | Promise<void>;
     onCreateTheme: () => void;
     accentColor: string;
-    panelStyles?: any;
-    derived?: any;
+    panelStyles?: React.CSSProperties;
+    derived?: DerivedStyles;
 };
 
 const ThemeManagerModal: React.FC<ThemeManagerModalProps> = ({

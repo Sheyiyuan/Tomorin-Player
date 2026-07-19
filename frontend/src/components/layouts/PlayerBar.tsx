@@ -1,10 +1,9 @@
-import React, { useState } from "react";
-import { ActionIcon, Box, Group, Image, Slider, Stack, Text, Modal, Button } from "@mantine/core";
+import React, { useRef } from "react";
+import { ActionIcon, Box, Group, Image, Slider, Stack, Text } from "@mantine/core";
 import { Download, ListMusic, Music, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, SquarePlus, Volume, Volume1, Volume2, VolumeX } from "lucide-react";
-import { Song, Favorite } from "../../types";
+import { Song } from "../../types";
 import { useImageProxy } from "../../hooks/ui/useImageProxy";
-import * as Services from "../../../wailsjs/go/services/Service";
-import { convertFavorites } from "../../types";
+import { ScrollingText } from "../ui/ScrollingText";
 
 export type PlayerBarProps = {
     themeColor: string;
@@ -24,7 +23,7 @@ export type PlayerBarProps = {
     isPlaying: boolean;
     playMode: "loop" | "random" | "single";
     onTogglePlayMode: () => void;
-    // onAddToFavorite: () => void; // 移除这个 prop，使用独立实现
+    onAddToFavorite: () => void;
     onShowPlaylist: () => void;
     onDownloadSong: () => void;
     onManageDownload: () => void;
@@ -57,7 +56,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
     isPlaying,
     playMode,
     onTogglePlayMode,
-    // onAddToFavorite, // 移除这个参数
+    onAddToFavorite,
     onShowPlaylist,
     onDownloadSong,
     onManageDownload,
@@ -74,99 +73,19 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
 }) => {
     const { getProxiedImageUrlSync } = useImageProxy();
     const isDownloaded = currentSong ? downloadedSongIds.has(currentSong.id) : false;
-    const [isMuted, setIsMuted] = useState<boolean>(false);
-    const [previousVolume, setPreviousVolume] = useState<number>(volume || 0.5);
-    const [showFavoriteModal, setShowFavoriteModal] = useState<boolean>(false);
-    const [availableFavorites, setAvailableFavorites] = useState<Favorite[]>([]);
-
-    // 独立的添加到收藏夹处理函数，不依赖外部状态
-    const handleAddToFavoriteClick = async (e: React.MouseEvent) => {
-        // 完全阻止事件传播
-        e.preventDefault();
-        e.stopPropagation();
-        // e.stopImmediatePropagation(); // React 事件没有这个方法
-
-        console.log('=== handleAddToFavoriteClick START ===');
-        console.log('Current song:', currentSong?.name);
-
-        if (!currentSong) {
-            console.log('No current song, returning');
-            return;
-        }
-
-        try {
-            console.log('Fetching favorites...');
-            // 获取收藏夹列表
-            const rawFavorites = await Services.ListFavorites();
-            const favorites = convertFavorites(rawFavorites || []);
-            console.log('Found favorites:', favorites.length);
-
-            if (favorites.length === 0) {
-                console.log('没有收藏夹可用');
-                return;
-            }
-
-            setAvailableFavorites(favorites);
-            setShowFavoriteModal(true);
-            console.log('Modal opened');
-        } catch (error) {
-            console.error('获取收藏夹列表失败:', error);
-        }
-
-        console.log('=== handleAddToFavoriteClick END ===');
-    };
-
-    const handleAddToSpecificFavorite = async (favorite: Favorite, e?: React.MouseEvent) => {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
-        console.log('handleAddToSpecificFavorite called for:', favorite.title);
-
-        if (!currentSong) return;
-
-        try {
-            // 检查是否已存在
-            const alreadyExists = favorite.songIds.some(ref => ref.songId === currentSong.id);
-            if (alreadyExists) {
-                console.log('歌曲已在收藏夹中');
-                setShowFavoriteModal(false);
-                return;
-            }
-
-            // 添加歌曲到收藏夹
-            const updatedFavorite = {
-                ...favorite,
-                songIds: [...favorite.songIds, { id: 0, songId: currentSong.id, favoriteId: favorite.id }],
-            };
-
-            await Services.SaveFavorite(updatedFavorite as any);
-            console.log(`成功添加到收藏夹: ${favorite.title}`);
-            setShowFavoriteModal(false);
-        } catch (error) {
-            console.error('添加到收藏夹失败:', error);
-        }
-    };
-
+    const isMuted = volume === 0;
+    const previousVolumeRef = useRef<number>(volume || 0.5);
     const handleMuteToggle = () => {
         if (isMuted) {
-            // 取消静音，恢复到之前的音量
-            setIsMuted(false);
-            changeVolume(previousVolume > 0 ? previousVolume : 0.5);
+            changeVolume(previousVolumeRef.current > 0 ? previousVolumeRef.current : 0.5);
         } else {
-            // 进入静音状态
-            setPreviousVolume(volume);
-            setIsMuted(true);
+            previousVolumeRef.current = volume;
             changeVolume(0);
         }
     };
 
     const handleVolumeChange = (value: number) => {
-        // 当用户调节音量滑块时，自动取消静音状态
-        if (isMuted) {
-            setIsMuted(false);
-        }
+        if (value > 0) previousVolumeRef.current = value;
         changeVolume(value);
     };
 
@@ -178,10 +97,11 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
     };
 
     return (
-        <Group align="flex-start" gap="md">
+        <Group className="player-bar" align="flex-start" gap="md" wrap="nowrap" style={{ width: "100%", minWidth: 0, overflow: "hidden" }}>
             {cover ? (
                 <Image
                     src={getProxiedImageUrlSync(cover)}
+                    alt={`${currentSong?.name || "当前歌曲"} 封面`}
                     w={100}
                     h={100}
                     radius={coverRadius}
@@ -210,7 +130,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                 </Box>
             )}
 
-            <Stack gap="sm" style={{ flex: 1 }}>
+            <Stack className="player-bar-content" gap="sm" style={{ flex: "1 1 auto", minWidth: 0, overflow: "hidden" }}>
                 <Stack gap="xs">
                     <Slider
                         value={progressInInterval}
@@ -221,7 +141,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                         w="100%"
                         radius={componentRadius}
                         label={(value) => formatTime(intervalStart + value)}
-                        style={{ '--slider-color': themeColor, marginTop: '12px' } as any}
+                        style={{ '--slider-color': themeColor, marginTop: '12px' } as React.CSSProperties}
                     />
                     <Group justify="space-between" align="center">
                         <Text size="xs" style={{ color: textColorSecondary }}>
@@ -233,33 +153,16 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                     </Group>
                 </Stack>
 
-                <Group justify="space-between" align="center" gap="md">
-                    <Stack gap={0} style={{ flex: 1, minWidth: 0, maxWidth: 300 }}>
-                        <div
-                            style={{
-                                width: '100%',
-                                maxWidth: 300,
-                                overflow: 'hidden',
-                                position: 'relative',
-                                whiteSpace: 'nowrap',
-                            }}
-                        >
-                            <Text
-                                size="lg"
-                                fw={600}
-                                style={{
-                                    color: textColorPrimary,
-                                    whiteSpace: 'nowrap',
-                                    display: 'inline-block',
-                                    animation: (currentSong?.name && currentSong.name.length > 20)
-                                        ? 'scrollText 8s linear infinite'
-                                        : 'none',
-                                }}
-                                title={currentSong?.name}
-                            >
-                                {currentSong?.name || "未选择歌曲"}
-                            </Text>
-                        </div>
+                <Group className="player-bar-main" justify="space-between" align="center" gap="md" wrap="nowrap" style={{ width: "100%", minWidth: 0 }}>
+                    <Stack className="player-bar-track" gap={0} style={{ flex: "1 1 260px", minWidth: 0, maxWidth: 300 }}>
+                        <ScrollingText
+                            text={currentSong?.name || "未选择歌曲"}
+                            containerWidth={300}
+                            enabled={Boolean(currentSong)}
+                            size="lg"
+                            fw={600}
+                            style={{ color: textColorPrimary, width: '100%' }}
+                        />
                         <Text
                             size="sm"
                             style={{
@@ -274,7 +177,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                         </Text>
                     </Stack>
 
-                    <Group gap="xs">
+                    <Group className="player-bar-playback" gap="xs" wrap="nowrap" style={{ flex: "0 0 auto" }}>
                         <ActionIcon
                             variant="subtle"
                             color={themeColor}
@@ -282,6 +185,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                             size="lg"
                             onClick={playPrev}
                             title="上一首"
+                            aria-label="上一首"
                             style={{ ...controlStyles, color: textColorPrimary }}
                         >
                             <SkipBack size={16} />
@@ -292,8 +196,9 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                             size="xl"
                             color={themeColor}
                             onClick={togglePlay}
-                            disabled={!currentSong?.streamUrl}
+                            disabled={!currentSong}
                             title={isPlaying ? "暂停" : "播放"}
+                            aria-label={isPlaying ? "暂停" : "播放"}
                         >
                             {isPlaying ? <Pause size={18} /> : <Play size={18} />}
                         </ActionIcon>
@@ -304,19 +209,21 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                             size="lg"
                             onClick={playNext}
                             title="下一首"
+                            aria-label="下一首"
                             style={{ ...controlStyles, color: textColorPrimary }}
                         >
                             <SkipForward size={16} />
                         </ActionIcon>
                     </Group>
 
-                    <Group gap="xs" align="center">
+                    <Group className="player-bar-actions" gap="xs" align="center" wrap="nowrap" style={{ flex: "0 1 auto", minWidth: 0 }}>
                         <ActionIcon
                             variant="default"
                             size="lg"
                             radius={componentRadius}
-                            onClick={handleAddToFavoriteClick}
+                            onClick={onAddToFavorite}
                             title="添加到收藏"
+                            aria-label="添加到收藏"
                             disabled={!currentSong}
                             style={{ ...controlStyles, borderColor: "transparent", color: textColorPrimary }}
                         >
@@ -328,6 +235,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                             radius={componentRadius}
                             onClick={onShowPlaylist}
                             title="打开播放列表"
+                            aria-label="打开播放列表"
                             disabled={songsCount === 0}
                             style={{ ...controlStyles, borderColor: "transparent", color: textColorPrimary }}
                         >
@@ -340,6 +248,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                                 radius={componentRadius}
                                 onClick={onDownloadSong}
                                 title="下载当前歌曲"
+                                aria-label="下载当前歌曲"
                                 disabled={!currentSong}
                                 style={{ ...controlStyles, borderColor: "transparent", color: textColorPrimary }}
                             >
@@ -354,6 +263,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                                 radius={componentRadius}
                                 onClick={onManageDownload}
                                 title="管理下载文件"
+                                aria-label="管理下载文件"
                                 disabled={!currentSong}
                             >
                                 <Download size={16} />
@@ -365,17 +275,19 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                             radius={componentRadius}
                             onClick={onTogglePlayMode}
                             title={`播放模式: ${playMode === "loop" ? "列表循环" : playMode === "random" ? "随机" : "单曲循环"}`}
+                            aria-label={`播放模式: ${playMode === "loop" ? "列表循环" : playMode === "random" ? "随机" : "单曲循环"}`}
                             style={{ ...controlStyles, borderColor: "transparent", color: textColorPrimary }}
                         >
                             {playMode === "loop" ? <Repeat size={16} /> : playMode === "random" ? <Shuffle size={16} /> : <Repeat1 size={16} />}
                         </ActionIcon>
-                        <Group gap={6} align="center">
+                        <Group className="player-bar-volume" gap={6} align="center" wrap="nowrap">
                             <ActionIcon
                                 variant="default"
                                 size="lg"
                                 radius={componentRadius}
                                 onClick={handleMuteToggle}
                                 title={isMuted ? "取消静音" : "静音"}
+                                aria-label={isMuted ? "取消静音" : "静音"}
                                 style={{ ...controlStyles, borderColor: "transparent", color: textColorPrimary }}
                             >
                                 {getVolumeIcon()}
@@ -389,7 +301,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                                 radius={componentRadius}
                                 label={(v) => `${v}%`}
                                 w={140}
-                                style={{ '--slider-color': themeColor } as any}
+                                style={{ '--slider-color': themeColor } as React.CSSProperties}
                             />
                             <Text size="xs" style={{ color: textColorSecondary, width: 36, textAlign: 'right' }}>{Math.round(volume * 100)}%</Text>
                         </Group>
@@ -397,35 +309,6 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
                 </Group>
             </Stack>
 
-            {/* 独立的添加到收藏夹模态框 */}
-            <Modal
-                opened={showFavoriteModal}
-                onClose={() => setShowFavoriteModal(false)}
-                title="添加到歌单"
-                centered
-                size="sm"
-            >
-                <Stack gap="md">
-                    {availableFavorites.length === 0 ? (
-                        <Text>没有歌单</Text>
-                    ) : (
-                        availableFavorites.map((fav) => {
-                            const isInFav = currentSong && fav.songIds.some(ref => ref.songId === currentSong.id) ? true : false;
-                            return (
-                                <Button
-                                    key={fav.id}
-                                    variant={isInFav ? "light" : "default"}
-                                    color={themeColor}
-                                    disabled={isInFav}
-                                    onClick={(e) => handleAddToSpecificFavorite(fav, e)}
-                                >
-                                    {fav.title} {isInFav ? "✓ (已添加)" : ""}
-                                </Button>
-                            );
-                        })
-                    )}
-                </Stack>
-            </Modal>
         </Group>
     );
 };

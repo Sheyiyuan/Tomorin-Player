@@ -3,8 +3,7 @@
  * 管理主题相关的所有状态：主题信息、颜色配置、效果配置、布局配置
  */
 
-import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, ReactNode } from 'react';
-import { useMantineColorScheme, useComputedColorScheme } from '@mantine/core';
+import React, { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
 import {
     ThemeContextValue,
     ThemeInfo,
@@ -20,9 +19,6 @@ import { normalizeThemeImageUrl } from '../../utils/image';
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const { setColorScheme: setMantineColorScheme } = useMantineColorScheme();
-    const computedColorScheme = useComputedColorScheme('light');
-
     // ========== 初始化主题数据 ==========
     const getCachedThemes = (): Theme[] => {
         try {
@@ -48,7 +44,7 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         } catch (e) {
             console.warn('[ThemeContext] 读取 localStorage 失败:', e);
         }
-        return computedColorScheme === "dark" ? "dark" : "light";
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light";
     };
 
     const initialThemeId = getInitialThemeId();
@@ -98,6 +94,8 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const applyTheme = useCallback((theme: Theme) => {
         if (!theme) return;
 
+        const scheme = theme.colorScheme === 'light' ? 'light' : 'dark';
+
         setThemeColor(theme.themeColor || '#ffffff');
         setBackgroundColor(theme.backgroundColor || '#ffffff');
         setBackgroundOpacity(theme.backgroundOpacity ?? 1);
@@ -110,8 +108,8 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setControlColor(theme.controlColor || theme.panelColor || "#ffffff");
         setControlOpacity(theme.controlOpacity ?? 1);
         setControlBlur(theme.controlBlur ?? 0);
-        setTextColorPrimary(theme.textColorPrimary || (computedColorScheme === 'dark' ? '#ffffff' : '#1a1b1e'));
-        setTextColorSecondary(theme.textColorSecondary || (computedColorScheme === 'dark' ? '#a6a7ab' : '#909296'));
+        setTextColorPrimary(theme.textColorPrimary || (scheme === 'dark' ? '#ffffff' : '#1a1b1e'));
+        setTextColorSecondary(theme.textColorSecondary || (scheme === 'dark' ? '#a6a7ab' : '#909296'));
         setFavoriteCardColor(theme.favoriteCardColor || theme.panelColor || "#ffffff");
         setCardOpacity(theme.cardOpacity ?? 1);
         setComponentRadius(theme.componentRadius ?? 8);
@@ -123,16 +121,12 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setModalBlur(theme.modalBlur ?? 0);
         setWindowControlsPos((theme.windowControlsPos as 'left' | 'right' | 'hidden') || "right");
 
-        const scheme = (theme.colorScheme as 'light' | 'dark') || 'dark';
         setColorScheme(scheme);
         setCurrentThemeId(theme.id);
 
-        // 应用到 Mantine
-        setMantineColorScheme(scheme);
-
         // 保存到 localStorage
         localStorage.setItem('half-beat.currentThemeId', theme.id);
-    }, [computedColorScheme, setMantineColorScheme]);
+    }, []);
 
     // ========== 稳定的 Actions 对象 ==========
     const actions: ThemeActions = useMemo(() => ({
@@ -188,13 +182,6 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         layout,
         actions,
     }), [theme, colors, effects, layout, actions]);
-
-    // ========== 同步 Mantine 颜色方案 ==========
-    useEffect(() => {
-        if (colorScheme) {
-            setMantineColorScheme(colorScheme);
-        }
-    }, [colorScheme, setMantineColorScheme]);
 
     return (
         <ThemeContext.Provider value={contextValue}>

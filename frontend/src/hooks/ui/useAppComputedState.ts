@@ -11,10 +11,6 @@ interface UseAppComputedStateProps {
     backgroundImageUrl: string;
     backgroundBlur: number;
     backgroundWithOpacity: string;
-    derivedComponentRadius: number;
-    derivedModalRadius: number;
-    derivedNotificationRadius: number;
-    derivedTextColorPrimary: string;
     songs: Song[];
     searchQuery: string;
 }
@@ -24,10 +20,6 @@ export const useAppComputedState = ({
     backgroundImageUrl,
     backgroundBlur,
     backgroundWithOpacity,
-    derivedComponentRadius,
-    derivedModalRadius,
-    derivedNotificationRadius,
-    derivedTextColorPrimary,
     songs,
     searchQuery,
 }: UseAppComputedStateProps) => {
@@ -46,20 +38,6 @@ export const useAppComputedState = ({
         transform: "none",
     }), [backgroundWithOpacity, backgroundImageUrl, backgroundBlur]);
 
-    // Mantine 主题配置
-    const mantineTheme = useMemo(() => ({
-        defaultRadius: derivedComponentRadius,
-        black: derivedTextColorPrimary,
-        white: "#ffffff",
-        components: {
-            Text: { defaultProps: { color: derivedTextColorPrimary } },
-            Title: { defaultProps: { color: derivedTextColorPrimary } },
-            Modal: { defaultProps: { radius: derivedModalRadius } },
-            Menu: { defaultProps: { radius: derivedModalRadius } },
-            Notification: { defaultProps: { radius: derivedNotificationRadius } },
-        },
-    }), [derivedComponentRadius, derivedModalRadius, derivedNotificationRadius, derivedTextColorPrimary]);
-
     // 过滤的歌曲列表
     const filteredSongs = useMemo(() =>
         songs.filter((s) =>
@@ -73,7 +51,6 @@ export const useAppComputedState = ({
     return {
         maxSkipLimit,
         backgroundStyle,
-        mantineTheme,
         filteredSongs,
     };
 };

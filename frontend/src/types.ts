@@ -124,6 +124,8 @@ export interface DerivedStyles {
     controlBackground?: string;
     favoriteCardBackground?: string;
     modalBackground?: string;
+    modalBlur?: number;
+    modalRadius?: number;
     componentRadius?: number;
     textColorPrimary?: string;
     textColorSecondary?: string;

@@ -1,5 +1,5 @@
 import React, { useRef, useState, useMemo } from "react";
-import { Box, MantineProvider, useComputedColorScheme } from "@mantine/core";
+import { Box } from "@mantine/core";
 
 // Hooks - Core layers
 import { useAudioPlayer, useAudioInterval, usePlaylistActions, useSkipIntervalHandler, useDownloadManager, useAudioEvents, usePlaybackControls, useAudioSourceManager, usePlaySong, usePlayModes } from "./hooks/player";
@@ -100,11 +100,10 @@ const App: React.FC = () => {
     const { intervalRef, intervalStart, intervalEnd, intervalLength, progressInInterval } = interval;
 
     // ========== 上下文 ==========
-    const computedColorScheme = useComputedColorScheme('light');
     const themeStore = useThemeStore();
 
     // 主题状态
-    const { themes, currentThemeId } = themeStore.theme;
+    const { themes, currentThemeId, colorScheme } = themeStore.theme;
     const { themeColor, backgroundColor, panelColor, controlColor, textColorPrimary, textColorSecondary, favoriteCardColor, modalColor } = themeStore.colors;
     const { backgroundOpacity, backgroundImageUrl, backgroundBlur, panelOpacity, panelBlur, controlOpacity, controlBlur, cardOpacity, modalOpacity, modalBlur } = themeStore.effects;
     const { panelRadius, modalRadius, notificationRadius, componentRadius, coverRadius, windowControlsPos } = themeStore.layout;
@@ -151,7 +150,7 @@ const App: React.FC = () => {
 
     const playlistActions = usePlaylistActions({ queue, setQueue, currentIndex, setCurrentIndex, currentSong, setCurrentSong, setIsPlaying, currentFav, setFavorites, setStatus, setConfirmRemoveSongId, openModal, closeModal, playSong, addSongToFavorite: favoriteActions.addToFavorite, setPendingFavoriteSong, pendingFavoriteSong });
 
-    const themeEditor = useThemeEditor({ themes, setThemes, defaultThemes: DEFAULT_THEMES, currentThemeId, computedColorScheme, saveCachedCustomThemes, applyThemeToUi: applyTheme, getCustomThemesFromState: getCustomThemes, themeDraft, openModal, closeModal });
+    const themeEditor = useThemeEditor({ themes, setThemes, defaultThemes: DEFAULT_THEMES, currentThemeId, computedColorScheme: colorScheme, saveCachedCustomThemes, applyThemeToUi: applyTheme, getCustomThemesFromState: getCustomThemes, themeDraft, openModal, closeModal });
 
     const bvModal = useBVModal({ bvPreview, sliceStart, sliceEnd, bvSongName, bvSinger, bvTargetFavId, favorites, closeBvModal, setBvPreview, setBvSongName, setBvSinger, setSliceStart, setSliceEnd, setSongs, setFavorites, setSelectedFavId });
 
@@ -208,12 +207,12 @@ const App: React.FC = () => {
     const { handleLoginSuccess } = useLoginHandlers({ closeModal, setUserInfo, setStatus });
 
     // ========== UI 派生值 ==========
-    const { backgroundWithOpacity, panelBackground, controlBackground, favoriteCardBackground, modalBackground, themeColorLight, panelStyles, controlStyles, componentRadius: derivedComponentRadius, coverRadius: derivedCoverRadius, modalRadius: derivedModalRadius, notificationRadius: derivedNotificationRadius, textColorPrimary: derivedTextColorPrimary, textColorSecondary: derivedTextColorSecondary } = useUiDerived({
+    const { backgroundWithOpacity, panelBackground, controlBackground, favoriteCardBackground, modalBackground, modalBlur: derivedModalBlur, themeColorLight, panelStyles, controlStyles, componentRadius: derivedComponentRadius, coverRadius: derivedCoverRadius, modalRadius: derivedModalRadius, textColorPrimary: derivedTextColorPrimary, textColorSecondary: derivedTextColorSecondary } = useUiDerived({
         themeColor, backgroundColor, backgroundOpacity, backgroundImageUrl, panelColor, panelOpacity, panelBlur, panelRadius, controlColor, controlOpacity, controlBlur, textColorPrimary, textColorSecondary, favoriteCardColor, cardOpacity, modalRadius, notificationRadius, componentRadius, coverRadius, modalColor, modalOpacity, modalBlur,
     });
 
-    const { maxSkipLimit, backgroundStyle, mantineTheme } = useAppComputedState({
-        duration, backgroundImageUrl, backgroundBlur, backgroundWithOpacity, derivedComponentRadius, derivedModalRadius, derivedNotificationRadius, derivedTextColorPrimary, songs, searchQuery,
+    const { maxSkipLimit, backgroundStyle } = useAppComputedState({
+        duration, backgroundImageUrl, backgroundBlur, backgroundWithOpacity, songs, searchQuery,
     });
 
     // ========== 应用生命周期 ==========
@@ -260,12 +259,14 @@ const App: React.FC = () => {
         controlBackground,
         favoriteCardBackground,
         modalBackground,
+        modalBlur: derivedModalBlur,
+        modalRadius: derivedModalRadius,
         componentRadius: derivedComponentRadius,
         textColorPrimary: derivedTextColorPrimary,
         textColorSecondary: derivedTextColorSecondary,
-    }), [panelBackground, controlBackground, favoriteCardBackground, modalBackground, derivedComponentRadius, derivedTextColorPrimary, derivedTextColorSecondary]);
+    }), [panelBackground, controlBackground, favoriteCardBackground, modalBackground, derivedModalBlur, derivedModalRadius, derivedComponentRadius, derivedTextColorPrimary, derivedTextColorSecondary]);
 
-    const { topBarProps, mainLayoutProps, controlsPanelProps } = useAppPanelsProps({ userInfo, hitokoto, setGlobalSearchTerm, openModal, themeColor, setUserInfo, setStatus, windowControlsPos, currentSong, panelBackground, panelStyles, controlBackground, controlStyles, favoriteCardBackground, textColorPrimary: derivedTextColorPrimary, textColorSecondary: derivedTextColorSecondary, componentRadius: derivedComponentRadius, coverRadius: derivedCoverRadius, computedColorScheme: computedColorScheme as "light" | "dark", placeholderCover: PLACEHOLDER_COVER, maxSkipLimit, formatTime, formatTimeWithMs, handleIntervalChange, handleSkipStartChange, handleSkipEndChange, handleSongInfoUpdate: updateSongInfo, currentFav, currentFavSongs, searchQuery, setSearchQuery, downloadedSongIds, handleDownloadSong, handleAddSongToFavorite, handleAddCurrentSongToFavorite, handleRemoveSongFromPlaylist, confirmRemoveSongId, setConfirmRemoveSongId, playFavorite, handleDownloadAllFavorite, favorites, selectedFavId, setSelectedFavId, setConfirmDeleteFavId, playSingleSong, createFavorite, handleEditFavorite, handleDeleteFavorite, confirmDeleteFavId, progressInInterval, intervalStart, intervalLength, duration, seek, playPrev, togglePlay, playNext, isPlaying, playMode, handlePlayModeToggle, handleDownloadCurrentSong, handleManageDownload, volume, changeVolume, songsCount: songs.length, globalVolumeCompensationDb: volumeCompensationDb, songVolumeOffsetDb: currentSongVolumeOffsetDb, onSongVolumeOffsetChange: handleSongVolumeOffsetChange });
+    const { topBarProps, mainLayoutProps, controlsPanelProps } = useAppPanelsProps({ userInfo, hitokoto, setGlobalSearchTerm, openModal, themeColor, setUserInfo, setStatus, windowControlsPos, currentSong, panelBackground, panelStyles, controlBackground, controlStyles, favoriteCardBackground, textColorPrimary: derivedTextColorPrimary, textColorSecondary: derivedTextColorSecondary, componentRadius: derivedComponentRadius, coverRadius: derivedCoverRadius, computedColorScheme: colorScheme, placeholderCover: PLACEHOLDER_COVER, maxSkipLimit, formatTime, formatTimeWithMs, handleIntervalChange, handleSkipStartChange, handleSkipEndChange, handleSongInfoUpdate: updateSongInfo, currentFav, currentFavSongs, searchQuery, setSearchQuery, downloadedSongIds, handleDownloadSong, handleAddSongToFavorite, handleAddCurrentSongToFavorite, handleRemoveSongFromPlaylist, confirmRemoveSongId, setConfirmRemoveSongId, playFavorite, handleDownloadAllFavorite, favorites, selectedFavId, setSelectedFavId, setConfirmDeleteFavId, playSingleSong, createFavorite, handleEditFavorite, handleDeleteFavorite, confirmDeleteFavId, progressInInterval, intervalStart, intervalLength, duration, seek, playPrev, togglePlay, playNext, isPlaying, playMode, handlePlayModeToggle, handleDownloadCurrentSong, handleManageDownload, volume, changeVolume, songsCount: songs.length, globalVolumeCompensationDb: volumeCompensationDb, songVolumeOffsetDb: currentSongVolumeOffsetDb, onSongVolumeOffsetChange: handleSongVolumeOffsetChange });
 
     const appModalsProps = useAppModalsProps({
         modals,
@@ -297,16 +298,14 @@ const App: React.FC = () => {
 
     // ========== 渲染 ==========
     return (
-        <MantineProvider theme={mantineTheme}>
-            <Box className="app-shell" mih="100vh" w="100%" style={{ position: "relative", backgroundColor: "transparent" }}>
-                <Box style={{ position: "fixed", inset: 0, zIndex: -1, ...backgroundStyle }} />
-                <Box className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
-                    {status}
-                </Box>
-                <AppModals {...appModalsProps} />
-                <AppPanels topBarProps={topBarProps} mainLayoutProps={mainLayoutProps} controlsPanelProps={controlsPanelProps} />
+        <Box className="app-shell" mih="100vh" w="100%" style={{ position: "relative", backgroundColor: "transparent" }}>
+            <Box style={{ position: "fixed", inset: 0, zIndex: -1, ...backgroundStyle }} />
+            <Box className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+                {status}
             </Box>
-        </MantineProvider>
+            <AppModals {...appModalsProps} />
+            <AppPanels topBarProps={topBarProps} mainLayoutProps={mainLayoutProps} controlsPanelProps={controlsPanelProps} />
+        </Box>
     );
 };
 

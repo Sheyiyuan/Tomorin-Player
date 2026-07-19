@@ -152,15 +152,6 @@ export function useUiDerived({
 
     const safeModalBlur = typeof modalBlur === 'number' ? modalBlur : 0;
 
-    const modalStyles = useMemo(
-        () => ({
-            backgroundColor: modalBackground,
-            backdropFilter: safeModalBlur > 0 ? `blur(${safeModalBlur}px)` : undefined,
-            WebkitBackdropFilter: safeModalBlur > 0 ? `blur(${safeModalBlur}px)` : undefined,
-        }),
-        [modalBackground, safeModalBlur]
-    );
-
     const themeColorLight = useMemo(() => lightenHex(themeColor, 40), [themeColor]);
 
     const panelStyles = useMemo(
@@ -200,7 +191,7 @@ export function useUiDerived({
         themeColorLight,
         panelStyles,
         controlStyles,
-        modalStyles,
+        modalBlur: safeModalBlur,
         componentRadius,
         coverRadius,
         modalRadius,

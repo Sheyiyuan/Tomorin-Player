@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
-import { Button, Checkbox, Group, Modal, Radio } from '@mantine/core';
+import { Button, Checkbox, Group, Radio } from '@mantine/core';
 import { useThemeStore } from '../../context/hooks/useThemeStore';
+import type { DerivedStyles } from '../../types';
 import { executeExitBehavior, EXIT_BEHAVIOR_KEY, type ExitBehavior } from '../../utils/window';
+import ThemedModal from './ThemedModal';
 
 export interface ExitConfirmModalProps {
     opened: boolean;
     onClose: () => void;
+    derived?: DerivedStyles;
 }
 
-const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ opened, onClose }) => {
+const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ opened, onClose, derived }) => {
     const [rememberChoice, setRememberChoice] = useState(false);
     const [exitChoice, setExitChoice] = useState<ExitBehavior>('minimize');
     const themeStore = useThemeStore();
@@ -22,23 +25,13 @@ const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ opened, onClose }) 
     };
 
     return (
-        <Modal
+        <ThemedModal
+            derived={derived}
             opened={opened}
             onClose={onClose}
             title="关闭应用"
             centered
             size="sm"
-            radius={componentRadius}
-            styles={{
-                content: {
-                    backgroundColor: 'var(--glass-panel-color)',
-                    backdropFilter: 'blur(20px)',
-                    color: textColorPrimary,
-                },
-                header: { backgroundColor: 'transparent', color: textColorPrimary },
-                title: { fontWeight: 600 },
-            }}
-            className="normal-panel"
         >
             <Radio.Group
                 value={exitChoice}
@@ -69,7 +62,7 @@ const ExitConfirmModal: React.FC<ExitConfirmModalProps> = ({ opened, onClose }) 
                     确定
                 </Button>
             </Group>
-        </Modal>
+        </ThemedModal>
     );
 };
 

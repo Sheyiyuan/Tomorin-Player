@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { ActionIcon, Group, Modal, Paper, ScrollArea, Stack, Text } from "@mantine/core";
+import { ActionIcon, Group, Paper, ScrollArea, Stack, Text } from "@mantine/core";
 import { ArrowDown, ArrowUp, GripVertical, X } from "lucide-react";
 import { Song, type DerivedStyles } from "../../types";
+import ThemedModal from "./ThemedModal";
 
 export type PlaylistModalProps = {
     opened: boolean;
@@ -28,20 +29,6 @@ const PlaylistModal: React.FC<PlaylistModalProps> = React.memo(({
 }) => {
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-
-    const modalStyles = derived ? {
-        content: {
-            backgroundColor: derived.modalBackground,
-            color: derived.textColorPrimary,
-        },
-        header: {
-            backgroundColor: "transparent",
-            color: derived.textColorPrimary,
-        },
-        title: {
-            fontWeight: 600,
-        }
-    } : undefined;
 
     const handleDragStart = (e: React.DragEvent, index: number) => {
         setDraggedIndex(index);
@@ -73,15 +60,14 @@ const PlaylistModal: React.FC<PlaylistModalProps> = React.memo(({
     };
 
     return (
-        <Modal
+        <ThemedModal
+            derived={derived}
             opened={opened}
             onClose={onClose}
             title="当前播放列表"
             size="lg"
             centered
             overlayProps={{ blur: 10, opacity: 0.35 }}
-            styles={modalStyles}
-            className="normal-panel"
         >
             <ScrollArea style={{ height: 'min(450px, calc(100dvh - 180px))' }}>
                 <Stack gap="xs">
@@ -178,7 +164,7 @@ const PlaylistModal: React.FC<PlaylistModalProps> = React.memo(({
                     )}
                 </Stack>
             </ScrollArea>
-        </Modal>
+        </ThemedModal>
     );
 });
 

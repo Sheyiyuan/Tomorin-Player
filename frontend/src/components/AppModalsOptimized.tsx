@@ -30,6 +30,7 @@ export interface AppModalsProps {
     createFavorite: ManagedModalProps<React.ComponentProps<typeof CreateFavoriteModal>>;
     globalSearch: ManagedModalProps<React.ComponentProps<typeof GlobalSearchModal>>;
     bvAdd: Omit<React.ComponentProps<typeof BVAddModal>, "opened">;
+    exitConfirm: ManagedModalProps<React.ComponentProps<typeof ExitConfirmModal>>;
 }
 
 const AppModalsOptimized: React.FC<AppModalsProps> = React.memo(({
@@ -46,6 +47,7 @@ const AppModalsOptimized: React.FC<AppModalsProps> = React.memo(({
     createFavorite,
     globalSearch,
     bvAdd,
+    exitConfirm,
 }) => (
     <Suspense fallback={null}>
         {modals.themeManagerModal && (
@@ -140,7 +142,7 @@ const AppModalsOptimized: React.FC<AppModalsProps> = React.memo(({
         {modals.bvAddModal && <BVAddModal {...bvAdd} opened />}
 
         {modals.exitConfirmModal && (
-            <ExitConfirmModal opened onClose={() => closeModal("exitConfirmModal")} />
+            <ExitConfirmModal {...exitConfirm} opened onClose={() => closeModal("exitConfirmModal")} />
         )}
     </Suspense>
 ));

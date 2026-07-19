@@ -7,7 +7,6 @@ import {
     Divider,
     Fieldset,
     Group,
-    Modal,
     ScrollArea,
     SegmentedControl,
     Select,
@@ -32,6 +31,7 @@ import {
 } from "../../hooks/features/themeDraft";
 import { useImageProxy } from "../../hooks/ui/useImageProxy";
 import { getContrastRatio } from "../../utils/accessibility";
+import ThemedModal from "./ThemedModal";
 
 type ThemeDraftSession = ReturnType<typeof useThemeDraftState>["session"];
 type ThemeDraftActions = ReturnType<typeof useThemeDraftState>["actions"];
@@ -45,7 +45,6 @@ export type ThemeDetailModalProps = {
     onClearBackgroundImage: () => void;
     onSubmit: () => Promise<void>;
     onBackgroundFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    panelStyles?: React.CSSProperties;
     derived?: DerivedStyles;
     isReadOnly?: boolean;
 };
@@ -76,7 +75,6 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = React.memo(({
     onClearBackgroundImage,
     onSubmit,
     onBackgroundFileChange,
-    panelStyles,
     derived,
     isReadOnly = false,
 }) => {
@@ -167,24 +165,15 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = React.memo(({
         secondaryContrast !== null && secondaryContrast < 4.5 ? `次要文字 ${secondaryContrast.toFixed(1)}:1` : null,
     ].filter((label): label is string => label !== null);
 
-    const modalStyles = {
+    const detailModalStyles = {
         content: {
-            backgroundColor: derived?.modalBackground,
-            backdropFilter: panelStyles?.backdropFilter,
-            color: derived?.textColorPrimary,
             maxHeight: "calc(100dvh - 32px)",
             display: "flex" as const,
             flexDirection: "column" as const,
             overflow: "hidden" as const,
         },
         header: {
-            backgroundColor: "transparent",
-            color: derived?.textColorPrimary,
             flexShrink: 0,
-        },
-        title: {
-            color: derived?.textColorPrimary,
-            fontWeight: 600,
         },
         body: {
             minHeight: 0,
@@ -211,15 +200,14 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = React.memo(({
 
     return (
         <>
-            <Modal
+            <ThemedModal
+                derived={derived}
                 opened={opened}
                 onClose={requestClose}
                 title={title}
                 centered
                 size="min(900px, calc(100vw - 32px))"
-                radius={derived?.componentRadius}
-                styles={modalStyles}
-                className="normal-panel"
+                styles={detailModalStyles}
                 closeOnClickOutside={!savingTheme}
                 closeOnEscape={!savingTheme}
                 withCloseButton={!savingTheme}
@@ -398,7 +386,6 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = React.memo(({
                                             styles={{
                                                 input: {
                                                     width: "100%",
-                                                    minHeight: 260,
                                                     fontFamily: "monospace",
                                                     fontSize: "14px",
                                                     lineHeight: "1.5",
@@ -448,9 +435,9 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = React.memo(({
                         )}
                     </Group>
                 </Group>
-            </Modal>
+            </ThemedModal>
 
-            <Modal opened={discardOpen} onClose={() => setDiscardOpen(false)} title="放弃修改？" centered size="sm" radius={derived?.componentRadius} styles={modalStyles}>
+            <ThemedModal derived={derived} opened={discardOpen} onClose={() => setDiscardOpen(false)} title="放弃修改？" centered size="sm">
                 <Stack gap="md">
                     <Text size="sm" c={derived?.textColorPrimary}>当前主题草稿尚未保存。</Text>
                     <Group justify="flex-end">
@@ -462,7 +449,7 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = React.memo(({
                         </Button>
                     </Group>
                 </Stack>
-            </Modal>
+            </ThemedModal>
         </>
     );
 });

@@ -1,4 +1,3 @@
-import type React from "react";
 import type { AppModalsProps } from "../../components/AppModalsOptimized";
 import type { ModalName, ModalState } from "../../context/types/contexts";
 import type { Favorite, Song, Theme, DerivedStyles } from "../../types";
@@ -34,7 +33,6 @@ interface UseAppModalsPropsParams {
     onLoginSuccess: () => void | Promise<void>;
     volumeCompensationDb: number;
     onVolumeCompensationChange: (value: number) => void | Promise<void>;
-    panelStyles: React.CSSProperties;
     derived: DerivedStyles;
     formatTime: (value: number) => string;
     formatTimeWithMs: (value: number) => string;
@@ -62,7 +60,6 @@ export const useAppModalsProps = ({
     onLoginSuccess,
     volumeCompensationDb,
     onVolumeCompensationChange,
-    panelStyles,
     derived,
     formatTime,
     formatTimeWithMs,
@@ -78,7 +75,6 @@ export const useAppModalsProps = ({
         onDeleteTheme: handlers.handleDeleteTheme,
         onCreateTheme: handlers.handleCreateThemeClick,
         accentColor: themeColor,
-        panelStyles,
         derived,
     },
     themeDetail: {
@@ -92,7 +88,6 @@ export const useAppModalsProps = ({
                 : handlers.handleCloseThemeEditor(discardChanges)
         ),
         onBackgroundFileChange: handlers.handleBackgroundFileDraft,
-        panelStyles,
         derived,
     },
     addFavorite: {
@@ -101,7 +96,6 @@ export const useAppModalsProps = ({
         pendingFavoriteSong,
         themeColor,
         onAdd: handlers.handleAddToFavoriteFromModal,
-        panelStyles,
         derived,
     },
     playlist: {
@@ -118,12 +112,10 @@ export const useAppModalsProps = ({
         onNameChange: favoritesState.setEditingFavName,
         onSave: handlers.handleSaveEditFavorite,
         themeColor,
-        panelStyles,
         derived,
     },
     login: {
         onLoginSuccess,
-        panelStyles,
         derived,
     },
     settings: {
@@ -135,7 +127,6 @@ export const useAppModalsProps = ({
         onOpenDownloadsFolder: handlers.handleOpenDownloadsFolder,
         onOpenDatabaseFile: handlers.handleOpenDatabaseFile,
         onClearMusicCache: handlers.handleClearMusicCache,
-        panelStyles,
         derived,
     },
     downloadManager: {
@@ -145,7 +136,6 @@ export const useAppModalsProps = ({
         onOpenFile: handlers.handleOpenDownloadedFile,
         onDeleteFile: handlers.handleDeleteDownloadedFile,
         onToggleConfirmDelete: favoritesState.setConfirmDeleteDownloaded,
-        panelStyles,
         derived,
     },
     createFavorite: {
@@ -165,7 +155,6 @@ export const useAppModalsProps = ({
         onMyCollectionSelect: myFavoriteImport.setSelectedCollectionId,
         onFetchMyCollections: myFavoriteImport.fetchMyCollections,
         onSubmit: handlers.handleSubmitCreateFavorite,
-        panelStyles,
         derived,
     },
     globalSearch: {
@@ -182,7 +171,6 @@ export const useAppModalsProps = ({
         onAddFromRemote: handlers.handleAddFromRemote,
         onAddSingleRemotePage: handlers.handleAddSingleRemotePage,
         onLoadRemotePages: handlers.handleLoadRemotePages,
-        panelStyles,
         derived,
     },
     bvAdd: {
@@ -207,7 +195,9 @@ export const useAppModalsProps = ({
         onConfirmAdd: handlers.handleConfirmBVAdd,
         formatTime,
         formatTimeWithMs,
-        panelStyles,
+        derived,
+    },
+    exitConfirm: {
         derived,
     },
 });

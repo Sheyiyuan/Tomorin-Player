@@ -1,6 +1,7 @@
 import React from "react";
-import { Button, Group, Modal, Select, Stack, Text, TextInput, Loader } from "@mantine/core";
+import { Button, Group, Select, Stack, Text, TextInput, Loader } from "@mantine/core";
 import type { Favorite, DerivedStyles } from "../../types";
+import ThemedModal from "./ThemedModal";
 
 type CreateFavMode = "blank" | "duplicate" | "importMine" | "importFid";
 
@@ -36,7 +37,6 @@ interface CreateFavoriteModalProps {
 
     onSubmit: () => void;
 
-    panelStyles?: React.CSSProperties;
     derived?: DerivedStyles;
 }
 
@@ -66,7 +66,6 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
 
     onSubmit,
 
-    panelStyles,
     derived,
 }) => {
     // 当切换到导入我的收藏夹模式时,自动获取收藏夹列表
@@ -75,21 +74,6 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
             onFetchMyCollections();
         }
     }, [opened, createFavMode, myCollections.length, isLoadingCollections, onFetchMyCollections]);
-
-    const modalStyles = derived ? {
-        content: {
-            backgroundColor: derived.modalBackground,
-            backdropFilter: panelStyles?.backdropFilter,
-            color: derived.textColorPrimary,
-        },
-        header: {
-            backgroundColor: "transparent",
-            color: derived.textColorPrimary,
-        },
-        title: {
-            color: derived.textColorPrimary,
-        }
-    } : undefined;
 
     const inputStyles = derived ? {
         input: {
@@ -103,14 +87,13 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
     } : undefined;
 
     return (
-        <Modal
+        <ThemedModal
+            derived={derived}
             opened={opened}
             onClose={onClose}
             title="新建歌单"
             centered
             size="md"
-            styles={modalStyles}
-            className="normal-panel"
         >
             <Stack gap="sm">
                 <TextInput
@@ -194,7 +177,7 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
                     <Button color={themeColor} onClick={onSubmit}>确认</Button>
                 </Group>
             </Stack>
-        </Modal>
+        </ThemedModal>
     );
 };
 

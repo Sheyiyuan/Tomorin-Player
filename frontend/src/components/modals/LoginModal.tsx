@@ -1,21 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Modal, Group, Button, Text, Stack, Loader, Alert } from "@mantine/core";
+import { Group, Button, Text, Stack, Loader, Alert } from "@mantine/core";
 import QRCode from "qrcode";
 import * as Services from "../../../wailsjs/go/services/Service";
+import type { DerivedStyles } from "../../types";
+import ThemedModal from "./ThemedModal";
 
 interface LoginModalProps {
     opened: boolean;
     onClose: () => void;
     onLoginSuccess: () => void;
-    panelStyles?: React.CSSProperties;
-    derived?: {
-        panelBackground?: string;
-        textColorPrimary?: string;
-        textColorSecondary?: string;
-    };
+    derived?: DerivedStyles;
 }
 
-export default function LoginModal({ opened, onClose, onLoginSuccess, panelStyles, derived }: LoginModalProps) {
+export default function LoginModal({ opened, onClose, onLoginSuccess, derived }: LoginModalProps) {
     const [qrUrl, setQrUrl] = useState<string>("");
     const [isLoading, setIsLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
@@ -39,21 +36,6 @@ export default function LoginModal({ opened, onClose, onLoginSuccess, panelStyle
             successTimeoutRef.current = null;
         }
     }, []);
-
-    const modalStyles = derived ? {
-        content: {
-            backgroundColor: derived.panelBackground,
-            backdropFilter: panelStyles?.backdropFilter,
-            color: derived.textColorPrimary,
-        },
-        header: {
-            backgroundColor: "transparent",
-            color: derived.textColorPrimary,
-        },
-        title: {
-            color: derived.textColorPrimary,
-        }
-    } : undefined;
 
     const startPolling = useCallback((key: string, generation: number) => {
         stopPolling();
@@ -145,7 +127,8 @@ export default function LoginModal({ opened, onClose, onLoginSuccess, panelStyle
     }, [stopPolling]);
 
     return (
-        <Modal
+        <ThemedModal
+            derived={derived}
             opened={opened}
             onClose={onClose}
             title="B站二维码登录"
@@ -153,8 +136,6 @@ export default function LoginModal({ opened, onClose, onLoginSuccess, panelStyle
             size="sm"
             closeOnEscape={true}
             closeOnClickOutside={true}
-            styles={modalStyles}
-            className="normal-panel"
         >
             <Stack gap="md">
                 {errorMessage && (
@@ -216,6 +197,6 @@ export default function LoginModal({ opened, onClose, onLoginSuccess, panelStyle
                     </Group>
                 )}
             </Stack>
-        </Modal>
+        </ThemedModal>
     );
 }

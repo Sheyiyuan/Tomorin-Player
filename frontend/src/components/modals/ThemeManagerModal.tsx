@@ -1,6 +1,7 @@
 import React from "react";
-import { Box, Button, Card, Group, Modal, Stack, Text } from "@mantine/core";
+import { Box, Button, Card, Group, Stack, Text } from "@mantine/core";
 import { Theme, type DerivedStyles } from "../../types";
+import ThemedModal from "./ThemedModal";
 
 export type ThemeManagerModalProps = {
     opened: boolean;
@@ -13,7 +14,6 @@ export type ThemeManagerModalProps = {
     onDeleteTheme: (id: string) => void | Promise<void>;
     onCreateTheme: () => void;
     accentColor: string;
-    panelStyles?: React.CSSProperties;
     derived?: DerivedStyles;
 };
 
@@ -28,26 +28,10 @@ const ThemeManagerModal: React.FC<ThemeManagerModalProps> = ({
     onDeleteTheme,
     onCreateTheme,
     accentColor,
-    panelStyles,
     derived,
 }) => {
-    const modalStyles = derived ? {
-        content: {
-            backgroundColor: derived.modalBackground,
-            backdropFilter: panelStyles?.backdropFilter,
-            color: derived.textColorPrimary,
-        },
-        header: {
-            backgroundColor: "transparent",
-            color: derived.textColorPrimary,
-        },
-        title: {
-            color: derived.textColorPrimary,
-        }
-    } : undefined;
-
     return (
-        <Modal opened={opened} onClose={onClose} title="主题管理" centered size="md" radius={derived?.componentRadius} styles={modalStyles} className="normal-panel">
+        <ThemedModal derived={derived} opened={opened} onClose={onClose} title="主题管理" centered size="md">
             <Stack gap="sm">
                 {themes.map((theme) => (
                     <Card key={theme.id} p="sm" radius={derived?.componentRadius} withBorder style={{
@@ -124,7 +108,7 @@ const ThemeManagerModal: React.FC<ThemeManagerModalProps> = ({
                     + 新建主题
                 </Button>
             </Stack>
-        </Modal>
+        </ThemedModal>
     );
 };
 

@@ -290,7 +290,6 @@ const App: React.FC = () => {
         onLoginSuccess,
         volumeCompensationDb,
         onVolumeCompensationChange: handleGlobalVolumeCompensationChange,
-        panelStyles,
         derived: derivedStyles,
         formatTime,
         formatTimeWithMs,

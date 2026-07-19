@@ -1,6 +1,7 @@
 import React from "react";
-import { Button, Modal, Stack, Text } from "@mantine/core";
+import { Button, Stack, Text } from "@mantine/core";
 import { Favorite, Song, type DerivedStyles } from "../../types";
+import ThemedModal from "./ThemedModal";
 
 export type AddToFavoriteModalProps = {
     opened: boolean;
@@ -10,35 +11,20 @@ export type AddToFavoriteModalProps = {
     pendingFavoriteSong?: Song | null;
     themeColor: string;
     onAdd: (fav: Favorite) => void;
-    panelStyles?: React.CSSProperties;
     derived?: DerivedStyles;
 };
 
-const AddToFavoriteModal: React.FC<AddToFavoriteModalProps> = ({ opened, onClose, favorites, currentSong, pendingFavoriteSong, themeColor, onAdd, panelStyles, derived }) => {
+const AddToFavoriteModal: React.FC<AddToFavoriteModalProps> = ({ opened, onClose, favorites, currentSong, pendingFavoriteSong, themeColor, onAdd, derived }) => {
     // 优先使用 pendingFavoriteSong，如果没有则使用 currentSong
     const targetSong = pendingFavoriteSong || currentSong;
     return (
-        <Modal
+        <ThemedModal
+            derived={derived}
             opened={opened}
             onClose={onClose}
             title="添加到歌单"
             centered
             overlayProps={{ blur: 10, opacity: 0.35 }}
-            styles={{
-                content: {
-                    backgroundColor: derived?.modalBackground,
-                    backdropFilter: panelStyles?.backdropFilter,
-                    color: derived?.textColorPrimary,
-                },
-                header: {
-                    backgroundColor: "transparent",
-                    color: derived?.textColorPrimary,
-                },
-                title: {
-                    fontWeight: 600,
-                }
-            }}
-            className="normal-panel"
         >
             <Stack gap="md">
                 {favorites.length === 0 ? (
@@ -70,7 +56,7 @@ const AddToFavoriteModal: React.FC<AddToFavoriteModalProps> = ({ opened, onClose
                     })
                 )}
             </Stack>
-        </Modal>
+        </ThemedModal>
     );
 };
 

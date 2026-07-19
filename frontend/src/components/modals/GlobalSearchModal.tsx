@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActionIcon, AspectRatio, Badge, Button, Group, Image, Modal, Paper, ScrollArea, SegmentedControl, Stack, Tabs, Text, TextInput } from "@mantine/core";
+import { ActionIcon, AspectRatio, Badge, Button, Group, Image, Paper, ScrollArea, SegmentedControl, Stack, Tabs, Text, TextInput } from "@mantine/core";
 import { Search } from "lucide-react";
 import type { Song, Favorite, DerivedStyles } from "../../types";
 import { useImageProxy } from "../../hooks/ui/useImageProxy";
 import { PLACEHOLDER_COVER } from "../../utils/constants";
+import ThemedModal from "./ThemedModal";
 
 type GlobalSearchResult = { kind: "song"; song: Song } | { kind: "favorite"; favorite: Favorite };
 
@@ -23,7 +24,6 @@ interface GlobalSearchModalProps {
     onAddFromRemote: (song: Song) => void;
     onAddSingleRemotePage: (song: Song) => void;
     onLoadRemotePages: (bvid: string) => Promise<Song[]>;
-    panelStyles?: React.CSSProperties;
     derived?: DerivedStyles;
 }
 
@@ -157,7 +157,8 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
     const remotePreview = remoteResults.slice(0, 5);
 
     return (
-        <Modal
+        <ThemedModal
+            derived={derived}
             opened={opened}
             onClose={handleClose}
             size="lg"
@@ -165,21 +166,6 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
             padding="lg"
             title="搜索视频 (BV 号或链接)"
             overlayProps={{ blur: 10, opacity: 0.35 }}
-            radius={derived?.componentRadius}
-            styles={{
-                content: {
-                    backgroundColor: derived?.modalBackground,
-                    color: derived?.textColorPrimary,
-                },
-                header: {
-                    backgroundColor: "transparent",
-                    color: derived?.textColorPrimary,
-                },
-                title: {
-                    fontWeight: 600,
-                }
-            }}
-            className="normal-panel"
         >
             <Stack gap="md">
                 <TextInput
@@ -538,7 +524,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                     </Stack>
                 </ScrollArea>
             </Stack>
-        </Modal>
+        </ThemedModal>
     );
 });
 

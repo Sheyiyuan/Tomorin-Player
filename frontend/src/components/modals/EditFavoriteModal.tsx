@@ -1,6 +1,7 @@
 import React from "react";
-import { Button, Group, Modal, Stack, TextInput } from "@mantine/core";
+import { Button, Group, Stack, TextInput } from "@mantine/core";
 import type { DerivedStyles } from "../../types";
+import ThemedModal from "./ThemedModal";
 
 export type EditFavoriteModalProps = {
     opened: boolean;
@@ -9,7 +10,6 @@ export type EditFavoriteModalProps = {
     onNameChange: (value: string) => void;
     onSave: () => void;
     themeColor: string;
-    panelStyles?: React.CSSProperties;
     derived?: DerivedStyles;
 };
 
@@ -20,30 +20,15 @@ const EditFavoriteModal: React.FC<EditFavoriteModalProps> = ({
     onNameChange,
     onSave,
     themeColor,
-    panelStyles,
     derived,
 }) => (
-    <Modal
+    <ThemedModal
+        derived={derived}
         opened={opened}
         onClose={onClose}
         title="编辑歌单"
         centered
         size="sm"
-        styles={{
-            content: {
-                ...panelStyles,
-                backgroundColor: derived?.panelBackground,
-                color: derived?.textColorPrimary,
-            },
-            header: {
-                backgroundColor: "transparent",
-                color: derived?.textColorPrimary,
-            },
-            title: {
-                fontWeight: 600,
-            },
-        }}
-        className="normal-panel"
     >
         <Stack gap="md">
             <TextInput
@@ -71,7 +56,7 @@ const EditFavoriteModal: React.FC<EditFavoriteModalProps> = ({
                 </Button>
             </Group>
         </Stack>
-    </Modal>
+    </ThemedModal>
 );
 
 export default EditFavoriteModal;

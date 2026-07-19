@@ -3,15 +3,10 @@
 import {time} from '../models';
 import {models} from '../models';
 import {services} from '../models';
-import {http} from '../models';
-import {context} from '../models';
-import {proxy} from '../models';
 
 export function ClearAudioCache():Promise<void>;
 
 export function ClearLibrary():Promise<void>;
-
-export function CloseWindow():Promise<void>;
 
 export function CreateStreamSource(arg1:string,arg2:string,arg3:time.Time):Promise<string>;
 
@@ -29,21 +24,21 @@ export function DeleteUnreferencedSongs():Promise<number>;
 
 export function DownloadSong(arg1:string):Promise<string>;
 
-export function DragWindow():Promise<void>;
-
-export function EnsureAudioProxyRunning():Promise<void>;
+export function EnsureAudioProxyRunning():Promise<string>;
 
 export function ExportData():Promise<services.ExportData>;
 
 export function GenerateLoginQR():Promise<services.QRCodeResponse>;
 
+export function GetAudioCacheID(arg1:string):Promise<string>;
+
 export function GetAudioCacheSize():Promise<number>;
+
+export function GetDownloadedSongIDs(arg1:Array<string>):Promise<Array<string>>;
 
 export function GetFavoriteCollectionBVIDs(arg1:number):Promise<Array<models.BiliFavoriteInfo>>;
 
 export function GetFavoriteCollectionInfo(arg1:number):Promise<models.BiliFavoriteCollection>;
-
-export function GetHTTPClient():Promise<http.Client>;
 
 export function GetImageProxyURL(arg1:string):Promise<string>;
 
@@ -99,6 +94,8 @@ export function PollLogin(arg1:string):Promise<services.LoginPollResponse>;
 
 export function QuitApp():Promise<void>;
 
+export function RefreshProxyURL(arg1:string):Promise<string>;
+
 export function ResolveBiliAudio(arg1:string):Promise<models.BiliAudio>;
 
 export function SaveFavorite(arg1:models.Favorite):Promise<void>;
@@ -122,10 +119,6 @@ export function SearchBiliVideos(arg1:string,arg2:number,arg3:number,arg4:string
 export function SearchLocalSongs(arg1:string):Promise<Array<models.Song>>;
 
 export function Seed():Promise<void>;
-
-export function SetAppContext(arg1:context.Context):Promise<void>;
-
-export function SetAudioProxy(arg1:proxy.AudioProxy):Promise<void>;
 
 export function SetCurrentTheme(arg1:string):Promise<void>;
 

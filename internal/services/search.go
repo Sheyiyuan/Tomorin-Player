@@ -163,14 +163,14 @@ func (s *Service) warmupBiliCookies() error {
 }
 
 func (s *Service) buildBiliCookieHeader(rawURL string) string {
-	if s.cookieJar == nil {
+	if s.session == nil {
 		return ""
 	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return ""
 	}
-	cookies := s.cookieJar.Cookies(u)
+	cookies := s.session.currentCookies(u)
 	if len(cookies) == 0 {
 		return ""
 	}
@@ -200,19 +200,19 @@ func (s *Service) SearchBVID(bvid string) ([]models.Song, error) {
 		// 为每个分P创建一个Song条目
 		for _, page := range videoInfo.Pages {
 			songName := formatSongName(videoInfo.Title, page.Page, page.Part, len(videoInfo.Pages))
-			
+
 			remoteResult := models.Song{
-				ID:           "",
-				BVID:         bvid,
-				Name:         songName,
-				Singer:       videoInfo.Author,
-				SingerID:     "",
-				Cover:        videoInfo.Cover,
-				SourceID:     "", // 未保存的远程资源
-				PageNumber:   page.Page,
-				PageTitle:    page.Part,
-				VideoTitle:   videoInfo.Title,
-				TotalPages:   len(videoInfo.Pages),
+				ID:         "",
+				BVID:       bvid,
+				Name:       songName,
+				Singer:     videoInfo.Author,
+				SingerID:   "",
+				Cover:      videoInfo.Cover,
+				SourceID:   "", // 未保存的远程资源
+				PageNumber: page.Page,
+				PageTitle:  page.Part,
+				VideoTitle: videoInfo.Title,
+				TotalPages: len(videoInfo.Pages),
 			}
 			results = append(results, remoteResult)
 		}

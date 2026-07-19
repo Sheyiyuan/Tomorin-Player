@@ -10,10 +10,6 @@ export function ClearLibrary() {
   return window['go']['services']['Service']['ClearLibrary']();
 }
 
-export function CloseWindow() {
-  return window['go']['services']['Service']['CloseWindow']();
-}
-
 export function CreateStreamSource(arg1, arg2, arg3) {
   return window['go']['services']['Service']['CreateStreamSource'](arg1, arg2, arg3);
 }
@@ -46,10 +42,6 @@ export function DownloadSong(arg1) {
   return window['go']['services']['Service']['DownloadSong'](arg1);
 }
 
-export function DragWindow() {
-  return window['go']['services']['Service']['DragWindow']();
-}
-
 export function EnsureAudioProxyRunning() {
   return window['go']['services']['Service']['EnsureAudioProxyRunning']();
 }
@@ -62,8 +54,16 @@ export function GenerateLoginQR() {
   return window['go']['services']['Service']['GenerateLoginQR']();
 }
 
+export function GetAudioCacheID(arg1) {
+  return window['go']['services']['Service']['GetAudioCacheID'](arg1);
+}
+
 export function GetAudioCacheSize() {
   return window['go']['services']['Service']['GetAudioCacheSize']();
+}
+
+export function GetDownloadedSongIDs(arg1) {
+  return window['go']['services']['Service']['GetDownloadedSongIDs'](arg1);
 }
 
 export function GetFavoriteCollectionBVIDs(arg1) {
@@ -72,10 +72,6 @@ export function GetFavoriteCollectionBVIDs(arg1) {
 
 export function GetFavoriteCollectionInfo(arg1) {
   return window['go']['services']['Service']['GetFavoriteCollectionInfo'](arg1);
-}
-
-export function GetHTTPClient() {
-  return window['go']['services']['Service']['GetHTTPClient']();
 }
 
 export function GetImageProxyURL(arg1) {
@@ -186,6 +182,10 @@ export function QuitApp() {
   return window['go']['services']['Service']['QuitApp']();
 }
 
+export function RefreshProxyURL(arg1) {
+  return window['go']['services']['Service']['RefreshProxyURL'](arg1);
+}
+
 export function ResolveBiliAudio(arg1) {
   return window['go']['services']['Service']['ResolveBiliAudio'](arg1);
 }
@@ -232,14 +232,6 @@ export function SearchLocalSongs(arg1) {
 
 export function Seed() {
   return window['go']['services']['Service']['Seed']();
-}
-
-export function SetAppContext(arg1) {
-  return window['go']['services']['Service']['SetAppContext'](arg1);
-}
-
-export function SetAudioProxy(arg1) {
-  return window['go']['services']['Service']['SetAudioProxy'](arg1);
 }
 
 export function SetCurrentTheme(arg1) {

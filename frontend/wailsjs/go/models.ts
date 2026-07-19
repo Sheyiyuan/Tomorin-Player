@@ -1,24 +1,3 @@
-export namespace http {
-	
-	export class Client {
-	    Transport: any;
-	    Jar: any;
-	    Timeout: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new Client(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.Transport = source["Transport"];
-	        this.Jar = source["Jar"];
-	        this.Timeout = source["Timeout"];
-	    }
-	}
-
-}
-
 export namespace models {
 	
 	export class BiliAudio {
@@ -346,23 +325,6 @@ export namespace models {
 	        this.data = source["data"];
 	        this.isDefault = source["isDefault"];
 	        this.isReadOnly = source["isReadOnly"];
-	    }
-	}
-
-}
-
-export namespace proxy {
-	
-	export class AudioProxy {
-	
-	
-	    static createFrom(source: any = {}) {
-	        return new AudioProxy(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	
 	    }
 	}
 

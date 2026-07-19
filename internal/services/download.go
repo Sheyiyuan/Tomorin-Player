@@ -48,13 +48,14 @@ func (s *Service) ensureCoverCached(song *models.Song) (string, error) {
 
 	// 已有本地封面且文件存在则复用
 	if song.CoverLocal != "" {
-		if _, err := os.Stat(song.CoverLocal); err == nil {
-			return song.CoverLocal, nil
+		if path, ok := existingFileWithin(filepath.Join(s.dataDir, coversDir), song.CoverLocal); ok {
+			_ = os.Chmod(path, 0o600)
+			return path, nil
 		}
 	}
 
 	dstDir := filepath.Join(s.dataDir, coversDir)
-	if err := os.MkdirAll(dstDir, 0o755); err != nil {
+	if err := ensurePrivateDir(dstDir); err != nil {
 		return "", fmt.Errorf("创建封面目录失败: %w", err)
 	}
 
@@ -73,7 +74,7 @@ func (s *Service) ensureCoverCached(song *models.Song) (string, error) {
 		}
 	}
 
-	dstPath := filepath.Join(dstDir, song.ID+ext)
+	dstPath := filepath.Join(dstDir, storageKey(song.ID)+ext)
 	tmpPath := dstPath + ".part"
 	_ = os.Remove(tmpPath)
 
@@ -87,7 +88,7 @@ func (s *Service) ensureCoverCached(song *models.Song) (string, error) {
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 	req.Header.Set("Referer", "https://www.bilibili.com/")
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.publicStreamClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("下载封面失败: %w", err)
 	}
@@ -96,18 +97,29 @@ func (s *Service) ensureCoverCached(song *models.Song) (string, error) {
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("封面下载失败，状态码: %d", resp.StatusCode)
 	}
+	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
+	if contentType != "" && !strings.HasPrefix(contentType, "image/") {
+		return "", fmt.Errorf("封面响应不是图片: %s", contentType)
+	}
 
 	const maxCoverSize = 2 * 1024 * 1024 // 2MB 上限，避免异常大文件
-	f, err := os.Create(tmpPath)
+	limited := io.LimitReader(resp.Body, maxCoverSize+1)
+	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return "", fmt.Errorf("创建封面文件失败: %w", err)
 	}
 	defer f.Close()
 
-	if _, err := io.Copy(f, io.LimitReader(resp.Body, maxCoverSize)); err != nil {
+	written, err := io.Copy(f, limited)
+	if err != nil {
 		_ = f.Close()
 		_ = os.Remove(tmpPath)
 		return "", fmt.Errorf("写入封面失败: %w", err)
+	}
+	if written > maxCoverSize {
+		_ = f.Close()
+		_ = os.Remove(tmpPath)
+		return "", fmt.Errorf("封面超过 %d 字节", maxCoverSize)
 	}
 
 	if err := os.Rename(tmpPath, dstPath); err != nil {
@@ -181,7 +193,7 @@ func (s *Service) DownloadSong(songID string) (string, error) {
 	}
 
 	dstDir := filepath.Join(s.dataDir, downloadsDir)
-	if err := os.MkdirAll(dstDir, 0o755); err != nil {
+	if err := ensurePrivateDir(dstDir); err != nil {
 		return "", fmt.Errorf("创建下载目录失败: %w", err)
 	}
 
@@ -201,7 +213,7 @@ func (s *Service) DownloadSong(songID string) (string, error) {
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 	req.Header.Set("Referer", "https://www.bilibili.com/")
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.streamClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("下载失败: %w", err)
 	}
@@ -219,7 +231,7 @@ func (s *Service) DownloadSong(songID string) (string, error) {
 	tmpPath := dstPath + ".part"
 	_ = os.Remove(tmpPath)
 
-	f, err := os.Create(tmpPath)
+	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return "", fmt.Errorf("创建文件失败: %w", err)
 	}
@@ -282,27 +294,28 @@ func (s *Service) DownloadSong(songID string) (string, error) {
 }
 
 func (s *Service) getLocalAudioFilename(song models.Song) string {
-	page := song.PageNumber
-	if page <= 0 {
-		page = 1
+	return localAudioFilename(song)
+}
+
+// GetAudioCacheID returns the proxy cache key used by the local audio lookup.
+func (s *Service) GetAudioCacheID(songID string) (string, error) {
+	if songID == "" {
+		return "", fmt.Errorf("songID 不能为空")
 	}
 
-	if song.ID != "" && song.ID != song.BVID {
-		return fmt.Sprintf("%s.m4s", song.ID)
+	var song models.Song
+	filename := ""
+	if err := s.db.First(&song, "id = ?", songID).Error; err == nil {
+		filename = localAudioFilename(song)
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", fmt.Errorf("查询歌曲失败: %w", err)
+	} else {
+		filename = storageKey(songID) + ".m4s"
 	}
-
-	if song.BVID != "" {
-		if song.TotalPages > 1 || song.PageNumber > 1 {
-			return fmt.Sprintf("%s-P%d.m4s", song.BVID, page)
-		}
-		return fmt.Sprintf("%s.m4s", song.BVID)
+	if filename == "" {
+		return "", fmt.Errorf("无法生成音频缓存键")
 	}
-
-	if song.ID != "" {
-		return fmt.Sprintf("%s.m4s", song.ID)
-	}
-
-	return ""
+	return strings.TrimSuffix(filename, filepath.Ext(filename)), nil
 }
 
 // GetLocalAudioURL returns a local proxy URL for a cached audio file if it exists,
@@ -313,33 +326,27 @@ func (s *Service) GetLocalAudioURL(songID string) (string, error) {
 	}
 
 	var song models.Song
-	fname := ""
-	allowLegacy := true
+	var candidates []string
 	if err := s.db.First(&song, "id = ?", songID).Error; err == nil {
-		fname = s.getLocalAudioFilename(song)
-		if song.TotalPages > 1 || song.PageNumber > 1 {
-			allowLegacy = false
-		}
+		candidates = localAudioCandidates(song)
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", fmt.Errorf("查询歌曲失败: %w", err)
-	}
-
-	legacy := fmt.Sprintf("%s.m4s", songID)
-	candidates := []string{}
-	if fname != "" {
-		candidates = append(candidates, fname)
-	}
-	if allowLegacy && legacy != fname {
-		candidates = append(candidates, legacy)
+	} else {
+		candidates = []string{storageKey(songID) + ".m4s"}
+		if legacy := legacyAudioFilename(songID); legacy != "" && legacy != candidates[0] {
+			candidates = append(candidates, legacy)
+		}
 	}
 
 	for _, candidate := range candidates {
 		path := filepath.Join(s.dataDir, cacheDir, candidate)
 		if _, err := os.Stat(path); err == nil {
+			_ = os.Chmod(path, 0o600)
 			return s.getLocalProxyURL(candidate), nil
 		}
 		path2 := filepath.Join(s.dataDir, downloadsDir, candidate)
 		if _, err := os.Stat(path2); err == nil {
+			_ = os.Chmod(path2, 0o600)
 			return s.getLocalProxyURL(candidate), nil
 		}
 	}
@@ -350,7 +357,7 @@ func (s *Service) GetLocalAudioURL(songID string) (string, error) {
 // OpenAudioCacheFolder opens the audio cache directory in the system file manager.
 func (s *Service) OpenAudioCacheFolder() error {
 	dir := filepath.Join(s.dataDir, cacheDir)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := ensurePrivateDir(dir); err != nil {
 		return fmt.Errorf("创建缓存目录失败: %w", err)
 	}
 
@@ -375,7 +382,7 @@ func (s *Service) OpenAudioCacheFolder() error {
 // OpenDownloadsFolder opens the downloads directory in the system file manager.
 func (s *Service) OpenDownloadsFolder() error {
 	dir := filepath.Join(s.dataDir, downloadsDir)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := ensurePrivateDir(dir); err != nil {
 		return fmt.Errorf("创建下载目录失败: %w", err)
 	}
 
@@ -401,7 +408,7 @@ func (s *Service) getLocalProxyURL(fileName string) string {
 	if s.audioProxy != nil {
 		return s.audioProxy.GetLocalProxyURL(fileName)
 	}
-	return fmt.Sprintf("http://127.0.0.1:9999/local?f=%s", url.QueryEscape(fileName))
+	return ""
 }
 
 func isLocalProxyAudioURL(raw string) bool {
@@ -416,15 +423,70 @@ func (s *Service) IsSongDownloaded(songID string) (bool, error) {
 	if songID == "" {
 		return false, fmt.Errorf("songID 不能为空")
 	}
-	fname := fmt.Sprintf("%s.m4s", songID)
-	path := filepath.Join(s.dataDir, downloadsDir, fname)
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
+	candidates, err := s.downloadCandidates(songID)
+	if err != nil {
 		return false, err
 	}
-	return true, nil
+	for _, candidate := range candidates {
+		path := filepath.Join(s.dataDir, downloadsDir, candidate)
+		if _, err := os.Stat(path); err == nil {
+			_ = os.Chmod(path, 0o600)
+			return true, nil
+		} else if !os.IsNotExist(err) {
+			return false, err
+		}
+	}
+	return false, nil
+}
+
+// GetDownloadedSongIDs returns the downloaded subset in one frontend call.
+func (s *Service) GetDownloadedSongIDs(songIDs []string) ([]string, error) {
+	uniqueIDs := make([]string, 0, len(songIDs))
+	seen := make(map[string]struct{}, len(songIDs))
+	for _, songID := range songIDs {
+		if songID == "" {
+			continue
+		}
+		if _, exists := seen[songID]; exists {
+			continue
+		}
+		seen[songID] = struct{}{}
+		uniqueIDs = append(uniqueIDs, songID)
+	}
+	if len(uniqueIDs) == 0 {
+		return []string{}, nil
+	}
+
+	var songs []models.Song
+	if err := s.db.Where("id IN ?", uniqueIDs).Find(&songs).Error; err != nil {
+		return nil, fmt.Errorf("查询歌曲失败: %w", err)
+	}
+	songsByID := make(map[string]models.Song, len(songs))
+	for _, song := range songs {
+		songsByID[song.ID] = song
+	}
+
+	downloaded := make([]string, 0, len(uniqueIDs))
+	for _, songID := range uniqueIDs {
+		candidates := []string{storageKey(songID) + ".m4s"}
+		if song, exists := songsByID[songID]; exists {
+			candidates = localAudioCandidates(song)
+		} else if legacy := legacyAudioFilename(songID); legacy != "" && legacy != candidates[0] {
+			candidates = append(candidates, legacy)
+		}
+
+		for _, candidate := range candidates {
+			path := filepath.Join(s.dataDir, downloadsDir, candidate)
+			if _, err := os.Stat(path); err == nil {
+				_ = os.Chmod(path, 0o600)
+				downloaded = append(downloaded, songID)
+				break
+			} else if !os.IsNotExist(err) {
+				return nil, err
+			}
+		}
+	}
+	return downloaded, nil
 }
 
 // DeleteDownloadedSong deletes the song file from the downloads directory
@@ -432,15 +494,17 @@ func (s *Service) DeleteDownloadedSong(songID string) error {
 	if songID == "" {
 		return fmt.Errorf("songID 不能为空")
 	}
-	fname := fmt.Sprintf("%s.m4s", songID)
-	path := filepath.Join(s.dataDir, downloadsDir, fname)
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
+	candidates, err := s.downloadCandidates(songID)
+	if err != nil {
 		return err
 	}
-	return os.Remove(path)
+	for _, candidate := range candidates {
+		path := filepath.Join(s.dataDir, downloadsDir, candidate)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 // OpenDownloadedFile reveals the downloaded file in the system file manager
@@ -448,10 +512,22 @@ func (s *Service) OpenDownloadedFile(songID string) error {
 	if songID == "" {
 		return fmt.Errorf("songID 不能为空")
 	}
-	fname := fmt.Sprintf("%s.m4s", songID)
-	path := filepath.Join(s.dataDir, downloadsDir, fname)
-	if _, err := os.Stat(path); err != nil {
+	candidates, err := s.downloadCandidates(songID)
+	if err != nil {
 		return err
+	}
+	path := ""
+	for _, candidate := range candidates {
+		candidatePath := filepath.Join(s.dataDir, downloadsDir, candidate)
+		if _, err := os.Stat(candidatePath); err == nil {
+			path = candidatePath
+			break
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+	}
+	if path == "" {
+		return os.ErrNotExist
 	}
 
 	var cmd *exec.Cmd
@@ -495,7 +571,7 @@ func (s *Service) GetAudioCacheSize() (int64, error) {
 func (s *Service) ClearAudioCache() error {
 	cachePath := filepath.Join(s.dataDir, cacheDir)
 	if _, err := os.Stat(cachePath); os.IsNotExist(err) {
-		if err := os.MkdirAll(cachePath, 0o755); err != nil {
+		if err := ensurePrivateDir(cachePath); err != nil {
 			return fmt.Errorf("create audio cache dir: %w", err)
 		}
 		return nil
@@ -513,6 +589,20 @@ func (s *Service) ClearAudioCache() error {
 		}
 	}
 	return nil
+}
+
+func (s *Service) downloadCandidates(songID string) ([]string, error) {
+	var song models.Song
+	if err := s.db.First(&song, "id = ?", songID).Error; err == nil {
+		return localAudioCandidates(song), nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("查询歌曲失败: %w", err)
+	}
+	candidates := []string{storageKey(songID) + ".m4s"}
+	if legacy := legacyAudioFilename(songID); legacy != "" && legacy != candidates[0] {
+		candidates = append(candidates, legacy)
+	}
+	return candidates, nil
 }
 
 // SavePlayHistory 保存播放历史

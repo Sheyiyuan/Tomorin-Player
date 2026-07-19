@@ -32,7 +32,7 @@ type VideoInfo struct {
 
 func (s *Service) GetPlayURL(bvid string, p int) (PlayInfo, error) {
 	if p < 1 {
-		p = 1
+		return PlayInfo{}, fmt.Errorf("分 P 页码必须大于 0: %d", p)
 	}
 
 	// Check if bvid is valid
@@ -99,12 +99,18 @@ func (s *Service) getCidFromBVID(bvid string, p int) (int64, string, int64, erro
 		return 0, "", 0, fmt.Errorf("pagelist: no data returned for BVID=%s", bvid)
 	}
 
-	// Find page p
-	page := res.Data[0]
-	if p-1 < len(res.Data) {
-		page = res.Data[p-1]
+	if err := validatePageNumber(p, len(res.Data)); err != nil {
+		return 0, "", 0, err
 	}
+	page := res.Data[p-1]
 	return page.Cid, page.Part, page.Duration, nil
+}
+
+func validatePageNumber(page, totalPages int) error {
+	if page < 1 || page > totalPages {
+		return fmt.Errorf("无效分 P 页码 %d，视频共 %d P", page, totalPages)
+	}
+	return nil
 }
 
 func (s *Service) getAudioURL(bvid string, cid int64) (string, time.Time, error) {

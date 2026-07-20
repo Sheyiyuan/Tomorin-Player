@@ -152,7 +152,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22.x'
+          # Go 1.24+ emits LC_UUID for internally linked Mach-O binaries.
+          go-version: '1.24.x'
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -172,6 +173,12 @@ jobs:
         run: |
           go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
           echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Verify Wails CLI Mach-O metadata
+        run: |
+          WAILS_BIN="$(go env GOPATH)/bin/wails"
+          "$WAILS_BIN" version
+          dwarfdump --uuid "$WAILS_BIN" | grep -q '^UUID:'
 
       - name: Build macOS (universal)
         run: make package-macos VERSION='${{ steps.version.outputs.version }}' CLEAN=1

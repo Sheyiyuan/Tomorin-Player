@@ -3,7 +3,7 @@
 ## 系统要求
 - macOS 12+（Intel/Apple Silicon）
 - Xcode Command Line Tools
-- Wails CLI v2.11.0, Go 1.22+, Node.js 20+, pnpm 11.4.0, `create-dmg`
+- Wails CLI v2.11.0, Go 1.24+, Node.js 22.13+, pnpm 11.4.0, `create-dmg`
 
 ## 构建
 ```bash
@@ -26,4 +26,5 @@ make package-macos VERSION=1.2.0 CLEAN=1
 
 ## 常见问题
 - `wails` 未找到：确认已安装并在 PATH（或放在 `$HOME/go/bin`）
+- `missing LC_UUID load command`：确认 Wails CLI 和应用均使用 Go 1.24+ 构建
 - 缺少 `create-dmg`：通过 `brew install create-dmg` 安装

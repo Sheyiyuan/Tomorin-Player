@@ -92,7 +92,7 @@ Makefile 调用 `scripts/` 中的平台实现；Linux 上的 Wails 包装器会�
    - 需要在 GitHub Secrets 中配置证书
 3. **依赖要求**：
 
-   - 所有构建需要 Go 1.22+
+   - 常规构建需要 Go 1.22+；macOS 打包需要 Go 1.24+ 以生成 Mach-O `LC_UUID`
    - 前端构建需要 Node.js 22.13+ 和 pnpm 11.4.0
 
 ## 自定义配置

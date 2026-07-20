@@ -24,10 +24,11 @@ type PlayInfo struct {
 
 // VideoInfo holds Bilibili video metadata.
 type VideoInfo struct {
-	Title    string
-	Cover    string
-	Duration int64
-	Author   string
+	Title       string
+	Cover       string
+	Duration    int64
+	Author      string
+	Description string
 }
 
 func (s *Service) GetPlayURL(bvid string, p int) (PlayInfo, error) {
@@ -177,10 +178,11 @@ func (s *Service) getVideoInfo(bvid string) (VideoInfo, error) {
 		Code int    `json:"code"`
 		Msg  string `json:"message"`
 		Data struct {
-			Title    string `json:"title"`
-			Pic      string `json:"pic"`
-			Duration int64  `json:"duration"`
-			Owner    struct {
+			Title       string `json:"title"`
+			Pic         string `json:"pic"`
+			Description string `json:"desc"`
+			Duration    int64  `json:"duration"`
+			Owner       struct {
 				Name string `json:"name"`
 			} `json:"owner"`
 			Staff []struct {
@@ -208,10 +210,11 @@ func (s *Service) getVideoInfo(bvid string) (VideoInfo, error) {
 	author := strings.Join(authors, "; ")
 
 	return VideoInfo{
-		Title:    res.Data.Title,
-		Cover:    normalizeBiliPic(res.Data.Pic),
-		Duration: res.Data.Duration,
-		Author:   author,
+		Title:       res.Data.Title,
+		Cover:       normalizeBiliPic(res.Data.Pic),
+		Duration:    res.Data.Duration,
+		Author:      author,
+		Description: normalizeVideoDescription(res.Data.Description),
 	}, nil
 }
 

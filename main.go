@@ -65,6 +65,11 @@ func run() error {
 			&models.SongRef{},
 			&models.PlayerSetting{},
 			&models.LyricMapping{},
+			&models.LyricDocument{},
+			&models.LyricPreference{},
+			&models.PlaylistSource{},
+			&models.PlaylistSourceItem{},
+			&models.PlaylistSyncRun{},
 			&models.Playlist{},
 			&models.LoginSession{},
 			&models.PlayHistory{},
@@ -100,6 +105,12 @@ func run() error {
 	backend := services.NewService(gormDB, dataDir)
 	if err := backend.Seed(); err != nil {
 		return err
+	}
+	if err := backend.MigrateLegacyLyrics(); err != nil {
+		return fmt.Errorf("migrate legacy lyrics: %w", err)
+	}
+	if err := backend.RecoverInterruptedPlaylistSyncs(); err != nil {
+		return fmt.Errorf("recover interrupted playlist syncs: %w", err)
 	}
 
 	// Bind an available loopback port before showing the application.

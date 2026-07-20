@@ -1,21 +1,25 @@
 package services
 
 import (
-    "encoding/json"
-    "errors"
-    "fmt"
-    "time"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"time"
 
-    "half-beat-player/internal/models"
+	"half-beat-player/internal/models"
 
-    "github.com/google/uuid"
-    "gorm.io/gorm"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // SavePlayerSetting overwrites the single settings row.
 func (s *Service) SavePlayerSetting(setting models.PlayerSetting) error {
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+
 	var existing models.PlayerSetting
-	if err := s.db.First(&existing, 1).Error; err == nil {
+	err := s.db.First(&existing, 1).Error
+	if err == nil {
 		if existing.Config == nil {
 			existing.Config = make(map[string]any)
 		}
@@ -24,25 +28,29 @@ func (s *Service) SavePlayerSetting(setting models.PlayerSetting) error {
 			existing.Config[k] = v
 		}
 		existing.UpdatedAt = time.Now()
-		err := s.db.Save(&existing).Error
-		if err != nil {
-			fmt.Printf("SavePlayerSetting error: %v\n", err)
+		if err := s.db.Save(&existing).Error; err != nil {
+			return fmt.Errorf("save player settings: %w", err)
 		}
-		return err
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("load player settings before save: %w", err)
 	}
 
 	// If not found, create new
 	setting.ID = 1
 	setting.UpdatedAt = time.Now()
-	err := s.db.Save(&setting).Error
-	if err != nil {
-		fmt.Printf("SavePlayerSetting error: %v\n", err)
+	if err := s.db.Create(&setting).Error; err != nil {
+		return fmt.Errorf("create player settings: %w", err)
 	}
-	return err
+	return nil
 }
 
 // GetPlayerSetting returns the stored setting (or defaults).
 func (s *Service) GetPlayerSetting() (models.PlayerSetting, error) {
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+
 	var setting models.PlayerSetting
 	if err := s.db.First(&setting, 1).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -59,12 +67,12 @@ func (s *Service) GetPlayerSetting() (models.PlayerSetting, error) {
 				},
 			}
 			if err := s.db.Create(&setting).Error; err != nil {
-				return setting, err
+				return setting, fmt.Errorf("create default player settings: %w", err)
 			}
 			fmt.Printf("GetPlayerSetting: Created default settings\n")
 			return setting, nil
 		}
-		return setting, err
+		return setting, fmt.Errorf("load player settings: %w", err)
 	}
 	if setting.Config == nil {
 		setting.Config = make(map[string]any)
@@ -82,21 +90,21 @@ func getConfigString(m map[string]any, key string, defaultValue string) string {
 
 // formatThemesJSON converts theme slice to JSON string
 func formatThemesJSON(themes []models.Theme) (string, error) {
-    data, err := json.Marshal(themes)
-    return string(data), err
+	data, err := json.Marshal(themes)
+	return string(data), err
 }
 
 // parseThemesJSON converts JSON string back to theme slice
 func parseThemesJSON(themesJSON string) ([]models.Theme, error) {
-    var themes []models.Theme
-    if themesJSON == "" || themesJSON == "null" {
-        return themes, nil
-    }
-    if err := json.Unmarshal([]byte(themesJSON), &themes); err != nil {
-        // Return empty slice instead of nil on error
-        return themes, err
-    }
-    return themes, nil
+	var themes []models.Theme
+	if themesJSON == "" || themesJSON == "null" {
+		return themes, nil
+	}
+	if err := json.Unmarshal([]byte(themesJSON), &themes); err != nil {
+		// Return empty slice instead of nil on error
+		return themes, err
+	}
+	return themes, nil
 }
 
 // GetThemes returns all available themes

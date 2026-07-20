@@ -133,8 +133,8 @@ func (s *Service) ensureCoverCached(song *models.Song) (string, error) {
 	return dstPath, nil
 }
 
-// DownloadSong downloads the audio file for the given song ID to the local cache directory
-// and returns the absolute file path. The file is saved under dataDir/audio_cache.
+// DownloadSong downloads the audio file for the given song ID and returns the
+// absolute path under dataDir/downloads.
 func (s *Service) DownloadSong(songID string) (string, error) {
 	if songID == "" {
 		return "", fmt.Errorf("songID 不能为空")
@@ -147,6 +147,26 @@ func (s *Service) DownloadSong(songID string) (string, error) {
 			return "", fmt.Errorf("未找到歌曲: %s", songID)
 		}
 		return "", fmt.Errorf("查询歌曲失败: %w", err)
+	}
+
+	filename := s.getLocalAudioFilename(song)
+	if filename == "" {
+		return "", fmt.Errorf("无法生成本地文件名")
+	}
+	dstDir := filepath.Join(s.dataDir, downloadsDir)
+	if err := ensurePrivateDir(dstDir); err != nil {
+		return "", fmt.Errorf("创建下载目录失败: %w", err)
+	}
+	dstPath := filepath.Join(dstDir, filename)
+
+	cachePath := filepath.Join(s.dataDir, cacheDir, filename)
+	usedCache, err := copyCompletedAudioCache(cachePath, dstPath)
+	if err != nil {
+		return "", err
+	}
+	if usedCache {
+		fmt.Printf("[Download] 已复用播放缓存 %s\n", filename)
+		return dstPath, nil
 	}
 
 	// 封面本地缓存（最佳努力，不阻断音频下载）
@@ -191,17 +211,6 @@ func (s *Service) DownloadSong(songID string) (string, error) {
 		song.UpdatedAt = time.Now()
 		_ = s.db.Save(&song).Error
 	}
-
-	dstDir := filepath.Join(s.dataDir, downloadsDir)
-	if err := ensurePrivateDir(dstDir); err != nil {
-		return "", fmt.Errorf("创建下载目录失败: %w", err)
-	}
-
-	filename := s.getLocalAudioFilename(song)
-	if filename == "" {
-		return "", fmt.Errorf("无法生成本地文件名")
-	}
-	dstPath := filepath.Join(dstDir, filename)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
@@ -291,6 +300,100 @@ func (s *Service) DownloadSong(songID string) (string, error) {
 
 	fmt.Printf("[Download] 成功下载 %s: %d 字节\n", filename, contentLength)
 	return dstPath, nil
+}
+
+func copyCompletedAudioCache(srcPath, dstPath string) (bool, error) {
+	pathInfo, err := os.Lstat(srcPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("检查播放缓存失败: %w", err)
+	}
+	if !pathInfo.Mode().IsRegular() {
+		return false, fmt.Errorf("播放缓存不是普通文件: %s", srcPath)
+	}
+
+	src, err := os.Open(srcPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("读取播放缓存失败: %w", err)
+	}
+	defer src.Close()
+
+	srcInfo, err := src.Stat()
+	if err != nil {
+		return false, fmt.Errorf("检查播放缓存大小失败: %w", err)
+	}
+	if !srcInfo.Mode().IsRegular() || !os.SameFile(pathInfo, srcInfo) {
+		return false, fmt.Errorf("播放缓存在读取时发生变化: %s", srcPath)
+	}
+	cacheSize := srcInfo.Size()
+	if cacheSize == 0 {
+		return false, nil
+	}
+
+	tmpPath := dstPath + ".part"
+	if err := os.Remove(tmpPath); err != nil && !os.IsNotExist(err) {
+		return false, fmt.Errorf("清理临时下载文件失败: %w", err)
+	}
+	dst, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return false, fmt.Errorf("创建临时下载文件失败: %w", err)
+	}
+	cleanup := func() {
+		_ = dst.Close()
+		_ = os.Remove(tmpPath)
+	}
+
+	written, err := io.Copy(dst, src)
+	if err != nil {
+		cleanup()
+		return false, fmt.Errorf("复制播放缓存失败: %w", err)
+	}
+	if written != cacheSize {
+		cleanup()
+		return false, fmt.Errorf("播放缓存复制不完整: 期望 %d 字节，实际 %d 字节", cacheSize, written)
+	}
+	if err := dst.Chmod(0o600); err != nil {
+		cleanup()
+		return false, fmt.Errorf("设置下载文件权限失败: %w", err)
+	}
+	if err := dst.Sync(); err != nil {
+		cleanup()
+		return false, fmt.Errorf("刷新下载文件失败: %w", err)
+	}
+	if err := dst.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return false, fmt.Errorf("关闭下载文件失败: %w", err)
+	}
+
+	tmpInfo, err := os.Stat(tmpPath)
+	if err != nil {
+		_ = os.Remove(tmpPath)
+		return false, fmt.Errorf("验证临时下载文件失败: %w", err)
+	}
+	if !tmpInfo.Mode().IsRegular() || tmpInfo.Size() != cacheSize {
+		_ = os.Remove(tmpPath)
+		return false, fmt.Errorf("临时下载文件大小验证失败: 期望 %d 字节，实际 %d 字节", cacheSize, tmpInfo.Size())
+	}
+
+	if err := os.Rename(tmpPath, dstPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return false, fmt.Errorf("保存缓存下载文件失败: %w", err)
+	}
+	finalInfo, err := os.Stat(dstPath)
+	if err != nil {
+		_ = os.Remove(dstPath)
+		return false, fmt.Errorf("验证缓存下载文件失败: %w", err)
+	}
+	if !finalInfo.Mode().IsRegular() || finalInfo.Size() != cacheSize {
+		_ = os.Remove(dstPath)
+		return false, fmt.Errorf("缓存下载文件大小验证失败: 期望 %d 字节，实际 %d 字节", cacheSize, finalInfo.Size())
+	}
+	return true, nil
 }
 
 func (s *Service) getLocalAudioFilename(song models.Song) string {
@@ -412,10 +515,11 @@ func (s *Service) getLocalProxyURL(fileName string) string {
 }
 
 func isLocalProxyAudioURL(raw string) bool {
-	if raw == "" {
+	target, err := url.Parse(raw)
+	if err != nil || !strings.EqualFold(target.Scheme, "http") || target.Hostname() != "127.0.0.1" {
 		return false
 	}
-	return strings.Contains(raw, "127.0.0.1:") && strings.Contains(raw, "/audio")
+	return target.Path == "/audio" || target.Path == "/local"
 }
 
 // IsSongDownloaded checks if the song exists in the downloads directory

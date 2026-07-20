@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"half-beat-player/internal/models"
 	"half-beat-player/internal/netguard"
 	"half-beat-player/internal/proxy"
 	"net"
@@ -18,15 +19,35 @@ import (
 
 // Service exposes backend operations to the Wails frontend.
 type Service struct {
-	db                 *gorm.DB
-	session            *sessionState
-	httpClient         *http.Client
-	streamClient       *http.Client
-	publicStreamClient *http.Client
-	dataDir            string // 数据目录用于存储 cookie
-	appCtx             context.Context
-	audioProxy         *proxy.AudioProxy
-	sessionPersistMu   sync.Mutex
+	db                    *gorm.DB
+	session               *sessionState
+	httpClient            *http.Client
+	streamClient          *http.Client
+	publicStreamClient    *http.Client
+	lyricsClient          *http.Client
+	dataDir               string // 数据目录用于存储 cookie
+	appCtx                context.Context
+	audioProxy            *proxy.AudioProxy
+	sessionPersistMu      sync.Mutex
+	settingsMu            sync.Mutex
+	favoriteSyncMu        sync.Mutex
+	favoriteSyncCalls     map[string]*favoriteSyncCall
+	favoriteSyncSlots     chan struct{}
+	favoriteSnapshots     map[string]*favoriteSnapshotCall
+	favoriteSnapshotCache map[string]favoriteSnapshot
+	biliAPIBaseURL        string
+	videoInfoResolver     func(string) (models.CompleteVideoInfo, error)
+	lyricProviderMu       sync.Mutex
+	lyricProviderLast     map[string]time.Time
+	lyricNegativeCache    map[string]time.Time
+	lyricRetryDelays      []time.Duration
+	lyricSleep            func(time.Duration)
+	lyricTaskMu           sync.Mutex
+	lyricTasks            map[string]*lyricSearchTaskState
+	lyricTaskBySong       map[string]string
+	favoriteTaskMu        sync.Mutex
+	favoriteTasks         map[string]*favoriteSyncTaskState
+	favoriteTaskBySource  map[string]string
 }
 
 func NewService(db *gorm.DB, dataDir string) *Service {
@@ -54,6 +75,10 @@ func NewService(db *gorm.DB, dataDir string) *Service {
 		AllowedHostSuffixes: []string{"bilivideo.com", "bilivideo.cn"},
 	})
 	publicStreamClient := netguard.NewPublicGateway(netguard.Config{})
+	lyricsClient := netguard.NewPublicGateway(netguard.Config{
+		Timeout:             15 * time.Second,
+		AllowedHostSuffixes: []string{"lrclib.net", "bilibili.com", "hdslb.com"},
+	})
 
 	// 确保数据目录存在（跨平台用户级路径）
 	_ = os.MkdirAll(dataDir, 0o700)
@@ -63,12 +88,24 @@ func NewService(db *gorm.DB, dataDir string) *Service {
 	_ = os.Chmod(filepath.Join(dataDir, cacheDir), 0o700)
 
 	service := &Service{
-		db:                 db,
-		session:            session,
-		httpClient:         client,
-		streamClient:       streamClient,
-		publicStreamClient: publicStreamClient,
-		dataDir:            dataDir,
+		db:                    db,
+		session:               session,
+		httpClient:            client,
+		streamClient:          streamClient,
+		publicStreamClient:    publicStreamClient,
+		lyricsClient:          lyricsClient,
+		dataDir:               dataDir,
+		biliAPIBaseURL:        "https://api.bilibili.com",
+		favoriteSyncCalls:     make(map[string]*favoriteSyncCall),
+		favoriteSyncSlots:     make(chan struct{}, 2),
+		favoriteSnapshots:     make(map[string]*favoriteSnapshotCall),
+		favoriteSnapshotCache: make(map[string]favoriteSnapshot),
+		lyricProviderLast:     make(map[string]time.Time),
+		lyricNegativeCache:    make(map[string]time.Time),
+		lyricTasks:            make(map[string]*lyricSearchTaskState),
+		lyricTaskBySong:       make(map[string]string),
+		favoriteTasks:         make(map[string]*favoriteSyncTaskState),
+		favoriteTaskBySource:  make(map[string]string),
 	}
 
 	// 在启动时尝试恢复之前的登录状态

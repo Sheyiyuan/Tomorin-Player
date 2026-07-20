@@ -213,6 +213,7 @@ func (s *Service) SearchBVID(bvid string) ([]models.Song, error) {
 				PageTitle:  page.Part,
 				VideoTitle: videoInfo.Title,
 				TotalPages: len(videoInfo.Pages),
+				Duration:   page.Duration,
 			}
 			results = append(results, remoteResult)
 		}

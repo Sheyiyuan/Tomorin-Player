@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"half-beat-player/internal/models"
 )
@@ -20,7 +21,7 @@ func (s *Service) GetMyFavoriteCollections() ([]models.BiliFavoriteCollection, e
 		return nil, fmt.Errorf("获取用户信息失败: %w", err)
 	}
 
-	endpoint := fmt.Sprintf("https://api.bilibili.com/x/v3/fav/folder/created/list?up_mid=%d&pn=1&ps=100", user.UID)
+	endpoint := s.biliAPIURL(fmt.Sprintf("/x/v3/fav/folder/created/list?up_mid=%d&pn=1&ps=100", user.UID))
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -33,6 +34,9 @@ func (s *Service) GetMyFavoriteCollections() ([]models.BiliFavoriteCollection, e
 		return nil, fmt.Errorf("请求失败: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, classifyBiliFavoriteError(resp.StatusCode, 0, resp.Status)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -61,7 +65,7 @@ func (s *Service) GetMyFavoriteCollections() ([]models.BiliFavoriteCollection, e
 		if msg == "" {
 			msg = "未知错误"
 		}
-		return nil, fmt.Errorf("API 错误: %d (%s)", res.Code, msg)
+		return nil, classifyBiliFavoriteError(resp.StatusCode, res.Code, msg)
 	}
 
 	var out []models.BiliFavoriteCollection
@@ -78,7 +82,7 @@ func (s *Service) GetMyFavoriteCollections() ([]models.BiliFavoriteCollection, e
 
 // GetFavoriteCollectionInfo 获取收藏夹的基本信息（标题、封面等）
 func (s *Service) GetFavoriteCollectionInfo(mediaID int64) (*models.BiliFavoriteCollection, error) {
-	endpoint := fmt.Sprintf("https://api.bilibili.com/x/v3/fav/resource/list?media_id=%d&pn=1&ps=1", mediaID)
+	endpoint := s.biliAPIURL(fmt.Sprintf("/x/v3/fav/resource/list?media_id=%d&pn=1&ps=1", mediaID))
 
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
@@ -93,6 +97,9 @@ func (s *Service) GetFavoriteCollectionInfo(mediaID int64) (*models.BiliFavorite
 		return nil, fmt.Errorf("请求失败: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, classifyBiliFavoriteError(resp.StatusCode, 0, resp.Status)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -126,7 +133,7 @@ func (s *Service) GetFavoriteCollectionInfo(mediaID int64) (*models.BiliFavorite
 		if msg == "" {
 			msg = "未知错误"
 		}
-		return nil, fmt.Errorf("API 错误 (code=%d): %s", res.Code, msg)
+		return nil, classifyBiliFavoriteError(resp.StatusCode, res.Code, msg)
 	}
 
 	return &models.BiliFavoriteCollection{
@@ -140,7 +147,7 @@ func (s *Service) GetFavoriteCollectionInfo(mediaID int64) (*models.BiliFavorite
 // GetFavoriteCollectionBVIDs 获取指定收藏夹的所有 BVID（公开收藏夹可用，无需登录）
 // 使用 /x/v3/fav/resource/ids API，一次性获取所有内容ID
 func (s *Service) GetFavoriteCollectionBVIDs(mediaID int64) ([]models.BiliFavoriteInfo, error) {
-	endpoint := fmt.Sprintf("https://api.bilibili.com/x/v3/fav/resource/ids?media_id=%d&platform=web", mediaID)
+	endpoint := s.biliAPIURL(fmt.Sprintf("/x/v3/fav/resource/ids?media_id=%d&platform=web", mediaID))
 
 	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
@@ -157,6 +164,9 @@ func (s *Service) GetFavoriteCollectionBVIDs(mediaID int64) ([]models.BiliFavori
 		return nil, fmt.Errorf("请求失败: %w", err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return nil, classifyBiliFavoriteError(resp.StatusCode, 0, resp.Status)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -188,11 +198,7 @@ func (s *Service) GetFavoriteCollectionBVIDs(mediaID int64) ([]models.BiliFavori
 		if msg == "" {
 			msg = "未知错误"
 		}
-		return nil, fmt.Errorf("API 错误 (code=%d): %s", res.Code, msg)
-	}
-
-	if len(res.Data) == 0 {
-		return nil, fmt.Errorf("收藏夹为空或不存在")
+		return nil, classifyBiliFavoriteError(resp.StatusCode, res.Code, msg)
 	}
 
 	// 只返回视频类型的内容（type=2），过滤音频和视频合集
@@ -217,4 +223,29 @@ func (s *Service) GetFavoriteCollectionBVIDs(mediaID int64) ([]models.BiliFavori
 	}
 
 	return result, nil
+}
+
+func (s *Service) biliAPIURL(path string) string {
+	base := strings.TrimRight(s.biliAPIBaseURL, "/")
+	if base == "" {
+		base = "https://api.bilibili.com"
+	}
+	return base + path
+}
+
+func classifyBiliFavoriteError(httpStatus, apiCode int, message string) error {
+	details := map[string]string{
+		"httpStatus": fmt.Sprint(httpStatus),
+		"apiCode":    fmt.Sprint(apiCode),
+	}
+	switch {
+	case httpStatus == http.StatusUnauthorized || apiCode == -101:
+		return domainErrorWithDetails(ErrorCodeSyncAuth, "Bilibili 登录已失效，请重新登录", false, details, nil)
+	case httpStatus == http.StatusForbidden || apiCode == -403 || apiCode == 11010:
+		return domainErrorWithDetails(ErrorCodeSyncPermission, "没有权限访问该收藏夹", false, details, nil)
+	case httpStatus == http.StatusTooManyRequests || apiCode == -412:
+		return domainErrorWithDetails(ErrorCodeSyncRateLimited, "Bilibili 请求过于频繁，请稍后重试", true, details, nil)
+	default:
+		return domainErrorWithDetails(ErrorCodeSyncIncomplete, "无法获取完整的 Bilibili 收藏夹快照", true, details, fmt.Errorf("api error %d: %s", apiCode, message))
+	}
 }

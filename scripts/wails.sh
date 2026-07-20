@@ -25,6 +25,35 @@ COMMAND=${ARGS[0]:-}
 PLATFORM=""
 HAS_TAGS=false
 
+# Wails keeps running after its dev proxy fails to bind. In that state the
+# application window can open while every Vite module request returns 502,
+# which WebKit reports as a generic module-script import error. Fail before
+# starting the frontend watcher so the stale process is immediately visible.
+if [[ "$COMMAND" == "dev" ]]; then
+  DEV_SERVER="localhost:34115"
+  for ((i = 0; i < ${#ARGS[@]}; i++)); do
+    case "${ARGS[$i]}" in
+      -devserver)
+        if ((i + 1 < ${#ARGS[@]})); then
+          DEV_SERVER=${ARGS[$((i + 1))]}
+        fi
+        ;;
+      -devserver=*) DEV_SERVER=${ARGS[$i]#-devserver=} ;;
+    esac
+  done
+
+  DEV_HOST=${DEV_SERVER%:*}
+  DEV_PORT=${DEV_SERVER##*:}
+  DEV_HOST=${DEV_HOST#[}
+  DEV_HOST=${DEV_HOST%]}
+  if [[ "$DEV_PORT" != "0" ]] && (exec 3<>"/dev/tcp/${DEV_HOST}/${DEV_PORT}") 2>/dev/null; then
+    exec 3>&-
+    echo "Wails dev server ${DEV_SERVER} is already in use." >&2
+    echo "Stop the existing Wails process or pass -devserver host:port to use another port." >&2
+    exit 1
+  fi
+fi
+
 for ((i = 0; i < ${#ARGS[@]}; i++)); do
   case "${ARGS[$i]}" in
     -platform)

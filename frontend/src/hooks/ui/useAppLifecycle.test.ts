@@ -1,7 +1,8 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { Theme } from '../../types';
 import { DEFAULT_THEMES } from '../../utils/constants';
-import { useAppLifecycle } from './useAppLifecycle';
+import { refreshThemeProxyUrl, useAppLifecycle } from './useAppLifecycle';
 
 const serviceMocks = vi.hoisted(() => ({
     getThemes: vi.fn(),
@@ -12,6 +13,7 @@ const serviceMocks = vi.hoisted(() => ({
     listFavorites: vi.fn(),
     getPlaylist: vi.fn(),
     getPlayHistory: vi.fn(),
+	refreshProxyURL: vi.fn(),
 }));
 
 vi.mock('../../../wailsjs/go/services/Service', () => ({
@@ -23,12 +25,38 @@ vi.mock('../../../wailsjs/go/services/Service', () => ({
     ListFavorites: serviceMocks.listFavorites,
     GetPlaylist: serviceMocks.getPlaylist,
     GetPlayHistory: serviceMocks.getPlayHistory,
+	RefreshProxyURL: serviceMocks.refreshProxyURL,
 }));
 vi.mock('../../utils/wails', () => ({
     waitForWailsRuntime: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe('useAppLifecycle theme hydration', () => {
+	it('refreshes a persisted local theme image while preserving its empty source URL', async () => {
+		const oldProxy = 'http://127.0.0.1:1234/theme-image?token=old';
+		const currentProxy = 'http://127.0.0.1:5678/theme-image?token=current';
+		const theme: Theme = {
+			id: 'local-image',
+			name: 'Local image',
+			backgroundImage: oldProxy,
+			backgroundImageSourceUrl: '',
+			data: JSON.stringify({ backgroundImage: oldProxy, backgroundImageSourceUrl: '' }),
+			isDefault: false,
+			isReadOnly: false,
+		};
+		serviceMocks.refreshProxyURL.mockResolvedValue(currentProxy);
+
+		const refreshed = await refreshThemeProxyUrl(theme);
+
+		expect(serviceMocks.refreshProxyURL).toHaveBeenCalledWith(oldProxy);
+		expect(refreshed.backgroundImage).toBe(currentProxy);
+		expect(refreshed.backgroundImageSourceUrl).toBe('');
+		expect(JSON.parse(refreshed.data || '{}')).toMatchObject({
+			backgroundImage: currentProxy,
+			backgroundImageSourceUrl: '',
+		});
+	});
+
     it('treats an empty backend theme list as authoritative', async () => {
         localStorage.setItem('half-beat.customThemes', JSON.stringify([{
             id: 'deleted-theme',

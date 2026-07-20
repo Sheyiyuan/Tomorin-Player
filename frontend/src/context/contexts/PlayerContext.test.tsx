@@ -52,4 +52,30 @@ describe('PlayerContext queue persistence', () => {
         await waitFor(() => expect(serviceMocks.savePlaylist).toHaveBeenCalledTimes(1));
         expect(serviceMocks.savePlaylist).toHaveBeenCalledWith('[]', 0);
     });
+
+    it('gives duplicate songs distinct queue identities', () => {
+        const { result } = renderHook(() => usePlayerContext(), { wrapper });
+
+        act(() => result.current.actions.setQueue([song, song]));
+
+        expect(result.current.queue.items).toHaveLength(2);
+        expect(result.current.queue.items[0].queueItemId).not.toBe(result.current.queue.items[1].queueItemId);
+    });
+
+    it('keeps priority-next additions in FIFO order', () => {
+        const { result } = renderHook(() => usePlayerContext(), { wrapper });
+        const second = { ...song, id: 'song-2', name: 'Second' };
+        const third = { ...song, id: 'song-3', name: 'Third' };
+
+        act(() => result.current.actions.setQueue([song]));
+        act(() => {
+            result.current.actions.enqueueNext(second);
+            result.current.actions.enqueueNext(third);
+        });
+
+        const prioritySongs = result.current.queue.priorityNext.map((id) =>
+            result.current.queue.items.find((item) => item.queueItemId === id)?.song.id,
+        );
+        expect(prioritySongs).toEqual(['song-2', 'song-3']);
+    });
 });

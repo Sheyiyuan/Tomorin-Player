@@ -26,6 +26,9 @@ const baseTheme: Theme = {
         controlBlur: 0,
         textColorPrimary: "#111111",
         textColorSecondary: "#222222",
+        tooltipBackgroundColor: "#123456",
+        tooltipTextColor: "#fedcba",
+        tooltipBorderColor: "#abcdef",
         favoriteCardColor: "#dddddd",
         cardOpacity: 0,
         componentRadius: 0,
@@ -55,7 +58,40 @@ describe("theme draft helpers", () => {
         expect(draft.backgroundOpacity).toBe(0);
         expect(draft.panelRadius).toBe(0);
         expect(draft.windowControlsPos).toBe("hidden");
+        expect(draft.tooltipBackgroundColor).toBe("#123456");
         expect(draft.extraData.futureField).toEqual({ enabled: true });
+    });
+
+    it("uses the persisted local proxy when the source URL is empty", () => {
+        const localProxy = "http://127.0.0.1:4567/theme-image?token=current";
+        const draft = themeToDraft({
+            ...baseTheme,
+            backgroundImage: localProxy,
+            backgroundImageSourceUrl: "",
+            data: JSON.stringify({
+                ...JSON.parse(baseTheme.data || "{}"),
+                backgroundImage: localProxy,
+                backgroundImageSourceUrl: "",
+            }),
+        });
+
+        expect(draft.backgroundImageUrl).toBe(localProxy);
+        expect(draft.backgroundImageSourceUrl).toBe("");
+    });
+
+    it("prefers a non-empty network source over the cached proxy URL", () => {
+        const draft = themeToDraft({
+            ...baseTheme,
+            backgroundImage: "http://127.0.0.1:4567/theme-image?token=current",
+            backgroundImageSourceUrl: "https://example.com/source.jpg",
+            data: JSON.stringify({
+                ...JSON.parse(baseTheme.data || "{}"),
+                backgroundImageSourceUrl: "   ",
+            }),
+        });
+
+        expect(draft.backgroundImageUrl).toBe("https://example.com/source.jpg");
+        expect(draft.backgroundImageSourceUrl).toBe("https://example.com/source.jpg");
     });
 
     it("writes cleared background fields explicitly while preserving unknown fields", () => {
@@ -67,6 +103,9 @@ describe("theme draft helpers", () => {
 
         expect(data.backgroundImage).toBe("");
         expect(data.backgroundImageSourceUrl).toBe("");
+        expect(data.tooltipBackgroundColor).toBe("#123456");
+        expect(data.tooltipTextColor).toBe("#fedcba");
+        expect(data.tooltipBorderColor).toBe("#abcdef");
         expect(data.futureField).toEqual({ enabled: true });
     });
 
@@ -87,6 +126,9 @@ describe("theme draft helpers", () => {
             controlBlur: 0,
             textColorPrimary: "#111111",
             textColorSecondary: "#222222",
+            tooltipBackgroundColor: "#123456",
+            tooltipTextColor: "#fedcba",
+            tooltipBorderColor: "#abcdef",
             favoriteCardColor: "#dddddd",
             cardOpacity: 1,
             componentRadius: 8,
@@ -123,6 +165,7 @@ describe("theme draft helpers", () => {
             ...createThemeDataFromDraft(draft, { backgroundImage: "", backgroundImageSourceUrl: "" }),
             name: "Broken",
             themeColor: "blue",
+            tooltipBorderColor: "transparent",
             backgroundOpacity: 2,
             windowControlsPos: "middle",
             colorScheme: "system",
@@ -130,6 +173,7 @@ describe("theme draft helpers", () => {
 
         expect(result.draft).toBeUndefined();
         expect(result.errors.join("\n")).toContain("themeColor");
+        expect(result.errors.join("\n")).toContain("tooltipBorderColor");
         expect(result.errors.join("\n")).toContain("backgroundOpacity");
         expect(result.errors.join("\n")).toContain("windowControlsPos");
         expect(result.errors.join("\n")).toContain("colorScheme");

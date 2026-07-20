@@ -15,7 +15,7 @@ docker run --rm \
   sh -euc '
     apt-get update
     apt-get install -y "/packages/'"$(basename "$DEB_PATH")"'"
-    dpkg-query -W -f="${Status}\n" half-beat | grep -q "install ok installed"
+    dpkg -s half-beat | grep -q "^Status: install ok installed$"
     ! ldd /usr/bin/half-beat | grep -q "not found"
     apt-get remove -y half-beat
   '

@@ -38,9 +38,10 @@ try {
         throw "DisplayVersion is $displayVersion, expected $expectedWindowsVersion"
     }
 
-    $productVersion = (Get-Item $appPath).VersionInfo.ProductVersion
-    if (-not $productVersion.StartsWith($expectedWindowsVersion)) {
-        throw "Executable ProductVersion is $productVersion, expected $expectedWindowsVersion"
+    $versionInfo = (Get-Item $appPath).VersionInfo
+    $fileVersion = "$($versionInfo.FileMajorPart).$($versionInfo.FileMinorPart).$($versionInfo.FileBuildPart)"
+    if ($fileVersion -ne $expectedWindowsVersion) {
+        throw "Executable FileVersion is $fileVersion, expected $expectedWindowsVersion"
     }
 
     $uninstall = Start-Process -FilePath $uninstallerPath -ArgumentList '/S' -Wait -PassThru

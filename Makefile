@@ -41,7 +41,7 @@ help: ## Show available targets
 		'  make clean                   Remove generated build output' \
 		'' \
 		'Variables:' \
-		'  VERSION=1.2.0               Override package version' \
+		'  VERSION=x.y.z               Override package version' \
 		'  CLEAN=0                     Reuse existing Wails build output' \
 		'  WAILS_CMD=/path/to/wails    Override the Wails executable' \
 		'  WAILS_ARGS="..."            Append arguments to Wails dev/build'

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ARTIFACT_ROOT=${1:-artifacts}
+ARTIFACT_ROOT=$(cd "$ARTIFACT_ROOT" && pwd)
 DEB_PATH=$(find "$ARTIFACT_ROOT" -type f -name '*.deb' -print -quit)
 RPM_PATH=$(find "$ARTIFACT_ROOT" -type f -name '*.rpm' -print -quit)
 
@@ -10,7 +11,7 @@ RPM_PATH=$(find "$ARTIFACT_ROOT" -type f -name '*.rpm' -print -quit)
 
 docker run --rm \
   -v "$(dirname "$DEB_PATH"):/packages:ro" \
-  debian:bookworm-slim \
+  debian:trixie-slim \
   sh -euc '
     apt-get update
     apt-get install -y "/packages/'"$(basename "$DEB_PATH")"'"

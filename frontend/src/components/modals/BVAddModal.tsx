@@ -164,7 +164,7 @@ const BVAddModal: React.FC<BVAddModalProps> = ({
                                 <Select
                                     label="加入歌单"
                                     placeholder={favorites.length === 0 ? '暂无歌单' : '选择歌单'}
-                                    data={favorites.map((f) => ({ value: f.id, label: f.title }))}
+									data={favorites.map((f) => ({ value: f.id, label: f.source?.locked ? `${f.title}（同步歌单）` : f.title, disabled: f.source?.locked === true }))}
                                     value={bvTargetFavId}
                                     onChange={(val) => onSelectFavorite(val)}
                                     clearable={favorites.length === 0}

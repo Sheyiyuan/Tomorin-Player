@@ -4,6 +4,7 @@ import * as Services from '../../../wailsjs/go/services/Service';
 import { Song, Favorite, convertFavorites, toFavoriteModel } from '../../types';
 import type { ModalName } from '../../context/types/contexts';
 import { removeQueueItem, reorderQueue } from '../../utils/player';
+import { parseDomainError } from '../../utils/domainError';
 
 interface UsePlaylistActionsProps {
     queue: Song[];
@@ -69,7 +70,8 @@ export const usePlaylistActions = ({
             setConfirmRemoveSongId(null);
             notifications.show({ title: '已移出歌单', message: song.name, color: 'green' });
         } catch (e: unknown) {
-            notifications.show({ title: '移出失败', message: e instanceof Error ? e.message : String(e), color: 'red' });
+			const parsed = parseDomainError(e);
+			notifications.show({ title: '移出失败', message: parsed.message, color: 'red' });
         }
     }, [currentFav, setFavorites, setConfirmRemoveSongId]);
 
@@ -85,16 +87,15 @@ export const usePlaylistActions = ({
             closeModal("addFavoriteModal");
         } catch (error) {
             console.error('Failed to add song to favorite:', error);
-            setStatus(`添加失败: ${error}`);
+			setStatus(`添加失败: ${parseDomainError(error).message}`);
         }
     }, [pendingFavoriteSong, currentSong, addSongToFavorite, setStatus, setPendingFavoriteSong, closeModal]);
 
     const playlistSelect = useCallback((song: Song, index: number) => {
         setCurrentIndex(index);
         setIsPlaying(true);
-        closeModal("playlistModal");
         playSong(song, queue);
-    }, [setCurrentIndex, setIsPlaying, closeModal, playSong, queue]);
+    }, [setCurrentIndex, setIsPlaying, playSong, queue]);
 
     const playlistReorder = useCallback((fromIndex: number, toIndex: number) => {
         const result = reorderQueue(queue, currentIndex, fromIndex, toIndex);

@@ -10,7 +10,12 @@ interface ThemedMantineProviderProps {
 export const ThemedMantineProvider: React.FC<ThemedMantineProviderProps> = ({ children }) => {
     const themeStore = useThemeStore();
     const { colorScheme } = themeStore.theme;
-    const { textColorPrimary } = themeStore.colors;
+    const {
+        textColorPrimary,
+        tooltipBackgroundColor,
+        tooltipTextColor,
+        tooltipBorderColor,
+    } = themeStore.colors;
     const { componentRadius, modalRadius, notificationRadius } = themeStore.layout;
 
     const mantineTheme = useMemo(() => createTheme({
@@ -23,9 +28,61 @@ export const ThemedMantineProvider: React.FC<ThemedMantineProviderProps> = ({ ch
             Title: { defaultProps: { c: textColorPrimary } },
             Modal: { defaultProps: { radius: modalRadius } },
             Menu: { defaultProps: { radius: modalRadius } },
-            Notification: { defaultProps: { radius: notificationRadius } },
+            Tooltip: {
+                defaultProps: {
+                    withinPortal: true,
+                    floatingStrategy: "fixed",
+                    zIndex: 4000,
+                },
+                styles: {
+                    tooltip: {
+                        backgroundColor: tooltipBackgroundColor,
+                        color: tooltipTextColor,
+                        border: `1px solid ${tooltipBorderColor}`,
+                    },
+                },
+            },
+            TooltipFloating: {
+                defaultProps: {
+                    withinPortal: true,
+                    zIndex: 4000,
+                },
+                styles: {
+                    tooltip: {
+                        backgroundColor: tooltipBackgroundColor,
+                        color: tooltipTextColor,
+                        border: `1px solid ${tooltipBorderColor}`,
+                    },
+                },
+            },
+            Slider: {
+                styles: {
+                    label: {
+                        backgroundColor: tooltipBackgroundColor,
+                        color: tooltipTextColor,
+                        border: `1px solid ${tooltipBorderColor}`,
+                        zIndex: 4000,
+                    },
+                },
+            },
+            RangeSlider: {
+                styles: {
+                    label: {
+                        backgroundColor: tooltipBackgroundColor,
+                        color: tooltipTextColor,
+                        border: `1px solid ${tooltipBorderColor}`,
+                        zIndex: 4000,
+                    },
+                },
+            },
+            Notification: {
+                defaultProps: {
+                    radius: notificationRadius,
+                    closeButtonProps: { "aria-label": "关闭通知", title: "关闭通知" },
+                },
+            },
         },
-    }), [componentRadius, modalRadius, notificationRadius, textColorPrimary]);
+    }), [componentRadius, modalRadius, notificationRadius, textColorPrimary, tooltipBackgroundColor, tooltipTextColor, tooltipBorderColor]);
 
     return (
         <MantineProvider theme={mantineTheme} forceColorScheme={colorScheme}>

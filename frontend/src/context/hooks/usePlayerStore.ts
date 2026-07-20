@@ -32,6 +32,10 @@ export const useDuration = () => usePlayerStore(state => state.playback.duration
 export const useQueue = () => usePlayerStore(state => state.queue);
 export const useQueueSongs = () => usePlayerStore(state => state.queue.songs);
 export const useCurrentIndex = () => usePlayerStore(state => state.queue.currentIndex);
+export const useQueueItems = () => usePlayerStore(state => state.queue.items);
+export const useCurrentQueueItemId = () => usePlayerStore(state => state.queue.currentQueueItemId);
+export const useShuffleEnabled = () => usePlayerStore(state => state.queue.shuffleEnabled);
+export const useRepeatMode = () => usePlayerStore(state => state.queue.repeatMode);
 
 // 控制选择器
 export const useControls = () => usePlayerStore(state => state.controls);

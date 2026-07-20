@@ -17,7 +17,6 @@ export const UIProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [modals, setModals] = useState<ModalState>({
         loginModal: false,
         settingsModal: false,
-        playlistModal: false,
         themeManagerModal: false,
         themeEditorModal: false,
         themeDetailModal: false,

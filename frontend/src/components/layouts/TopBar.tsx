@@ -5,6 +5,7 @@ import { notifications } from "@mantine/notifications";
 import * as Services from "../../../wailsjs/go/services/Service";
 import { WindowControls } from "./";
 import { useImageProxy } from "../../hooks/ui/useImageProxy";
+import { parseDomainError } from "../../utils/domainError";
 
 interface UserInfo {
     username: string;
@@ -64,7 +65,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         } catch (error) {
             notifications.show({
                 title: "退出失败",
-                message: String(error),
+                message: parseDomainError(error).message,
                 color: "red",
             });
         }

@@ -1,4 +1,5 @@
 import type { Theme } from "../../types";
+import { DEFAULT_TOOLTIP_COLORS } from "../../utils/themeDefaults";
 
 export type ThemeEditorMode = "create" | "edit" | "view";
 export type ThemeColorScheme = "light" | "dark";
@@ -22,6 +23,9 @@ export interface ThemeDraft {
     controlBlur: number;
     textColorPrimary: string;
     textColorSecondary: string;
+    tooltipBackgroundColor: string;
+    tooltipTextColor: string;
+    tooltipBorderColor: string;
     favoriteCardColor: string;
     cardOpacity: number;
     componentRadius: number;
@@ -59,6 +63,9 @@ export interface ThemeDataPayload extends Record<string, unknown> {
     controlBlur: number;
     textColorPrimary: string;
     textColorSecondary: string;
+    tooltipBackgroundColor: string;
+    tooltipTextColor: string;
+    tooltipBorderColor: string;
     favoriteCardColor: string;
     cardOpacity: number;
     componentRadius: number;
@@ -94,6 +101,9 @@ const themeDataKeys = new Set<string>([
     "controlBlur",
     "textColorPrimary",
     "textColorSecondary",
+    "tooltipBackgroundColor",
+    "tooltipTextColor",
+    "tooltipBorderColor",
     "favoriteCardColor",
     "cardOpacity",
     "componentRadius",
@@ -114,6 +124,11 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const stringValue = (value: unknown, fallback: string): string =>
     typeof value === "string" ? value : fallback;
+
+const firstNonEmptyString = (...values: unknown[]): string => {
+    const value = values.find((candidate) => typeof candidate === "string" && candidate.trim().length > 0);
+    return typeof value === "string" ? value : "";
+};
 
 const numberValue = (value: unknown, fallback: number): number =>
     typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -145,6 +160,9 @@ export const createDefaultThemeDraft = (colorScheme: ThemeColorScheme): ThemeDra
         controlBlur: 0,
         textColorPrimary: isDark ? "#ffffff" : "#1a1b1e",
         textColorSecondary: isDark ? "#a6a7ab" : "#909296",
+        tooltipBackgroundColor: DEFAULT_TOOLTIP_COLORS.background,
+        tooltipTextColor: DEFAULT_TOOLTIP_COLORS.text,
+        tooltipBorderColor: DEFAULT_TOOLTIP_COLORS.border,
         favoriteCardColor: isDark ? "#1f2937" : "#ffffff",
         cardOpacity: 1,
         componentRadius: 8,
@@ -191,11 +209,13 @@ export const themeToDraft = (theme: Theme): ThemeDraft => {
         themeColor: stringValue(data.themeColor ?? theme.themeColor, "#1f77f0"),
         backgroundColor: stringValue(data.backgroundColor ?? theme.backgroundColor, "#0a0e27"),
         backgroundOpacity: numberValue(data.backgroundOpacity ?? theme.backgroundOpacity, 1),
-        backgroundImageUrl: stringValue(
-            data.backgroundImageSourceUrl ?? theme.backgroundImageSourceUrl ?? data.backgroundImage ?? theme.backgroundImage,
-            "",
+        backgroundImageUrl: firstNonEmptyString(
+            data.backgroundImageSourceUrl,
+            theme.backgroundImageSourceUrl,
+            data.backgroundImage,
+            theme.backgroundImage,
         ),
-        backgroundImageSourceUrl: stringValue(data.backgroundImageSourceUrl ?? theme.backgroundImageSourceUrl, ""),
+        backgroundImageSourceUrl: firstNonEmptyString(data.backgroundImageSourceUrl, theme.backgroundImageSourceUrl),
         backgroundBlur: numberValue(data.backgroundBlur ?? theme.backgroundBlur, 0),
         panelColor: stringValue(data.panelColor ?? theme.panelColor, "#1a1f3a"),
         panelOpacity: numberValue(data.panelOpacity ?? theme.panelOpacity, 0.6),
@@ -206,6 +226,9 @@ export const themeToDraft = (theme: Theme): ThemeDraft => {
         controlBlur: numberValue(data.controlBlur ?? theme.controlBlur, 0),
         textColorPrimary: stringValue(data.textColorPrimary ?? theme.textColorPrimary, "#ffffff"),
         textColorSecondary: stringValue(data.textColorSecondary ?? theme.textColorSecondary, "#909296"),
+        tooltipBackgroundColor: stringValue(data.tooltipBackgroundColor ?? theme.tooltipBackgroundColor, DEFAULT_TOOLTIP_COLORS.background),
+        tooltipTextColor: stringValue(data.tooltipTextColor ?? theme.tooltipTextColor, DEFAULT_TOOLTIP_COLORS.text),
+        tooltipBorderColor: stringValue(data.tooltipBorderColor ?? theme.tooltipBorderColor, DEFAULT_TOOLTIP_COLORS.border),
         favoriteCardColor: stringValue(data.favoriteCardColor ?? theme.favoriteCardColor ?? theme.panelColor, "#2a2f4a"),
         cardOpacity: numberValue(data.cardOpacity ?? theme.cardOpacity, 0.5),
         componentRadius: numberValue(data.componentRadius ?? theme.componentRadius, 6),
@@ -241,6 +264,9 @@ export const createThemeDataFromDraft = (
     controlBlur: draft.controlBlur,
     textColorPrimary: draft.textColorPrimary,
     textColorSecondary: draft.textColorSecondary,
+    tooltipBackgroundColor: draft.tooltipBackgroundColor,
+    tooltipTextColor: draft.tooltipTextColor,
+    tooltipBorderColor: draft.tooltipBorderColor,
     favoriteCardColor: draft.favoriteCardColor,
     cardOpacity: draft.cardOpacity,
     componentRadius: draft.componentRadius,
@@ -272,6 +298,9 @@ export const createThemeJsonObject = (draft: ThemeDraft): Record<string, unknown
     controlBlur: draft.controlBlur,
     textColorPrimary: draft.textColorPrimary,
     textColorSecondary: draft.textColorSecondary,
+    tooltipBackgroundColor: draft.tooltipBackgroundColor,
+    tooltipTextColor: draft.tooltipTextColor,
+    tooltipBorderColor: draft.tooltipBorderColor,
     favoriteCardColor: draft.favoriteCardColor,
     cardOpacity: draft.cardOpacity,
     componentRadius: draft.componentRadius,
@@ -352,6 +381,9 @@ export const parseThemeDraftJson = (text: string, baseDraft: ThemeDraft): Parsed
         "controlBlur",
         "textColorPrimary",
         "textColorSecondary",
+        "tooltipBackgroundColor",
+        "tooltipTextColor",
+        "tooltipBorderColor",
         "favoriteCardColor",
         "cardOpacity",
         "componentRadius",
@@ -374,6 +406,9 @@ export const parseThemeDraftJson = (text: string, baseDraft: ThemeDraft): Parsed
     const controlColor = validateColor(parsed, "controlColor", errors);
     const textColorPrimary = validateColor(parsed, "textColorPrimary", errors);
     const textColorSecondary = validateColor(parsed, "textColorSecondary", errors);
+    const tooltipBackgroundColor = validateColor(parsed, "tooltipBackgroundColor", errors);
+    const tooltipTextColor = validateColor(parsed, "tooltipTextColor", errors);
+    const tooltipBorderColor = validateColor(parsed, "tooltipBorderColor", errors);
     const favoriteCardColor = validateColor(parsed, "favoriteCardColor", errors);
     const modalColor = validateColor(parsed, "modalColor", errors);
 
@@ -428,6 +463,9 @@ export const parseThemeDraftJson = (text: string, baseDraft: ThemeDraft): Parsed
             controlBlur,
             textColorPrimary,
             textColorSecondary,
+            tooltipBackgroundColor,
+            tooltipTextColor,
+            tooltipBorderColor,
             favoriteCardColor,
             cardOpacity,
             componentRadius,

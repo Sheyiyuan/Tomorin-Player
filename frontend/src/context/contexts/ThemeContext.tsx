@@ -15,6 +15,7 @@ import {
 import { Theme, convertTheme, convertThemes } from '../../types';
 import { DEFAULT_THEMES } from '../../utils/constants';
 import { normalizeThemeImageUrl } from '../../utils/image';
+import { DEFAULT_TOOLTIP_COLORS } from '../../utils/themeDefaults';
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
@@ -65,6 +66,9 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const [controlColor, setControlColor] = useState(defaultTheme.controlColor || '#ffffff');
     const [textColorPrimary, setTextColorPrimary] = useState(defaultTheme.textColorPrimary || "#1a1b1e");
     const [textColorSecondary, setTextColorSecondary] = useState(defaultTheme.textColorSecondary || "#909296");
+    const [tooltipBackgroundColor, setTooltipBackgroundColor] = useState(defaultTheme.tooltipBackgroundColor || DEFAULT_TOOLTIP_COLORS.background);
+    const [tooltipTextColor, setTooltipTextColor] = useState(defaultTheme.tooltipTextColor || DEFAULT_TOOLTIP_COLORS.text);
+    const [tooltipBorderColor, setTooltipBorderColor] = useState(defaultTheme.tooltipBorderColor || DEFAULT_TOOLTIP_COLORS.border);
     const [favoriteCardColor, setFavoriteCardColor] = useState(defaultTheme.favoriteCardColor || '#ffffff');
     const [modalColor, setModalColor] = useState(defaultTheme.modalColor || '#ffffff');
 
@@ -110,6 +114,9 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setControlBlur(theme.controlBlur ?? 0);
         setTextColorPrimary(theme.textColorPrimary || (scheme === 'dark' ? '#ffffff' : '#1a1b1e'));
         setTextColorSecondary(theme.textColorSecondary || (scheme === 'dark' ? '#a6a7ab' : '#909296'));
+        setTooltipBackgroundColor(theme.tooltipBackgroundColor || DEFAULT_TOOLTIP_COLORS.background);
+        setTooltipTextColor(theme.tooltipTextColor || DEFAULT_TOOLTIP_COLORS.text);
+        setTooltipBorderColor(theme.tooltipBorderColor || DEFAULT_TOOLTIP_COLORS.border);
         setFavoriteCardColor(theme.favoriteCardColor || theme.panelColor || "#ffffff");
         setCardOpacity(theme.cardOpacity ?? 1);
         setComponentRadius(theme.componentRadius ?? 8);
@@ -148,9 +155,12 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         controlColor,
         textColorPrimary,
         textColorSecondary,
+        tooltipBackgroundColor,
+        tooltipTextColor,
+        tooltipBorderColor,
         favoriteCardColor,
         modalColor,
-    }), [themeColor, backgroundColor, panelColor, controlColor, textColorPrimary, textColorSecondary, favoriteCardColor, modalColor]);
+    }), [themeColor, backgroundColor, panelColor, controlColor, textColorPrimary, textColorSecondary, tooltipBackgroundColor, tooltipTextColor, tooltipBorderColor, favoriteCardColor, modalColor]);
 
     const effects: EffectsConfig = useMemo(() => ({
         backgroundOpacity,

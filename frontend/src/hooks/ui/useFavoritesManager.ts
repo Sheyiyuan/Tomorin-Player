@@ -12,6 +12,7 @@ export const useFavoritesManager = () => {
     const [createFavMode, setCreateFavMode] = useState<'blank' | 'duplicate' | 'importMine' | 'importFid'>('blank');
     const [duplicateSourceId, setDuplicateSourceId] = useState<string | null>(null);
     const [importFid, setImportFid] = useState("");
+	const [keepImportedFavoriteSynced, setKeepImportedFavoriteSynced] = useState(true);
     const [confirmDeleteFavId, setConfirmDeleteFavId] = useState<string | null>(null);
 
     // ========== 编辑收藏夹 ==========
@@ -30,6 +31,7 @@ export const useFavoritesManager = () => {
         setCreateFavMode("blank");
         setDuplicateSourceId(null);
         setImportFid("");
+		setKeepImportedFavoriteSynced(true);
     }, []);
 
     // 重置编辑收藏夹状态
@@ -55,6 +57,8 @@ export const useFavoritesManager = () => {
         setDuplicateSourceId,
         importFid,
         setImportFid,
+		keepImportedFavoriteSynced,
+		setKeepImportedFavoriteSynced,
         confirmDeleteFavId,
         setConfirmDeleteFavId,
 

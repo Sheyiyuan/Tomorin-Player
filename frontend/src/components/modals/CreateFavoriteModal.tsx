@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Group, Select, Stack, Text, TextInput, Loader } from "@mantine/core";
+import { Button, Group, Select, Stack, Text, TextInput, Loader, Switch } from "@mantine/core";
 import type { Favorite, DerivedStyles } from "../../types";
 import ThemedModal from "./ThemedModal";
 
@@ -24,6 +24,8 @@ interface CreateFavoriteModalProps {
     myCollections: MyCollectionOption[];
     isLoadingCollections: boolean;
     selectedMyCollectionId: number | null;
+	keepSynced: boolean;
+	isSubmitting: boolean;
 
     onClose: () => void;
     onNameChange: (value: string) => void;
@@ -34,8 +36,9 @@ interface CreateFavoriteModalProps {
     // 新增：我的收藏夹操作
     onMyCollectionSelect: (id: number | null) => void;
     onFetchMyCollections: () => void;
+	onKeepSyncedChange: (value: boolean) => void;
 
-    onSubmit: () => void;
+    onSubmit: () => void | Promise<void>;
 
     derived?: DerivedStyles;
 }
@@ -53,6 +56,8 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
     myCollections,
     isLoadingCollections,
     selectedMyCollectionId,
+	keepSynced,
+	isSubmitting,
 
     onClose,
     onNameChange,
@@ -63,6 +68,7 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
     // 我的收藏夹操作
     onMyCollectionSelect,
     onFetchMyCollections,
+	onKeepSyncedChange,
 
     onSubmit,
 
@@ -85,15 +91,21 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
             color: derived.textColorPrimary,
         }
     } : undefined;
+	const handleClose = () => {
+		if (!isSubmitting) onClose();
+	};
 
     return (
         <ThemedModal
             derived={derived}
             opened={opened}
-            onClose={onClose}
+			onClose={handleClose}
             title="新建歌单"
             centered
             size="md"
+			closeOnClickOutside={!isSubmitting}
+			closeOnEscape={!isSubmitting}
+			withCloseButton={!isSubmitting}
         >
             <Stack gap="sm">
                 <TextInput
@@ -172,9 +184,22 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
                         )}
                     </>
                 )}
+				{(createFavMode === "importMine" || createFavMode === "importFid") && (
+					<Stack gap={4}>
+						<Switch
+							label="保持同步（锁定）"
+							description="自动镜像 Bilibili 中可播放的曲目；锁定期间不可手动修改"
+							checked={keepSynced}
+							onChange={(event) => onKeepSyncedChange(event.currentTarget.checked)}
+							color={themeColor}
+							styles={{ label: { color: derived?.textColorPrimary }, description: { color: derived?.textColorSecondary } }}
+						/>
+						{keepSynced && <Text size="xs" c={derived?.textColorSecondary}>完整同步后，Bilibili 已移除的条目也会从本歌单移除；歌曲、歌词、封面、下载和缓存不会删除。转换为本地歌单后将永久停止同步，重新关联需要再次导入。</Text>}
+					</Stack>
+                )}
                 <Group justify="flex-end" mt="sm">
-                    <Button variant="subtle" color={themeColor} onClick={onClose} style={{ color: derived?.textColorPrimary }}>取消</Button>
-                    <Button color={themeColor} onClick={onSubmit}>确认</Button>
+					<Button variant="subtle" color={themeColor} onClick={handleClose} disabled={isSubmitting} style={{ color: derived?.textColorPrimary }}>取消</Button>
+					<Button color={themeColor} onClick={() => { void onSubmit(); }} loading={isSubmitting} disabled={isSubmitting}>确认</Button>
                 </Group>
             </Stack>
         </ThemedModal>

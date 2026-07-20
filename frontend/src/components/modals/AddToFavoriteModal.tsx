@@ -32,25 +32,26 @@ const AddToFavoriteModal: React.FC<AddToFavoriteModalProps> = ({ opened, onClose
                 ) : (
                     favorites.map((fav) => {
                         const isInFav = targetSong && fav.songIds.some(ref => ref.songId === targetSong.id) ? true : false;
+						const isLocked = fav.source?.locked === true;
                         return (
                             <Button
                                 key={fav.id}
                                 variant={isInFav ? "light" : "default"}
                                 color={themeColor}
-                                disabled={isInFav}
+							disabled={isInFav || isLocked}
                                 onClick={() => {
-                                    if (targetSong && !isInFav) {
+									if (targetSong && !isInFav && !isLocked) {
                                         onAdd(fav);
                                     }
                                 }}
                                 styles={{
                                     root: {
-                                        backgroundColor: !isInFav ? derived?.controlBackground : undefined,
-                                        color: !isInFav ? derived?.textColorPrimary : undefined,
+									backgroundColor: !isInFav && !isLocked ? derived?.controlBackground : undefined,
+									color: !isInFav && !isLocked ? derived?.textColorPrimary : undefined,
                                     }
                                 }}
                             >
-                                {fav.title} {isInFav ? "✓ (已添加)" : ""}
+								{fav.title} {isInFav ? "（已添加）" : isLocked ? "（同步歌单）" : ""}
                             </Button>
                         );
                     })

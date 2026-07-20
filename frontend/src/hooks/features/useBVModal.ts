@@ -4,6 +4,7 @@ import * as Services from '../../../wailsjs/go/services/Service';
 import { Song, Favorite, convertSong, convertSongs, convertFavorites, toFavoriteModel, toSongModels, type BVPreview } from '../../types';
 import { SongClass } from '../../types';
 import { getPagePlaybackInterval, selectRemotePagesForPreview } from '../../utils/bv';
+import { parseDomainError } from '../../utils/domainError';
 
 interface UseBVModalProps {
     bvPreview: BVPreview | null;
@@ -45,7 +46,14 @@ export const useBVModal = ({
 
     const handleConfirmBVAdd = useCallback(async () => {
         if (!bvPreview) return;
-        const targetFavId = bvTargetFavId || favorites[0]?.id || null;
+		const fallbackFavorite = favorites.find((favorite) => favorite.source?.locked !== true);
+		const selectedFavorite = favorites.find((favorite) => favorite.id === bvTargetFavId);
+		const targetFavorite = selectedFavorite?.source?.locked === true ? null : selectedFavorite ?? fallbackFavorite ?? null;
+		const targetFavId = targetFavorite?.id ?? null;
+		if (bvTargetFavId && selectedFavorite?.source?.locked === true) {
+			notifications.show({ title: '同步歌单为只读', message: '请选择本地歌单，或先创建本地副本', color: 'orange' });
+			return;
+		}
         const start = Math.max(0, sliceStart);
         const songDuration = bvPreview.duration || 0;
         const end = sliceEnd > 0 ? Math.max(start, sliceEnd) : songDuration;
@@ -164,7 +172,7 @@ export const useBVModal = ({
                 if (fav) {
                     const updatedFav = {
                         ...fav,
-                        songIds: [...fav.songIds, ...addedSongs.map((s) => ({ id: 0, songId: s.id, favoriteId: fav.id }))],
+						songIds: [...fav.songIds, ...addedSongs.map((s, index) => ({ id: 0, songId: s.id, favoriteId: fav.id, position: fav.songIds.length + index }))],
                     };
                     try {
                         await Services.SaveFavorite(toFavoriteModel(updatedFav));
@@ -200,9 +208,10 @@ export const useBVModal = ({
             setSliceEnd(0);
         } catch (err) {
             console.error('BV 添加失败:', err);
+			const parsed = parseDomainError(err);
             notifications.show({
                 title: '保存失败',
-                message: err instanceof Error ? err.message : '未知错误',
+				message: parsed.message,
                 color: 'red',
             });
         }

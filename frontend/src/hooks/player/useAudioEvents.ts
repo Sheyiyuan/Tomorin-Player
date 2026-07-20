@@ -3,6 +3,7 @@ import { notifications } from '@mantine/notifications';
 import { toSongModel, type Song } from '../../types';
 import * as Services from '../../../wailsjs/go/services/Service';
 import { clearImageProxyCache } from '../ui/useImageProxy';
+import type { RepeatMode } from '../../context/types/contexts';
 
 interface UseAudioEventsProps {
     audioRef: React.MutableRefObject<HTMLAudioElement | null>;
@@ -10,6 +11,7 @@ interface UseAudioEventsProps {
     queue: Song[];
     currentIndex: number;
     playMode: 'loop' | 'random' | 'single';
+    repeatMode?: RepeatMode;
     isPlaying: boolean;
     intervalRef: React.MutableRefObject<{ start: number; end: number; length: number }>;
     setIsPlaying: (playing: boolean) => void;
@@ -31,6 +33,7 @@ export const useAudioEvents = ({
     queue,
     currentIndex,
     playMode,
+    repeatMode = playMode === 'single' ? 'one' : 'all',
     isPlaying,
     intervalRef,
     setIsPlaying,
@@ -119,7 +122,7 @@ export const useAudioEvents = ({
                         setIsPlaying(false);
                         notifications.show({ title: '播放失败', message: msg, color: 'red' });
                         // 如果是单曲循环，跳到下一首避免死循环
-                        if (playMode === 'single' && queue.length > 1) {
+                        if (repeatMode === 'one' && queue.length > 1) {
                             playNext();
                         }
                         return;
@@ -161,7 +164,7 @@ export const useAudioEvents = ({
                         setIsPlaying(false);
                         notifications.show({ title: '播放失败', message: msg, color: 'red' });
                         // 如果是单曲循环，跳到下一首避免死循环
-                        if (playMode === 'single' && queue.length > 1) {
+                        if (repeatMode === 'one' && queue.length > 1) {
                             playNext();
                         }
                         return;
@@ -281,7 +284,7 @@ export const useAudioEvents = ({
                 console.log('[onEnded] 播放结束，当前模式:', playMode);
 
                 // 根据播放模式处理播放结束
-                if (playMode === 'single') {
+                if (repeatMode === 'one') {
                     // 单曲循环：重置到区间起点并播放
                     console.log('[onEnded] 单曲循环：重置播放');
                     audio.currentTime = start;
@@ -359,6 +362,7 @@ export const useAudioEvents = ({
         queue,
         currentIndex,
         playMode,
+        repeatMode,
         intervalRef,
         setIsPlaying,
         setProgress,

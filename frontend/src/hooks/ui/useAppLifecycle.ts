@@ -13,6 +13,8 @@ interface UseAppLifecycleParams {
     setSetting: (s: PlayerSetting | null) => void;
     setVolume: (v: number) => void;
     setPlayMode: (v: PlayMode) => void;
+    setShuffleEnabled?: (v: boolean) => void;
+    setRepeatMode?: (v: 'all' | 'one') => void;
     setThemes: (t: Theme[]) => void;
     applyThemeToUi: (theme: Theme) => void;
     settingsLoadedRef: MutableRefObject<boolean>;
@@ -35,6 +37,8 @@ export const useAppLifecycle = ({
     setSetting,
     setVolume,
     setPlayMode,
+    setShuffleEnabled,
+    setRepeatMode,
     setThemes,
     applyThemeToUi,
     settingsLoadedRef,
@@ -125,6 +129,12 @@ export const useAppLifecycle = ({
                         ? savedMode as PlayMode
                         : 'loop';
                     setPlayMode(mode);
+                    const savedShuffle = playerSetting.config.shuffleEnabled;
+                    const savedRepeat = playerSetting.config.repeatMode;
+                    setShuffleEnabled?.(typeof savedShuffle === 'boolean' ? savedShuffle : mode === 'random');
+                    setRepeatMode?.(savedRepeat === 'one' || savedRepeat === 'all'
+                        ? savedRepeat
+                        : mode === 'single' ? 'one' : 'all');
 
                     const allThemes = [...DEFAULT_THEMES, ...effectiveCustomThemes];
                     setThemes(allThemes);
@@ -294,7 +304,7 @@ export const useAppLifecycle = ({
     }, []);
 };
 
-const refreshThemeProxyUrl = async (theme: Theme): Promise<Theme> => {
+export const refreshThemeProxyUrl = async (theme: Theme): Promise<Theme> => {
     const current = theme.backgroundImage || '';
     if (!isLoopbackProxyUrl(current)) return theme;
 

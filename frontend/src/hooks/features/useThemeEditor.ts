@@ -4,6 +4,7 @@ import * as Services from "../../../wailsjs/go/services/Service";
 import type { Theme } from "../../types";
 import type { ModalName } from "../../context/types/contexts";
 import type { useThemeDraftState } from "../ui/useThemeDraftState";
+import { parseDomainError } from "../../utils/domainError";
 import {
     createDefaultThemeDraft,
     createThemeDataFromDraft,
@@ -99,7 +100,7 @@ export const useThemeEditor = ({
         } catch (err) {
             notifications.show({
                 title: "主题切换失败",
-                message: String(err),
+                message: parseDomainError(err).message,
                 color: "red",
             });
         }
@@ -131,7 +132,7 @@ export const useThemeEditor = ({
         } catch (err) {
             notifications.show({
                 title: "主题删除失败",
-                message: String(err),
+                message: parseDomainError(err).message,
                 color: "red",
             });
         }
@@ -222,7 +223,7 @@ export const useThemeEditor = ({
             notifications.update({
                 id: toastId,
                 title: draft.id ? "保存失败" : "创建失败",
-                message: String(err),
+                message: parseDomainError(err).message,
                 color: "red",
                 loading: false,
                 autoClose: 3000,

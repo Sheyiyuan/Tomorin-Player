@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from "react";
+import React, { useCallback, useRef, useState, useMemo } from "react";
 import { Box } from "@mantine/core";
 
 // Hooks - Core layers
@@ -6,7 +6,7 @@ import { useAudioPlayer, useAudioInterval, usePlaylistActions, useSkipIntervalHa
 import { useSettingsPersistence } from "./hooks/data";
 
 // Hooks - Features
-import { useAuth, useBVResolver, useFavoriteActions, useThemeEditor, useSearchAndBV, useBVModal, useLyricManagement, useSongOperations, useLyricLoader, useGlobalSearch, useLoginHandlers } from "./hooks/features";
+import { useAuth, useBVResolver, useFavoriteActions, useThemeEditor, useSearchAndBV, useBVModal, useSongOperations, useGlobalSearch, useLoginHandlers, useLyrics, usePlaylistSync } from "./hooks/features";
 
 // Hooks - UI aggregation
 import { useHitokoto, useUiDerived, useAppLifecycle, useAppEffects, useAppHandlers, useAppPanelsProps, useAppModalsProps, useThemeManagement, useFavoritesManager, useThemeDraftState, useAppSearchState, useAppComputedState } from "./hooks/ui";
@@ -40,26 +40,35 @@ const App: React.FC = () => {
 
     // ========== 播放器层 ==========
     const playerStore = usePlayerStore();
-    const { songs: queue, currentIndex } = playerStore.queue;
+    const { songs: queue, currentIndex, items: queueItems, shuffleEnabled, repeatMode } = playerStore.queue;
     const { currentSong, isPlaying, progress, duration } = playerStore.playback;
     const { playMode, volume } = playerStore.controls;
     const {
         setQueue,
         setCurrentIndex,
         setPlaylistHydrated,
+        setCurrentQueueItemId,
         setSong: setCurrentSong,
         setPlayMode,
         setIsPlaying,
         setProgress,
         setDuration,
         setVolume: setPlayerVolume,
+        setShuffleEnabled,
+        setRepeatMode,
+        enqueueNext,
+        enqueueLast,
+        removeQueueItem,
+        reorderQueueItems,
+        clearUpcoming,
+        consumePriorityNext,
     } = playerStore.actions;
 
     // ========== 设置状态（提前，用于音量补偿计算） ==========
     const dataStore = useDataStore();
     const { songs, favorites, selectedFavId } = dataStore.data;
-    const { playerSetting: setting, lyricMapping: lyric } = dataStore.settings;
-    const { setSongs, setFavorites, setSelectedFavId, setSetting, setLyricMapping: setLyric } = dataStore.actions;
+    const { playerSetting: setting } = dataStore.settings;
+	const { setSongs, setFavorites, setSelectedFavId, setSetting } = dataStore.actions;
     const [pendingFavoriteSong, setPendingFavoriteSong] = useState<Song | null>(null);
 
     const volumeCompensationDb = useMemo(() => {
@@ -95,6 +104,7 @@ const App: React.FC = () => {
     }, effectiveVolumeCompensationDb);
     const { audioRef, actions: audioActions } = audioPlayer;
     const { seek, setVolume } = audioActions;
+	const getLyricProgress = useCallback(() => audioRef.current?.currentTime ?? 0, [audioRef]);
 
     const interval = useAudioInterval(currentSong, duration, progress);
     const { intervalRef, intervalStart, intervalEnd, intervalLength, progressInInterval } = interval;
@@ -133,15 +143,22 @@ const App: React.FC = () => {
 
     // ========== 导出聚合状态 ==========
     const { searchQuery, setSearchQuery, globalSearchTerm, setGlobalSearchTerm, setRemoteResults, setRemoteLoading, newFavName, setNewFavName, setCacheSize, status, setStatus } = searchState;
-    const { createFavName, setCreateFavName, createFavMode, setCreateFavMode, duplicateSourceId, setDuplicateSourceId, importFid, setImportFid, confirmDeleteFavId, setConfirmDeleteFavId, editingFavId, setEditingFavId, editingFavName, setEditingFavName, setConfirmDeleteDownloaded, downloadedSongIds, setDownloadedSongIds, managingSong, setManagingSong, confirmRemoveSongId, setConfirmRemoveSongId } = favoritesState;
+	const { createFavName, setCreateFavName, createFavMode, setCreateFavMode, duplicateSourceId, setDuplicateSourceId, importFid, setImportFid, keepImportedFavoriteSynced, setKeepImportedFavoriteSynced, confirmDeleteFavId, setConfirmDeleteFavId, editingFavId, setEditingFavId, editingFavName, setEditingFavName, setConfirmDeleteDownloaded, downloadedSongIds, setDownloadedSongIds, managingSong, setManagingSong, confirmRemoveSongId, setConfirmRemoveSongId } = favoritesState;
     // ========== 主题管理 ==========
     const themeManagement = useThemeManagement({ themes });
     const { saveCachedCustomThemes, getCustomThemes } = themeManagement;
 
     // ========== 业务逻辑 Hooks ==========
     const favoriteActions = useFavoriteActions({ favorites, setFavorites, songs, setSongs, selectedFavId, setSelectedFavId, setStatus, themeColor, openModal, closeModal });
-    const currentFav = selectedFavId ? (favorites.find((favorite) => favorite.id === selectedFavId) ?? null) : null;
-    const currentFavSongs = currentFav ? songs.filter((song) => currentFav.songIds.some((ref) => ref.songId === song.id)) : [];
+	const currentFav = useMemo(
+		() => selectedFavId ? (favorites.find((favorite) => favorite.id === selectedFavId) ?? null) : null,
+		[favorites, selectedFavId],
+	);
+	const currentFavSongs = useMemo(() => currentFav
+		? currentFav.songIds.map((ref) => songs.find((song) => song.id === ref.songId)).filter((song): song is Song => Boolean(song))
+		: [], [currentFav, songs]);
+	const lyricsState = useLyrics(currentSong);
+	const playlistSync = usePlaylistSync({ setFavorites, setSongs });
 
     const { playSong } = usePlaySong({ queue, selectedFavId, setQueue, setCurrentIndex, setCurrentSong, setIsPlaying, setStatus, setSongs });
 
@@ -158,7 +175,7 @@ const App: React.FC = () => {
 
     const downloadManager = useDownloadManager({ currentSong, currentFavSongs, downloadedSongIds, managingSong, setStatus, setDownloadedSongIds, setManagingSong, setConfirmDeleteDownloaded, openModal, closeModal });
 
-    const { playSingleSong, playFavorite } = usePlayModes({ songs, queue, currentIndex, setQueue, setCurrentIndex, setCurrentSong, setIsPlaying, playSong });
+    const { playSingleSong, playFavorite } = usePlayModes({ songs, queue, currentIndex, setQueue, setCurrentIndex, setCurrentSong, setIsPlaying, playSong, queueItems, setCurrentQueueItemId });
 
     useAudioSourceManager({
         audioRef,
@@ -172,12 +189,46 @@ const App: React.FC = () => {
 
     const searchAndBV = useSearchAndBV({ themeColor, selectedFavId, favorites, globalSearchTerm, setGlobalSearchTerm, setRemoteResults, setRemoteLoading, setBvPreview, setBvSongName, setBvSinger, setBvTargetFavId, openBvModal, setResolvingBV, playSingleSong, playFavorite, setSelectedFavId, closeModal });
 
-    useLyricManagement({ currentSong, lyric, setLyric });
-
-    const playbackControls = usePlaybackControls({ audioRef, currentSong, currentIndex, queue, playMode, intervalStart, intervalEnd, setIsPlaying, setCurrentIndex, setCurrentSong, setVolume, playSong, playbackRetryRef, isHandlingErrorRef, onBeforePlay: audioPlayer.ensureWebAudioReady });
+    const playbackControls = usePlaybackControls({ audioRef, currentSong, currentIndex, queue, playMode, intervalStart, intervalEnd, setIsPlaying, setCurrentIndex, setCurrentSong, setVolume, playSong, playbackRetryRef, isHandlingErrorRef, onBeforePlay: audioPlayer.ensureWebAudioReady, queueItems, playOrder: playerStore.queue.playOrder, currentQueueItemId: playerStore.queue.currentQueueItemId, priorityNext: playerStore.queue.priorityNext, history: playerStore.queue.history, shuffleEnabled, repeatMode, setCurrentQueueItemId: playerStore.actions.setCurrentQueueItemId, consumePriorityNext, setPlayOrder: playerStore.actions.setPlayOrder, setHistory: playerStore.actions.setHistory });
     const { playNext, playPrev, togglePlay, changeVolume } = playbackControls;
 
-    const settingsPersistence = useSettingsPersistence({ setting, playMode, volume, currentThemeId: currentThemeId || "", setSetting, skipPersistRef });
+    const handlePlayQueueItem = useCallback((index: number) => {
+        const item = queueItems[index];
+        if (!item) return;
+        setCurrentQueueItemId(item.queueItemId);
+        setCurrentSong(item.song);
+        setIsPlaying(true);
+        void playSong(item.song, queue);
+    }, [queueItems, setCurrentQueueItemId, setCurrentSong, setIsPlaying, playSong, queue]);
+
+    const handleRemoveQueueItem = useCallback((queueItemId: string) => {
+        const index = queueItems.findIndex((item) => item.queueItemId === queueItemId);
+        if (index < 0) return;
+        const isCurrent = queueItems[index]?.queueItemId === playerStore.queue.currentQueueItemId;
+        const nextQueue = queueItems.filter((item) => item.queueItemId !== queueItemId);
+        const orderIndex = playerStore.queue.playOrder.indexOf(queueItemId);
+        const fallbackId = playerStore.queue.playOrder[orderIndex + 1] ?? playerStore.queue.playOrder[orderIndex - 1] ?? null;
+        const fallback = nextQueue.find((item) => item.queueItemId === fallbackId) ?? null;
+        removeQueueItem(queueItemId);
+        if (isCurrent) {
+            if (!fallback) {
+                setCurrentSong(null);
+                setIsPlaying(false);
+            } else {
+                const fallbackIndex = nextQueue.findIndex((item) => item.queueItemId === fallback.queueItemId);
+                setCurrentIndex(fallbackIndex);
+                setCurrentSong(fallback.song);
+                setIsPlaying(true);
+                void playSong(fallback.song, nextQueue.map((item) => item.song));
+            }
+        }
+    }, [queueItems, playerStore.queue.currentQueueItemId, playerStore.queue.playOrder, removeQueueItem, setCurrentSong, setIsPlaying, setCurrentIndex, playSong]);
+
+    const handleClearUpcoming = useCallback(() => clearUpcoming(), [clearUpcoming]);
+    const handleToggleShuffle = useCallback(() => setShuffleEnabled(!shuffleEnabled), [setShuffleEnabled, shuffleEnabled]);
+    const handleToggleRepeatMode = useCallback(() => setRepeatMode(repeatMode === 'all' ? 'one' : 'all'), [setRepeatMode, repeatMode]);
+
+    const settingsPersistence = useSettingsPersistence({ setting, playMode, shuffleEnabled, repeatMode, volume, currentThemeId: currentThemeId || "", setSetting, skipPersistRef });
     const { persistSettings, settingsLoadedRef } = settingsPersistence;
 
     const clampDb = (value: number) => {
@@ -185,12 +236,12 @@ const App: React.FC = () => {
         return Math.min(12, Math.max(-12, value));
     };
 
-    const handleGlobalVolumeCompensationChange = async (value: number) => {
+    const handleGlobalVolumeCompensationChange = useCallback(async (value: number) => {
         const nextValue = clampDb(value);
         await persistSettings({ config: { volumeCompensationDb: nextValue } });
-    };
+    }, [persistSettings]);
 
-    const handleSongVolumeOffsetChange = async (songId: string, value: number | null) => {
+    const handleSongVolumeOffsetChange = useCallback(async (songId: string, value: number | null) => {
         const current = songVolumeOffsets || {};
         const nextOffsets = { ...current } as Record<string, number>;
         if (value === null) {
@@ -199,15 +250,13 @@ const App: React.FC = () => {
             nextOffsets[songId] = clampDb(value);
         }
         await persistSettings({ config: { songVolumeOffsets: nextOffsets } });
-    };
-
-    useLyricLoader({ currentSong, setLyric });
+    }, [persistSettings, songVolumeOffsets]);
 
     const { globalSearchResults } = useGlobalSearch({ globalSearchTerm, songs, favorites });
     const { handleLoginSuccess } = useLoginHandlers({ closeModal, setUserInfo, setStatus });
 
     // ========== UI 派生值 ==========
-    const { backgroundWithOpacity, panelBackground, controlBackground, favoriteCardBackground, modalBackground, modalBlur: derivedModalBlur, themeColorLight, panelStyles, controlStyles, componentRadius: derivedComponentRadius, coverRadius: derivedCoverRadius, modalRadius: derivedModalRadius, textColorPrimary: derivedTextColorPrimary, textColorSecondary: derivedTextColorSecondary } = useUiDerived({
+    const { backgroundWithOpacity, panelBackground, controlBackground, favoriteCardBackground, modalBackground, modalBlur: derivedModalBlur, panelStyles, controlStyles, componentRadius: derivedComponentRadius, coverRadius: derivedCoverRadius, modalRadius: derivedModalRadius, textColorPrimary: derivedTextColorPrimary, textColorSecondary: derivedTextColorSecondary } = useUiDerived({
         themeColor, backgroundColor, backgroundOpacity, backgroundImageUrl, panelColor, panelOpacity, panelBlur, panelRadius, controlColor, controlOpacity, controlBlur, textColorPrimary, textColorSecondary, favoriteCardColor, cardOpacity, modalRadius, notificationRadius, componentRadius, coverRadius, modalColor, modalOpacity, modalBlur,
     });
 
@@ -216,7 +265,7 @@ const App: React.FC = () => {
     });
 
     // ========== 应用生命周期 ==========
-    useAppLifecycle({ setUserInfo, saveCachedCustomThemes, setSetting, setVolume, setPlayMode, setThemes, applyThemeToUi: applyTheme, skipPersistRef, settingsLoadedRef, modalsSettingsModal: modals.settingsModal, setCacheSize, setStatus, setSongs, setFavorites, setQueue, setCurrentIndex, setPlaylistHydrated, setCurrentSong, setSelectedFavId });
+    useAppLifecycle({ setUserInfo, saveCachedCustomThemes, setSetting, setVolume, setPlayMode, setShuffleEnabled, setRepeatMode, setThemes, applyThemeToUi: applyTheme, skipPersistRef, settingsLoadedRef, modalsSettingsModal: modals.settingsModal, setCacheSize, setStatus, setSongs, setFavorites, setQueue, setCurrentIndex, setPlaylistHydrated, setCurrentSong, setSelectedFavId });
 
     useAppEffects({ intervalStart, intervalEnd, intervalLength, intervalRef, currentSong, songs, setDownloadedSongIds, prevSongIdRef });
 
@@ -226,6 +275,7 @@ const App: React.FC = () => {
         queue,
         currentIndex,
         playMode,
+        repeatMode,
         isPlaying,
         intervalRef: intervalRef as React.MutableRefObject<{ start: number; end: number; length: number }>,
         setIsPlaying,
@@ -244,7 +294,7 @@ const App: React.FC = () => {
     // ========== Handlers ==========
     const myFavoriteImport = favoriteActions.myFavoriteImport;
 
-    const handlers = useAppHandlers({ themeEditor, favoriteActions, editingFavId, editingFavName, setEditingFavId, setEditingFavName, createFavName, setCreateFavName, createFavMode, setCreateFavMode, duplicateSourceId, setDuplicateSourceId, importFid, setImportFid, openModal, setConfirmDeleteFavId, skipIntervalHandler, playMode, setPlayMode, downloadManager, setConfirmDeleteDownloaded, setManagingSong, closeModal, playlistActions, searchAndBV, newFavName, setNewFavName, setFavorites, setBvTargetFavId, bvPreview, sliceStart, sliceEnd, setSliceStart, setSliceEnd, setCacheSize, bvModal });
+	const handlers = useAppHandlers({ themeEditor, favoriteActions, editingFavId, editingFavName, setEditingFavId, setEditingFavName, createFavName, setCreateFavName, createFavMode, setCreateFavMode, duplicateSourceId, setDuplicateSourceId, importFid, setImportFid, keepImportedFavoriteSynced, setKeepImportedFavoriteSynced, openModal, setConfirmDeleteFavId, skipIntervalHandler, playMode, setPlayMode, downloadManager, setConfirmDeleteDownloaded, setManagingSong, closeModal, playlistActions, searchAndBV, newFavName, setNewFavName, setFavorites, setBvTargetFavId, bvPreview, sliceStart, sliceEnd, setSliceStart, setSliceEnd, setCacheSize, bvModal });
 
     const { handleDeleteFavorite, handleEditFavorite, createFavorite, handleIntervalChange, handleSkipStartChange, handleSkipEndChange, handlePlayModeToggle, handleDownloadCurrentSong, handleManageDownload, handleDownloadSong, handleDownloadAllFavorite, handleAddSongToFavorite, handleAddCurrentSongToFavorite, handleRemoveSongFromPlaylist } = handlers;
 
@@ -266,7 +316,7 @@ const App: React.FC = () => {
         textColorSecondary: derivedTextColorSecondary,
     }), [panelBackground, controlBackground, favoriteCardBackground, modalBackground, derivedModalBlur, derivedModalRadius, derivedComponentRadius, derivedTextColorPrimary, derivedTextColorSecondary]);
 
-    const { topBarProps, mainLayoutProps, controlsPanelProps } = useAppPanelsProps({ userInfo, hitokoto, setGlobalSearchTerm, openModal, themeColor, setUserInfo, setStatus, windowControlsPos, currentSong, panelBackground, panelStyles, controlBackground, controlStyles, favoriteCardBackground, textColorPrimary: derivedTextColorPrimary, textColorSecondary: derivedTextColorSecondary, componentRadius: derivedComponentRadius, coverRadius: derivedCoverRadius, computedColorScheme: colorScheme, placeholderCover: PLACEHOLDER_COVER, maxSkipLimit, formatTime, formatTimeWithMs, handleIntervalChange, handleSkipStartChange, handleSkipEndChange, handleSongInfoUpdate: updateSongInfo, currentFav, currentFavSongs, searchQuery, setSearchQuery, downloadedSongIds, handleDownloadSong, handleAddSongToFavorite, handleAddCurrentSongToFavorite, handleRemoveSongFromPlaylist, confirmRemoveSongId, setConfirmRemoveSongId, playFavorite, handleDownloadAllFavorite, favorites, selectedFavId, setSelectedFavId, setConfirmDeleteFavId, playSingleSong, createFavorite, handleEditFavorite, handleDeleteFavorite, confirmDeleteFavId, progressInInterval, intervalStart, intervalLength, duration, seek, playPrev, togglePlay, playNext, isPlaying, playMode, handlePlayModeToggle, handleDownloadCurrentSong, handleManageDownload, volume, changeVolume, songsCount: songs.length, globalVolumeCompensationDb: volumeCompensationDb, songVolumeOffsetDb: currentSongVolumeOffsetDb, onSongVolumeOffsetChange: handleSongVolumeOffsetChange });
+    const { topBarProps, mainLayoutProps, controlsPanelProps } = useAppPanelsProps({ userInfo, hitokoto, setGlobalSearchTerm, openModal, themeColor, setUserInfo, setStatus, windowControlsPos, currentSong, panelBackground, panelStyles, controlBackground, controlStyles, favoriteCardBackground, textColorPrimary: derivedTextColorPrimary, textColorSecondary: derivedTextColorSecondary, componentRadius: derivedComponentRadius, coverRadius: derivedCoverRadius, computedColorScheme: colorScheme, placeholderCover: PLACEHOLDER_COVER, maxSkipLimit, formatTime, formatTimeWithMs, handleIntervalChange, handleSkipStartChange, handleSkipEndChange, handleSongInfoUpdate: updateSongInfo, currentFav, currentFavSongs, searchQuery, setSearchQuery, downloadedSongIds, handleDownloadSong, handleAddSongToFavorite, handleAddCurrentSongToFavorite, handleRemoveSongFromPlaylist, confirmRemoveSongId, setConfirmRemoveSongId, playFavorite, handleDownloadAllFavorite, favorites, selectedFavId, setSelectedFavId, setConfirmDeleteFavId, playSingleSong, createFavorite, handleEditFavorite, handleDeleteFavorite, confirmDeleteFavId, progressInInterval, intervalStart, intervalLength, duration, seek, playPrev, togglePlay, playNext, isPlaying, playMode, handlePlayModeToggle, handleDownloadCurrentSong, handleManageDownload, volume, changeVolume, songsCount: queueItems.length, queueItems, playOrder: playerStore.queue.playOrder, currentQueueItemId: playerStore.queue.currentQueueItemId, priorityNext: playerStore.queue.priorityNext, shuffleEnabled, repeatMode, onPlayQueueItem: handlePlayQueueItem, onRemoveQueueItem: handleRemoveQueueItem, onReorderQueueItems: (from, to) => reorderQueueItems(from, to), onClearUpcoming: handleClearUpcoming, onToggleShuffle: handleToggleShuffle, onToggleRepeatMode: handleToggleRepeatMode, onPlayNextSong: (song) => { enqueueNext(song); }, onEnqueueLastSong: (song) => { enqueueLast(song); }, globalVolumeCompensationDb: volumeCompensationDb, songVolumeOffsetDb: currentSongVolumeOffsetDb, onSongVolumeOffsetChange: handleSongVolumeOffsetChange, lyricsState, getLyricProgress, onLyricSeek: seek, onSyncFavorite: playlistSync.sync, onLoadFavoriteSyncStatus: playlistSync.loadStatus, onDetachFavorite: playlistSync.detach, onDuplicateFavorite: playlistSync.createLocalCopy, syncingFavoriteIds: playlistSync.syncingIds, syncStatusByFavorite: playlistSync.statusByFavorite, derived: derivedStyles });
 
     const appModalsProps = useAppModalsProps({
         modals,
@@ -274,16 +324,14 @@ const App: React.FC = () => {
         themes,
         currentThemeId,
         themeColor,
-        themeColorLight,
         themeEditor,
         favoritesState,
         searchState,
         bvResolver,
         handlers,
         myFavoriteImport,
+		isCreatingFavorite: favoriteActions.isCreatingFavorite,
         favorites,
-        queue,
-        currentIndex,
         currentSong,
         pendingFavoriteSong,
         globalSearchResults,

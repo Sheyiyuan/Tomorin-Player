@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
 import { toSongModel, type Song } from '../../types';
+import { parseDomainError } from '../../utils/domainError';
 
 interface UseSkipIntervalHandlerProps {
     currentSong: Song | null;
@@ -108,7 +109,7 @@ export const useSkipIntervalHandler = ({
                 }
                 notifications.show({
                     title: "播放区间保存失败",
-                    message: String(err),
+                    message: parseDomainError(err).message,
                     color: "red",
                 });
             } finally {

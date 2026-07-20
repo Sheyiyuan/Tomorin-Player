@@ -16,6 +16,7 @@ import {
     Text,
     TextInput,
     Textarea,
+    Tooltip,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { AlertCircle, Check, Copy, ImagePlus, Trash2 } from "lucide-react";
@@ -160,9 +161,14 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = React.memo(({
         () => getContrastRatio(draft.textColorSecondary, draft.panelColor),
         [draft.panelColor, draft.textColorSecondary],
     );
+    const tooltipContrast = useMemo(
+        () => getContrastRatio(draft.tooltipTextColor, draft.tooltipBackgroundColor),
+        [draft.tooltipBackgroundColor, draft.tooltipTextColor],
+    );
     const lowContrastLabels = [
         primaryContrast !== null && primaryContrast < 4.5 ? `主要文字 ${primaryContrast.toFixed(1)}:1` : null,
         secondaryContrast !== null && secondaryContrast < 4.5 ? `次要文字 ${secondaryContrast.toFixed(1)}:1` : null,
+        tooltipContrast !== null && tooltipContrast < 4.5 ? `提示文字 ${tooltipContrast.toFixed(1)}:1` : null,
     ].filter((label): label is string => label !== null);
 
     const detailModalStyles = {
@@ -273,6 +279,11 @@ const ThemeDetailModal: React.FC<ThemeDetailModalProps> = React.memo(({
                                                 <ColorInput label="主要文字" value={draft.textColorPrimary} onChange={(value) => setField(actions, "textColorPrimary", value)} size="sm" format="hex" disallowInput={false} styles={inputStyles} readOnly={readOnly} />
                                                 <ColorInput label="次要文字" value={draft.textColorSecondary} onChange={(value) => setField(actions, "textColorSecondary", value)} size="sm" format="hex" disallowInput={false} styles={inputStyles} readOnly={readOnly} />
                                             </Group>
+                                            <Group grow gap="xs">
+                                                <ColorInput label="提示背景" value={draft.tooltipBackgroundColor} onChange={(value) => setField(actions, "tooltipBackgroundColor", value)} size="sm" format="hex" disallowInput={false} styles={inputStyles} readOnly={readOnly} />
+                                                <ColorInput label="提示文字" value={draft.tooltipTextColor} onChange={(value) => setField(actions, "tooltipTextColor", value)} size="sm" format="hex" disallowInput={false} styles={inputStyles} readOnly={readOnly} />
+                                            </Group>
+                                            <ColorInput label="提示边框" value={draft.tooltipBorderColor} onChange={(value) => setField(actions, "tooltipBorderColor", value)} size="sm" format="hex" disallowInput={false} styles={inputStyles} readOnly={readOnly} />
                                             <ColorInput label="弹窗色" value={draft.modalColor} onChange={(value) => setField(actions, "modalColor", value)} size="sm" format="hex" disallowInput={false} styles={inputStyles} readOnly={readOnly} />
                                             {lowContrastLabels.length > 0 && (
                                                 <Alert color="yellow" icon={<AlertCircle size={16} />} title="文字对比度偏低">
@@ -543,6 +554,24 @@ const ThemePreview = ({ draft, backgroundPreviewUrl }: ThemePreviewProps) => {
                         <Group gap="xs">
                             <Box h={30} style={{ flex: 1, borderRadius: draft.componentRadius, backgroundColor: controlBackground, backdropFilter: draft.controlBlur ? `blur(${draft.controlBlur}px)` : undefined }} />
                             <Box w={60} h={30} style={{ borderRadius: draft.componentRadius, backgroundColor: draft.themeColor }} />
+                        </Group>
+                        <Group gap="xs" justify="flex-end" h={38}>
+                            <Tooltip
+                                label="提示预览"
+                                opened
+                                position="left"
+                                withArrow
+                                withinPortal={false}
+                                styles={{
+                                    tooltip: {
+                                        backgroundColor: draft.tooltipBackgroundColor,
+                                        color: draft.tooltipTextColor,
+                                        border: `1px solid ${draft.tooltipBorderColor}`,
+                                    },
+                                }}
+                            >
+                                <Box w={24} h={24} style={{ borderRadius: draft.componentRadius, backgroundColor: controlBackground }} />
+                            </Tooltip>
                         </Group>
                     </Stack>
                 </Box>

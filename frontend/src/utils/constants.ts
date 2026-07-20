@@ -2,6 +2,8 @@
  * 应用常量定义
  */
 
+import { DEFAULT_TOOLTIP_COLORS } from './themeDefaults';
+
 export const APP_VERSION = import.meta.env.VITE_APP_VERSION || 'dev';
 
 export const DEFAULT_THEMES = [
@@ -23,6 +25,9 @@ export const DEFAULT_THEMES = [
             controlBlur: 0,
             textColorPrimary: '#1a1b1e',
             textColorSecondary: '#c1c2c5',
+            tooltipBackgroundColor: DEFAULT_TOOLTIP_COLORS.background,
+            tooltipTextColor: DEFAULT_TOOLTIP_COLORS.text,
+            tooltipBorderColor: DEFAULT_TOOLTIP_COLORS.border,
             favoriteCardColor: '#ffffff',
             cardOpacity: 1,
             componentRadius: 8,
@@ -52,6 +57,9 @@ export const DEFAULT_THEMES = [
         controlBlur: 0,
         textColorPrimary: '#1a1b1e',
         textColorSecondary: '#c1c2c5',
+        tooltipBackgroundColor: DEFAULT_TOOLTIP_COLORS.background,
+        tooltipTextColor: DEFAULT_TOOLTIP_COLORS.text,
+        tooltipBorderColor: DEFAULT_TOOLTIP_COLORS.border,
         favoriteCardColor: '#ffffff',
         cardOpacity: 1,
         componentRadius: 8,
@@ -81,6 +89,9 @@ export const DEFAULT_THEMES = [
             controlBlur: 0,
             textColorPrimary: '#ffffff',
             textColorSecondary: '#a6a7ab',
+            tooltipBackgroundColor: DEFAULT_TOOLTIP_COLORS.background,
+            tooltipTextColor: DEFAULT_TOOLTIP_COLORS.text,
+            tooltipBorderColor: DEFAULT_TOOLTIP_COLORS.border,
             favoriteCardColor: '#371f25ff',
             cardOpacity: 1,
             componentRadius: 8,
@@ -110,6 +121,9 @@ export const DEFAULT_THEMES = [
         controlBlur: 0,
         textColorPrimary: '#ffffff',
         textColorSecondary: '#a6a7ab',
+        tooltipBackgroundColor: DEFAULT_TOOLTIP_COLORS.background,
+        tooltipTextColor: DEFAULT_TOOLTIP_COLORS.text,
+        tooltipBorderColor: DEFAULT_TOOLTIP_COLORS.border,
         favoriteCardColor: '#371f25ff',
         cardOpacity: 1,
         componentRadius: 8,

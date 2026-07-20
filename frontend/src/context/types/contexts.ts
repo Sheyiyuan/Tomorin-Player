@@ -7,6 +7,22 @@ import type { Dispatch, SetStateAction } from 'react';
 import { Song, Favorite, Theme, PlayerSetting, LyricMapping } from '../../types';
 
 export type PlayMode = 'loop' | 'random' | 'single';
+export type RepeatMode = 'all' | 'one';
+
+export interface QueueItem {
+    queueItemId: string;
+    song: Song;
+}
+
+export interface PlaybackQueueState {
+    items: QueueItem[];
+    playOrder: string[];
+    currentQueueItemId: string | null;
+    history: string[];
+    priorityNext: string[];
+    shuffleEnabled: boolean;
+    repeatMode: RepeatMode;
+}
 
 // ========== 播放器 Context 类型 ==========
 export interface PlaybackState {
@@ -19,6 +35,13 @@ export interface PlaybackState {
 export interface QueueState {
     songs: Song[];
     currentIndex: number;
+    items: QueueItem[];
+    playOrder: string[];
+    currentQueueItemId: string | null;
+    history: string[];
+    priorityNext: string[];
+    shuffleEnabled: boolean;
+    repeatMode: RepeatMode;
 }
 
 export interface ControlsState {
@@ -31,6 +54,20 @@ export interface PlayerActions {
     setQueue: Dispatch<SetStateAction<Song[]>>;
     setCurrentIndex: (index: number) => void;
     setPlaylistHydrated: (hydrated: boolean) => void;
+    setCurrentQueueItemId: (queueItemId: string | null, recordHistory?: boolean) => void;
+    setPlayOrder: (playOrder: string[]) => void;
+    setHistory: (history: string[]) => void;
+    playQueueItemAt: (index: number) => void;
+    enqueueNext: (song: Song) => string;
+    enqueueLast: (song: Song) => string;
+    removeQueueItem: (queueItemId: string) => void;
+    reorderQueueItems: (fromQueueItemId: string, toQueueItemId: string) => void;
+    clearUpcoming: () => void;
+    consumePriorityNext: () => string | null;
+    setShuffleEnabled: (enabled: boolean) => void;
+    setRepeatMode: (mode: RepeatMode) => void;
+    toggleShuffle: () => void;
+    toggleRepeatMode: () => void;
 
     // 状态更新
     setSong: (song: Song | null) => void;
@@ -64,6 +101,9 @@ export interface ColorConfig {
     controlColor: string;
     textColorPrimary: string;
     textColorSecondary: string;
+    tooltipBackgroundColor: string;
+    tooltipTextColor: string;
+    tooltipBorderColor: string;
     favoriteCardColor: string;
     modalColor: string;
 }
@@ -107,7 +147,6 @@ export interface ThemeContextValue {
 export const MODAL_NAMES = [
     'loginModal',
     'settingsModal',
-    'playlistModal',
     'themeManagerModal',
     'themeEditorModal',
     'themeDetailModal',

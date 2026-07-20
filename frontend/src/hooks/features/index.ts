@@ -7,6 +7,8 @@ export * from './useBVModal';
 export * from './useLyricManagement';
 export * from './useSongOperations';
 export * from './useLyricLoader';
+export * from './useLyrics';
+export * from './usePlaylistSync';
 export * from './useGlobalSearch';
 export * from './useLoginHandlers';
 export * from './useFidImport';

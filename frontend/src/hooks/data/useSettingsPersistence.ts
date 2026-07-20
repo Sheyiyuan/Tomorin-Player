@@ -2,10 +2,13 @@ import { useEffect, useRef, useCallback } from 'react';
 import { toPlayerSettingModel, type PlayerSetting } from '../../types';
 import * as Services from '../../../wailsjs/go/services/Service';
 import { notifications } from '@mantine/notifications';
+import { parseDomainError } from '../../utils/domainError';
 
 interface UseSettingsPersistenceProps {
     setting: PlayerSetting | null;
     playMode: string;
+    shuffleEnabled?: boolean;
+    repeatMode?: 'all' | 'one';
     volume: number;
     currentThemeId: string;
     setSetting: (setting: PlayerSetting) => void;
@@ -15,6 +18,8 @@ interface UseSettingsPersistenceProps {
 export const useSettingsPersistence = ({
     setting,
     playMode,
+    shuffleEnabled = playMode === 'random',
+    repeatMode = playMode === 'single' ? 'one' : 'all',
     volume,
     currentThemeId,
     setSetting,
@@ -24,11 +29,11 @@ export const useSettingsPersistence = ({
     const settingsLoadedRef = useRef(false);
     // 使用 ref 同步最新的设置状态，立即同步而非依赖 useEffect
     const settingsRef = useRef({
-        setting, playMode, volume, currentThemeId,
+        setting, playMode, shuffleEnabled, repeatMode, volume, currentThemeId,
     });
     // 立即同步更新 ref，不等待 useEffect
     settingsRef.current = {
-        setting, playMode, volume, currentThemeId,
+        setting, playMode, shuffleEnabled, repeatMode, volume, currentThemeId,
     };
 
     /**
@@ -49,6 +54,8 @@ export const useSettingsPersistence = ({
             config: {
                 ...config,
                 playMode: s.playMode,
+                shuffleEnabled: s.shuffleEnabled,
+                repeatMode: s.repeatMode,
                 defaultVolume: s.volume,
                 currentThemeId: s.currentThemeId,
                 ...(partial.config || {}),
@@ -62,7 +69,7 @@ export const useSettingsPersistence = ({
             console.error("保存设置失败", err);
             notifications.show({
                 title: '设置保存失败',
-                message: err instanceof Error ? err.message : String(err),
+                message: parseDomainError(err).message,
                 color: 'red',
             });
         }
@@ -80,7 +87,7 @@ export const useSettingsPersistence = ({
         }, 500);
         return () => clearTimeout(timeoutId);
     }, [
-        playMode, volume,
+        playMode, shuffleEnabled, repeatMode, volume,
         skipPersistRef, persistSettings
     ]);
 

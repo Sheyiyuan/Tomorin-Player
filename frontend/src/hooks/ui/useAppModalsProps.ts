@@ -17,16 +17,14 @@ interface UseAppModalsPropsParams {
     themes: Theme[];
     currentThemeId: string | null;
     themeColor: string;
-    themeColorLight: string;
     themeEditor: ReturnType<typeof useThemeEditor>;
     favoritesState: ReturnType<typeof useFavoritesManager>;
     searchState: ReturnType<typeof useAppSearchState>;
     bvResolver: ReturnType<typeof useBVResolver>;
     handlers: ReturnType<typeof useAppHandlers>;
     myFavoriteImport: ReturnType<typeof useFavoriteActions>["myFavoriteImport"];
+	isCreatingFavorite: boolean;
     favorites: Favorite[];
-    queue: Song[];
-    currentIndex: number;
     currentSong: Song | null;
     pendingFavoriteSong: Song | null;
     globalSearchResults: GlobalSearchResult[];
@@ -44,16 +42,14 @@ export const useAppModalsProps = ({
     themes,
     currentThemeId,
     themeColor,
-    themeColorLight,
     themeEditor,
     favoritesState,
     searchState,
     bvResolver,
     handlers,
     myFavoriteImport,
+	isCreatingFavorite,
     favorites,
-    queue,
-    currentIndex,
     currentSong,
     pendingFavoriteSong,
     globalSearchResults,
@@ -98,15 +94,6 @@ export const useAppModalsProps = ({
         onAdd: handlers.handleAddToFavoriteFromModal,
         derived,
     },
-    playlist: {
-        queue,
-        currentIndex,
-        themeColorHighlight: themeColorLight,
-        onSelect: handlers.handlePlaylistSelect,
-        onReorder: handlers.handlePlaylistReorder,
-        onRemove: handlers.handlePlaylistRemove,
-        derived,
-    },
     editFavorite: {
         name: favoritesState.editingFavName,
         onNameChange: favoritesState.setEditingFavName,
@@ -148,12 +135,15 @@ export const useAppModalsProps = ({
         myCollections: myFavoriteImport.myCollections,
         isLoadingCollections: myFavoriteImport.isLoading,
         selectedMyCollectionId: myFavoriteImport.selectedCollectionId,
+			keepSynced: favoritesState.keepImportedFavoriteSynced,
+			isSubmitting: isCreatingFavorite,
         onNameChange: favoritesState.setCreateFavName,
         onModeChange: favoritesState.setCreateFavMode,
         onDuplicateSourceChange: favoritesState.setDuplicateSourceId,
         onImportFidChange: favoritesState.setImportFid,
         onMyCollectionSelect: myFavoriteImport.setSelectedCollectionId,
         onFetchMyCollections: myFavoriteImport.fetchMyCollections,
+		onKeepSyncedChange: favoritesState.setKeepImportedFavoriteSynced,
         onSubmit: handlers.handleSubmitCreateFavorite,
         derived,
     },

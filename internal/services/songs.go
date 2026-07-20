@@ -106,14 +106,16 @@ func (s *Service) DeleteSong(id string) error {
 			return fmt.Errorf("歌曲仍被歌单引用，无法删除")
 		}
 
-		// 删除歌曲
-		if err := tx.Delete(&models.Song{}, "id = ?", id).Error; err != nil {
+		// Load before deletion so SourceID remains available for orphan cleanup.
+		var song models.Song
+		if err := tx.First(&song, "id = ?", id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
 			return err
 		}
 
-		// 检查是否有其他歌曲引用此流源
-		var song models.Song
-		if err := tx.First(&song, "id = ?", id).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := tx.Delete(&song).Error; err != nil {
 			return err
 		}
 

@@ -24,7 +24,6 @@ export const ScrollingText: React.FC<ScrollingTextProps> = ({
     const {
         containerRef,
         textRef,
-        shouldScroll,
         containerClassName,
         textClassName,
         containerStyle,
@@ -37,19 +36,25 @@ export const ScrollingText: React.FC<ScrollingTextProps> = ({
         enabled,
     });
 
+    const externalStyle: React.CSSProperties = style && typeof style === 'object' && !Array.isArray(style)
+        ? style
+        : {};
+    const mergedStyle: React.CSSProperties & { '--text-bg-color': string } = {
+        ...containerStyle,
+        '--text-bg-color': fallbackColor || 'rgba(0, 0, 0, 0.9)',
+        ...externalStyle,
+    };
+
     return (
         <div
             ref={containerRef}
             className={containerClassName}
-            style={{
-                ...containerStyle,
-                ['--text-bg-color' as any]: fallbackColor || 'rgba(0, 0, 0, 0.9)',
-                ...(typeof style === 'object' ? style : {}),
-            } as React.CSSProperties}
+            style={mergedStyle}
         >
             <Text
                 {...textProps}
-                ref={textRef as any}
+                component="span"
+                ref={textRef}
                 className={textClassName}
                 style={animationStyle as React.CSSProperties}
                 title={text}

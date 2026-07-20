@@ -19,8 +19,7 @@ module.exports = {
     'prettier',
   ],
   rules: {
-    // This codebase uses `any` in a few boundary layers (Wails bindings, service adapters).
-    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-explicit-any': 'error',
 
     // Use TS-aware unused-vars; keep it non-blocking.
     'no-unused-vars': 'off',

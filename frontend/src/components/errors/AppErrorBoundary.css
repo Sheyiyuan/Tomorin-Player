@@ -1,0 +1,204 @@
+.app-error-fallback {
+    --error-background: #f5f7f9;
+    --error-surface: #ffffff;
+    --error-text: #20242a;
+    --error-muted: #626a74;
+    --error-border: #d8dde3;
+    --error-control: #eef1f4;
+    --error-accent: #1769aa;
+    --error-accent-hover: #12598f;
+    --error-accent-text: #ffffff;
+    --error-danger: #c4382f;
+
+    width: 100%;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    overflow: auto;
+    padding: 24px;
+    color: var(--error-text);
+    background-color: var(--error-background);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    letter-spacing: 0;
+}
+
+[data-mantine-color-scheme="dark"] .app-error-fallback,
+.app-error-fallback[data-color-scheme="dark"] {
+    --error-background: #17191c;
+    --error-surface: #23262b;
+    --error-text: #f5f6f7;
+    --error-muted: #aeb4bc;
+    --error-border: #42464d;
+    --error-control: #2e3339;
+    --error-accent: #58a6d8;
+    --error-accent-hover: #75b6df;
+    --error-accent-text: #101820;
+    --error-danger: #ff7b72;
+}
+
+.app-error-panel {
+    width: min(100%, 680px);
+    padding: 28px;
+    border: 1px solid var(--error-border);
+    border-radius: 8px;
+    background-color: var(--error-surface);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
+}
+
+.app-error-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.app-error-icon {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--error-border);
+    border-color: color-mix(in srgb, var(--error-danger) 38%, transparent);
+    border-radius: 8px;
+    color: var(--error-danger);
+    background-color: var(--error-control);
+    background-color: color-mix(in srgb, var(--error-danger) 10%, transparent);
+}
+
+.app-error-heading h1 {
+    margin: 1px 0 7px;
+    color: var(--error-text);
+    font-size: 24px;
+    line-height: 1.25;
+    font-weight: 650;
+    letter-spacing: 0;
+}
+
+.app-error-heading p {
+    margin: 0;
+    color: var(--error-muted);
+    font-size: 14px;
+    line-height: 1.65;
+}
+
+.app-error-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 24px;
+}
+
+.app-error-button {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border: 1px solid var(--error-border);
+    border-radius: 6px;
+    color: var(--error-text);
+    background-color: var(--error-control);
+    font: inherit;
+    font-size: 14px;
+    line-height: 1;
+    letter-spacing: 0;
+    cursor: pointer;
+}
+
+.app-error-button:hover {
+    border-color: var(--error-muted);
+}
+
+.app-error-button-primary {
+    border-color: var(--error-accent);
+    color: var(--error-accent-text);
+    background-color: var(--error-accent);
+}
+
+.app-error-button-primary:hover {
+    border-color: var(--error-accent-hover);
+    background-color: var(--error-accent-hover);
+}
+
+.app-error-button:focus-visible,
+.app-error-details summary:focus-visible {
+    outline: 2px solid var(--error-accent);
+    outline-offset: 2px;
+}
+
+.app-error-copy-failure {
+    margin: 10px 0 0;
+    color: var(--error-danger);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.app-error-details {
+    margin-top: 18px;
+    border-top: 1px solid var(--error-border);
+    padding-top: 14px;
+}
+
+.app-error-details summary {
+    width: fit-content;
+    color: var(--error-muted);
+    font-size: 13px;
+    line-height: 1.5;
+    cursor: pointer;
+    user-select: none;
+}
+
+.app-error-details pre {
+    max-height: min(320px, 45dvh);
+    margin: 12px 0 0;
+    overflow: auto;
+    padding: 14px;
+    border: 1px solid var(--error-border);
+    border-radius: 6px;
+    color: var(--error-text);
+    background-color: var(--error-control);
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+@media (prefers-color-scheme: dark) {
+    html:not([data-mantine-color-scheme="light"]) .app-error-fallback {
+        --error-background: #17191c;
+        --error-surface: #23262b;
+        --error-text: #f5f6f7;
+        --error-muted: #aeb4bc;
+        --error-border: #42464d;
+        --error-control: #2e3339;
+        --error-accent: #58a6d8;
+        --error-accent-hover: #75b6df;
+        --error-accent-text: #101820;
+        --error-danger: #ff7b72;
+    }
+}
+
+@media (max-width: 560px) {
+    .app-error-fallback {
+        padding: 16px;
+    }
+
+    .app-error-panel {
+        padding: 20px;
+    }
+
+    .app-error-heading {
+        gap: 12px;
+    }
+
+    .app-error-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .app-error-button {
+        width: 100%;
+    }
+}

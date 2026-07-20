@@ -1,12 +1,12 @@
 /**
- * 数据状态选择器 Hook
- * 提供细粒度的数据状态订阅，减少不必要的重新渲染
+ * 数据 Context 读取 Hook。
+ * selector 只简化返回值，不会阻止 Provider 更新触发组件重渲染。
  */
 
 import { useDataContext } from '../contexts/DataContext';
 import { DataContextValue } from '../types/contexts';
 
-// ========== 基础选择器 Hook ==========
+// ========== 基础读取 Hook ==========
 export const useDataStore = <T = DataContextValue>(
     selector?: (state: DataContextValue) => T
 ): T => {
@@ -26,11 +26,6 @@ export const useCoreData = () => useDataStore(state => state.data);
 export const useSongs = () => useDataStore(state => state.data.songs);
 export const useFavorites = () => useDataStore(state => state.data.favorites);
 export const useSelectedFavId = () => useDataStore(state => state.data.selectedFavId);
-
-// 缓存数据选择器
-export const useCache = () => useDataStore(state => state.cache);
-export const useSongCache = () => useDataStore(state => state.cache.songs);
-export const useCoverCache = () => useDataStore(state => state.cache.covers);
 
 // 设置数据选择器
 export const useSettings = () => useDataStore(state => state.settings);
@@ -55,28 +50,3 @@ export const useCurrentFavoriteSongs = () => useDataStore(state => {
 
     return songs.filter(s => currentFav.songIds.some(ref => ref.songId === s.id));
 });
-
-export const useSongOperations = () => useDataStore(state => ({
-    songs: state.data.songs,
-    addSong: state.actions.addSong,
-    removeSong: state.actions.removeSong,
-    updateSong: state.actions.updateSong,
-}));
-
-export const useFavoriteOperations = () => useDataStore(state => ({
-    favorites: state.data.favorites,
-    selectedFavId: state.data.selectedFavId,
-    addFavorite: state.actions.addFavorite,
-    removeFavorite: state.actions.removeFavorite,
-    updateFavorite: state.actions.updateFavorite,
-    setSelectedFavId: state.actions.setSelectedFavId,
-}));
-
-export const useCacheOperations = () => useDataStore(state => ({
-    setCachedSong: state.actions.setCachedSong,
-    getCachedSong: state.actions.getCachedSong,
-    setCachedCover: state.actions.setCachedCover,
-    getCachedCover: state.actions.getCachedCover,
-    clearSongCache: state.actions.clearSongCache,
-    clearCoverCache: state.actions.clearCoverCache,
-}));

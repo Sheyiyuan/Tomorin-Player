@@ -1,6 +1,6 @@
 import React from "react";
-import { ActionIcon, Button, Card, Flex, Group, ScrollArea, Stack, Text, TextInput, Transition } from "@mantine/core";
-import { Download, SquarePlus, Trash2 } from "lucide-react";
+import { ActionIcon, Badge, Box, Button, Flex, Group, ScrollArea, Text, TextInput, Tooltip, Transition, UnstyledButton } from "@mantine/core";
+import { Download, ListPlus, SkipForward, SquarePlus, Trash2, Volume2 } from "lucide-react";
 import { Favorite, Song } from "../../types";
 
 export type CurrentPlaylistCardProps = {
@@ -12,7 +12,8 @@ export type CurrentPlaylistCardProps = {
     searchQuery: string;
     onSearchChange: (value: string) => void;
     onPlaySong: (song: Song) => void;  // 只需要 song 参数，不再需要 list
-    onAddSong: () => void;
+    onPlayNext?: (song: Song) => void;
+    onEnqueueLast?: (song: Song) => void;
     themeColor: string;
     downloadedSongIds: Set<string>;
     onDownloadSong: (song: Song) => void;
@@ -30,15 +31,14 @@ export type CurrentPlaylistCardProps = {
 };
 
 const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
-    panelBackground,
-    panelStyles,
     currentFav,
     currentFavSongs,
     currentSongId,
     searchQuery,
     onSearchChange,
     onPlaySong,
-    onAddSong,
+    onPlayNext,
+    onEnqueueLast,
     themeColor,
     downloadedSongIds,
     onDownloadSong,
@@ -64,11 +64,12 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
         : currentFavSongs;
 
     return (
-        <Card flex={1} shadow="sm" padding="md" withBorder miw={0} h="100%" className="glass-panel" style={{ ...panelStyles, minHeight: 0, backgroundColor: panelBackground, display: "flex", flexDirection: "column" }}>
+		<Box flex={1} miw={0} h="100%" className="current-playlist-card" style={{ minHeight: 0, display: "flex", flexDirection: "column" }}>
             <Group justify="space-between" mb="sm">
                 <Text fw={600} size="sm" style={{ color: textColorPrimary, flex: 1, minWidth: 0 }} lineClamp={1}>
                     {currentFav?.title || "选择歌单"}
                 </Text>
+				{currentFav?.source?.locked && <Badge size="xs" variant="light" color={themeColor}>只读同步</Badge>}
                 <Group gap="xs">
                     <Button size="xs" variant="light" color={themeColor} disabled={!currentFav} onClick={onPlayAll} radius={componentRadius}>播放全部</Button>
                     <Button size="xs" variant="light" color={themeColor} disabled={!currentFav} onClick={onDownloadAll} radius={componentRadius}>下载全部</Button>
@@ -89,77 +90,88 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
                     }
                 }}
             />
-            <ScrollArea style={{ flex: 1, minHeight: 0 }}>
+            <ScrollArea className="card-scroll-area current-playlist-scroll-area" type="auto" scrollbarSize={6} style={{ flex: 1, minHeight: 0 }}>
                 {currentFav ? (
-                    <Stack gap="xs" pb="sm">
+                    <Box component="ul" className="queue-song-list" aria-label="当前歌单">
                         {displayedSongs.length === 0 && (
-                            <Flex align="center" justify="center" py="md">
+                            <Flex component="li" align="center" justify="center" py="md">
                                 <Text c="dimmed" size="sm">未找到匹配的歌曲</Text>
                             </Flex>
                         )}
-                        {displayedSongs.map((s) => {
+                        {displayedSongs.map((s, index) => {
                             const isDownloaded = downloadedSongIds.has(s.id);
                             const isConfirmingRemove = confirmRemoveSongId === s.id;
                             const isSelected = currentSongId === s.id;
                             return (
-                                <Group key={s.id} gap="xs" wrap="nowrap" align="stretch">
-                                    <Button
-                                        variant={isSelected ? "filled" : "subtle"}
-                                        color={themeColor}
-                                        justify="flex-start"
+                                <Box
+                                    component="li"
+                                    key={s.id}
+                                    className="queue-song-row"
+                                    aria-current={isSelected ? "true" : undefined}
+                                    data-current={isSelected ? "true" : undefined}
+                                    style={{
+                                        ...controlStyles,
+                                        backgroundColor: controlBackground,
+                                        borderInlineStartColor: isSelected ? themeColor : "transparent",
+                                        borderRadius: componentRadius,
+                                        boxShadow: isSelected ? `inset 0 0 0 999px color-mix(in srgb, ${themeColor} 10%, transparent)` : undefined,
+                                    }}
+                                >
+                                    <UnstyledButton
+                                        className="queue-song-main"
                                         onClick={() => onPlaySong(s)}
-                                        radius={componentRadius}
-                                        style={{
-                                            flex: 1,
-                                            ...(isSelected ? { backgroundColor: themeColor } : controlStyles),
-                                            color: isSelected ? "white" : textColorPrimary,
-                                        }}
+                                        aria-label={`播放 ${s.name}`}
+                                        style={{ color: textColorPrimary }}
                                     >
-                                        <Stack gap={2} align="flex-start" style={{ width: "100%", minWidth: 0, overflow: "hidden", textAlign: "left" }}>
-                                            <Text fw={500} size="sm" style={{ color: "inherit", width: "100%", textAlign: "left" }} truncate>
-                                                {s.name}
-                                            </Text>
-                                            <Text size="xs" style={{ color: isSelected ? "rgba(255,255,255,0.7)" : textColorSecondary, width: "100%", textAlign: "left" }} truncate>
-                                                {s.singer || "未知歌手"}
-                                            </Text>
-                                        </Stack>
-                                    </Button>
-                                    <Group gap={4} wrap="nowrap">
-                                        <ActionIcon
-                                            variant={isDownloaded ? "filled" : "default"}
-                                            color={themeColor}
-                                            size="lg"
-                                            radius={componentRadius}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onDownloadSong(s);
-                                            }}
-                                            title={isDownloaded ? "已下载：管理下载文件" : "下载歌曲"}
-                                            style={{
-                                                ...(isDownloaded ? { backgroundColor: themeColor } : controlStyles),
-                                                color: isDownloaded ? "white" : textColorPrimary,
-                                                borderColor: "transparent"
-                                            }}
-                                        >
-                                            <Download size={16} />
-                                        </ActionIcon>
-                                        <ActionIcon
-                                            variant="default"
-                                            size="lg"
-                                            radius={componentRadius}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onAddSongToFavorite(s);
-                                            }}
-                                            title="添加到收藏"
-                                            style={{
-                                                ...controlStyles,
-                                                color: textColorPrimary,
-                                                borderColor: "transparent"
-                                            }}
-                                        >
-                                            <SquarePlus size={16} />
-                                        </ActionIcon>
+                                        <Box className="queue-song-index" aria-hidden="true" style={{ color: isSelected ? themeColor : textColorSecondary }}>
+                                            {isSelected ? <Volume2 size={14} /> : <Text component="span" size="xs">{index + 1}</Text>}
+                                        </Box>
+                                        <Text className="queue-song-title" fw={isSelected ? 600 : 500} size="sm" truncate title={s.name}>
+                                            {s.name}
+                                        </Text>
+                                        <Text className="queue-song-artist" size="xs" style={{ color: textColorSecondary }} truncate title={s.singer || "未知歌手"}>
+                                            {s.singer || "未知歌手"}
+                                        </Text>
+                                    </UnstyledButton>
+                                    <Group className="queue-song-actions" gap={2} wrap="nowrap">
+                                        <Tooltip label="下一首播放">
+                                            <ActionIcon variant="subtle" size="sm" radius={componentRadius} onClick={() => onPlayNext?.(s)} aria-label="下一首播放" style={{ color: textColorPrimary }}>
+                                                <SkipForward size={14} />
+                                            </ActionIcon>
+                                        </Tooltip>
+                                        <Tooltip label="添加到队列末尾">
+                                            <ActionIcon variant="subtle" size="sm" radius={componentRadius} onClick={() => onEnqueueLast?.(s)} aria-label="添加到队列末尾" style={{ color: textColorPrimary }}>
+                                                <ListPlus size={14} />
+                                            </ActionIcon>
+                                        </Tooltip>
+                                        <Tooltip label={isDownloaded ? "已下载：管理下载文件" : "下载歌曲"}>
+                                            <ActionIcon
+                                                variant={isDownloaded ? "filled" : "subtle"}
+                                                color={themeColor}
+                                                size="sm"
+                                                radius={componentRadius}
+                                                onClick={() => onDownloadSong(s)}
+                                                aria-label={isDownloaded ? "已下载：管理下载文件" : "下载歌曲"}
+                                                style={{
+                                                    ...(isDownloaded ? { backgroundColor: themeColor } : undefined),
+                                                    color: isDownloaded ? "white" : textColorPrimary,
+                                                }}
+                                            >
+                                                <Download size={14} />
+                                            </ActionIcon>
+                                        </Tooltip>
+                                        <Tooltip label="添加到收藏">
+                                            <ActionIcon
+                                                variant="subtle"
+                                                size="sm"
+                                                radius={componentRadius}
+                                                onClick={() => onAddSongToFavorite(s)}
+                                                aria-label="添加到收藏"
+                                                style={{ color: textColorPrimary }}
+                                            >
+                                                <SquarePlus size={14} />
+                                            </ActionIcon>
+                                        </Tooltip>
                                         <Transition
                                             mounted={!isConfirmingRemove}
                                             transition="fade"
@@ -167,22 +179,18 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
                                         >
                                             {(styles) => (
                                                 <ActionIcon
-                                                    variant="default"
-                                                    size="lg"
+                                                    variant="subtle"
+                                                    size="sm"
                                                     radius={componentRadius}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onToggleConfirmRemove(s.id);
-                                                    }}
-                                                    title="移出歌单"
+                                                    onClick={() => onToggleConfirmRemove(s.id)}
+                                                    aria-label="移出歌单"
+												disabled={currentFav?.source?.locked === true}
                                                     style={{
                                                         ...styles,
-                                                        ...controlStyles,
                                                         color: "red",
-                                                        borderColor: "transparent"
                                                     }}
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={14} />
                                                 </ActionIcon>
                                             )}
                                         </Transition>
@@ -195,31 +203,28 @@ const CurrentPlaylistCard: React.FC<CurrentPlaylistCardProps> = ({
                                                 <ActionIcon
                                                     color="red"
                                                     variant="filled"
-                                                    size="lg"
+                                                    size="sm"
                                                     radius={componentRadius}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        onRemoveSongFromPlaylist(s);
-                                                    }}
-                                                    title="确认移出"
+                                                    onClick={() => onRemoveSongFromPlaylist(s)}
+                                                    aria-label="确认移出"
                                                     style={styles}
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={14} />
                                                 </ActionIcon>
                                             )}
                                         </Transition>
                                     </Group>
-                                </Group>
+                                </Box>
                             );
                         })}
-                    </Stack>
+                    </Box>
                 ) : (
                     <Flex align="center" justify="center" h="100%">
                         <Text style={{ color: textColorSecondary }}>请从左侧选择一个歌单</Text>
                     </Flex>
                 )}
             </ScrollArea>
-        </Card>
+		</Box>
     );
 };
 

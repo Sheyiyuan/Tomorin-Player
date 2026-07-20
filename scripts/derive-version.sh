@@ -25,7 +25,7 @@ else
         BASE_VER="0.0.0"
     fi
     
-    # Parse version components more robustly
+    # Parse the stable tag baseline.
     if [[ $BASE_VER =~ ^([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
         MAJOR=${BASH_REMATCH[1]}
         MINOR=${BASH_REMATCH[2]}
@@ -37,14 +37,32 @@ else
         MINOR=0
         PATCH=0
     fi
-    
-    # Increment patch version for dev builds
-    PATCH=$((PATCH + 1))
-    NEXT_VER="${MAJOR}.${MINOR}.${PATCH}"
+
+    NEXT_PATCH=$((PATCH + 1))
+    NEXT_VER="${MAJOR}.${MINOR}.${NEXT_PATCH}"
+
+    # A planned minor/major release can be declared in package.json before a
+    # stable tag exists. Use it when it is newer than the automatic patch bump.
+    PACKAGE_VERSION=""
+    if [[ -f frontend/package.json ]]; then
+        PACKAGE_VERSION=$(sed -nE 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"([0-9]+\.[0-9]+\.[0-9]+)".*/\1/p' frontend/package.json)
+    fi
+    if [[ $PACKAGE_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+        PACKAGE_MAJOR=${BASH_REMATCH[1]}
+        PACKAGE_MINOR=${BASH_REMATCH[2]}
+        PACKAGE_PATCH=${BASH_REMATCH[3]}
+        if (( PACKAGE_MAJOR > MAJOR
+            || (PACKAGE_MAJOR == MAJOR && PACKAGE_MINOR > MINOR)
+            || (PACKAGE_MAJOR == MAJOR && PACKAGE_MINOR == MINOR && PACKAGE_PATCH >= NEXT_PATCH) )); then
+            NEXT_VER=$PACKAGE_VERSION
+        fi
+    fi
+    echo "Development target version: ${NEXT_VER}" >&2
     
     # Add dev suffix with date and commit hash
     DATE=$(date -u +%Y%m%d)
-    HASH=${GITHUB_SHA::7}
+    COMMIT_SHA=${GITHUB_SHA:-$(git rev-parse HEAD 2>/dev/null || printf 'unknown')}
+    HASH=${COMMIT_SHA:0:7}
     VERSION="${NEXT_VER}-dev.${DATE}.${HASH}"
     
     echo "Generated dev version: ${VERSION}" >&2

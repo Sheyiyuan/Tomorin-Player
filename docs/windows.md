@@ -1,5 +1,7 @@
 # half-beat - Windows 安装与运行
 
+发布 workflow 会在 Windows runner 上静默安装 NSIS 产物，核对卸载注册表和可执行文件的产品版本，然后执行静默卸载。开发版 UI 显示完整语义版本；Windows PE/NSIS 元数据使用其数值 `x.y.z` 前缀。
+
 ## 安装方式
 
 - 安装程序（推荐）：下载并运行 `half-beat-amd64-installer.exe`
@@ -45,18 +47,15 @@ half-beat.exe
 
 ```bash
 # Linux 主机交叉编译 Windows（生成 .exe 与 NSIS 安装包）
-export APP_VERSION=1.2.3
-scripts/windows/build-windows.sh -c
+make package-windows VERSION=1.2.0 CLEAN=1
 ```
 
-- Windows 主机（PowerShell）：
+- Windows 主机（PowerShell）：需要安装 Wails、Go、Node/pnpm 和 MinGW-w64。推荐使用 MSYS2 UCRT64，并将其 `bin` 目录加入 `PATH`，确保 PowerShell 中可以直接运行 `gcc` 和 `g++`。
 
 ```powershell
-$env:APP_VERSION = "1.2.3"
-./scripts/windows/build-windows.ps1 -Clean -NSIS
+make package-windows VERSION=1.2.0 CLEAN=1
 ```
 
 构建脚本会：
 - 注入 `VITE_APP_VERSION` 到前端
 - 临时写入 `wails.json` 的 `productVersion`（构建后恢复）
-

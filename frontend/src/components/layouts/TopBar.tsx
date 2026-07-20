@@ -5,6 +5,7 @@ import { notifications } from "@mantine/notifications";
 import * as Services from "../../../wailsjs/go/services/Service";
 import { WindowControls } from "./";
 import { useImageProxy } from "../../hooks/ui/useImageProxy";
+import { parseDomainError } from "../../utils/domainError";
 
 interface UserInfo {
     username: string;
@@ -64,7 +65,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         } catch (error) {
             notifications.show({
                 title: "退出失败",
-                message: String(error),
+                message: parseDomainError(error).message,
                 color: "red",
             });
         }
@@ -80,7 +81,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 // Wails frameless window drag support
                 // The runtime listens for mousedown on elements whose computed style has --wails-draggable: drag
                 // CSS custom properties inherit, interactive elements are excluded in index.css
-                ["--wails-draggable" as any]: "drag",
+                "--wails-draggable": "drag",
                 minHeight: "52px",
                 padding: "8px 12px",
                 flex: "0 0 auto",
@@ -89,7 +90,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 cursor: "grab",
                 userSelect: "none",
                 WebkitUserSelect: "none",
-            }}
+            } as React.CSSProperties}
             wrap="nowrap"
         >
             <div style={{ flex: 0, display: "flex", alignItems: "center", gap: "4px" }}>
@@ -97,8 +98,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                     <WindowControls
                         themeColor={themeColor}
                         controlBackground={controlBackground}
-                        textColorPrimary={textColorPrimary}
-                        textColorSecondary={textColorSecondary}
                     />
                 )}
                 <ActionIcon
@@ -107,6 +106,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     radius={componentRadius}
                     onClick={onSearchClick}
                     title="搜索视频 (BV 号或链接)"
+                    aria-label="搜索视频 (BV 号或链接)"
                     style={{ ...controlStyles, borderColor: "transparent", color: textColorPrimary }}
                 >
                     <Search size={16} />
@@ -173,6 +173,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     radius={componentRadius}
                     onClick={onThemeClick}
                     title="主题设置"
+                    aria-label="主题设置"
                     style={{ ...controlStyles, borderColor: "transparent", color: textColorPrimary }}
                 >
                     <Palette size={16} />
@@ -183,6 +184,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     radius={componentRadius}
                     onClick={onSettingsClick}
                     title="设置"
+                    aria-label="设置"
                     style={{ ...controlStyles, borderColor: "transparent", color: textColorPrimary }}
                 >
                     <SettingsIcon size={16} />
@@ -191,8 +193,6 @@ export const TopBar: React.FC<TopBarProps> = ({
                     <WindowControls
                         themeColor={themeColor}
                         controlBackground={controlBackground}
-                        textColorPrimary={textColorPrimary}
-                        textColorSecondary={textColorSecondary}
                     />
                 )}
             </Group>

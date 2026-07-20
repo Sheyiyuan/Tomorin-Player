@@ -1,6 +1,8 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
-import { Song } from '../../types';
+import { toSongModel, type Song } from '../../types';
+import { parseDomainError } from '../../utils/domainError';
 
 interface UseSkipIntervalHandlerProps {
     currentSong: Song | null;
@@ -8,9 +10,6 @@ interface UseSkipIntervalHandlerProps {
     setSongs: (songs: Song[] | ((prev: Song[]) => Song[])) => void;
     setQueue: (songs: Song[] | ((prev: Song[]) => Song[])) => void;
     saveTimerRef: React.MutableRefObject<Map<string, NodeJS.Timeout>>;
-    intervalStart: number;
-    intervalEnd: number;
-    intervalLength: number;
 }
 
 export const useSkipIntervalHandler = ({
@@ -19,18 +18,44 @@ export const useSkipIntervalHandler = ({
     setSongs,
     setQueue,
     saveTimerRef,
-    intervalStart,
-    intervalEnd,
-    intervalLength,
 }: UseSkipIntervalHandlerProps) => {
+    const currentSongRef = useRef(currentSong);
+    const persistedTimesRef = useRef(new Map<string, Pick<Song, 'skipStartTime' | 'skipEndTime'>>());
+    const revisionsRef = useRef(new Map<string, number>());
 
-    const updateSongSkipTimes = useCallback((updates: Partial<Pick<Song, 'skipStartTime' | 'skipEndTime'>>, saveKey: string) => {
-        if (!currentSong) return;
+    useEffect(() => {
+        currentSongRef.current = currentSong;
+        if (currentSong && !saveTimerRef.current.has(`skip_${currentSong.id}`)) {
+            persistedTimesRef.current.set(currentSong.id, {
+                skipStartTime: currentSong.skipStartTime,
+                skipEndTime: currentSong.skipEndTime,
+            });
+        }
+    }, [currentSong, saveTimerRef]);
 
-        const updated = {
-            ...currentSong,
+    useEffect(() => () => {
+        saveTimerRef.current.forEach(clearTimeout);
+        saveTimerRef.current.clear();
+    }, [saveTimerRef]);
+
+    const updateSongSkipTimes = useCallback((updates: Partial<Pick<Song, 'skipStartTime' | 'skipEndTime'>>) => {
+        const baseSong = currentSongRef.current;
+        if (!baseSong) return;
+
+        if (!persistedTimesRef.current.has(baseSong.id)) {
+            persistedTimesRef.current.set(baseSong.id, {
+                skipStartTime: baseSong.skipStartTime,
+                skipEndTime: baseSong.skipEndTime,
+            });
+        }
+
+        const updated: Song = {
+            ...baseSong,
             ...updates,
-        } as any;
+        };
+        currentSongRef.current = updated;
+        const revision = (revisionsRef.current.get(updated.id) ?? 0) + 1;
+        revisionsRef.current.set(updated.id, revision);
 
         // 1. 立即同步更新 currentSong
         setCurrentSong(updated);
@@ -46,32 +71,56 @@ export const useSkipIntervalHandler = ({
         );
 
         // 4. 立即写入 localStorage 缓存
-        try {
-            const cacheKey = `half-beat.song.${updated.id}`;
-            localStorage.setItem(cacheKey, JSON.stringify({
-                skipStartTime: updated.skipStartTime,
-                skipEndTime: updated.skipEndTime,
-                updatedAt: new Date().toISOString()
-            }));
-        } catch (err) {
-            console.warn("写入缓存失败:", err);
-        }
+        cacheSkipTimes(updated.id, updated);
 
         // 5. 防抖异步持久化到数据库（500ms 后保存）
+        const saveKey = `skip_${updated.id}`;
         const existingTimer = saveTimerRef.current.get(saveKey);
         if (existingTimer) {
             clearTimeout(existingTimer);
         }
 
-        const timer = setTimeout(() => {
-            Services.UpsertSongs([updated]).catch((err) => {
-                console.error(`保存 ${saveKey} 失败:`, err);
-            });
-            saveTimerRef.current.delete(saveKey);
+        const timer = setTimeout(async () => {
+            try {
+                await Services.UpsertSongs([toSongModel(updated)]);
+                if (revisionsRef.current.get(updated.id) === revision) {
+                    persistedTimesRef.current.set(updated.id, {
+                        skipStartTime: updated.skipStartTime,
+                        skipEndTime: updated.skipEndTime,
+                    });
+                }
+            } catch (err) {
+                if (revisionsRef.current.get(updated.id) !== revision) return;
+
+                const persisted = persistedTimesRef.current.get(updated.id);
+                if (persisted) {
+                    const rollback = (song: Song): Song => song.id === updated.id
+                        ? { ...song, ...persisted }
+                        : song;
+                    const activeSong = currentSongRef.current;
+                    if (activeSong?.id === updated.id) {
+                        const rolledBackSong = rollback(activeSong);
+                        currentSongRef.current = rolledBackSong;
+                        setCurrentSong(rolledBackSong);
+                    }
+                    setSongs(prevSongs => prevSongs.map(rollback));
+                    setQueue(prevQueue => prevQueue.map(rollback));
+                    cacheSkipTimes(updated.id, persisted);
+                }
+                notifications.show({
+                    title: "播放区间保存失败",
+                    message: parseDomainError(err).message,
+                    color: "red",
+                });
+            } finally {
+                if (saveTimerRef.current.get(saveKey) === timer) {
+                    saveTimerRef.current.delete(saveKey);
+                }
+            }
         }, 500);
 
         saveTimerRef.current.set(saveKey, timer);
-    }, [currentSong, setCurrentSong, setSongs, setQueue, saveTimerRef]);
+    }, [setCurrentSong, setSongs, setQueue, saveTimerRef]);
 
     const handleIntervalChange = useCallback((start: number, end: number) => {
         if (!currentSong) return;
@@ -80,7 +129,7 @@ export const useSkipIntervalHandler = ({
         updateSongSkipTimes({
             skipStartTime: roundedStart,
             skipEndTime: roundedEnd,
-        }, `interval_${currentSong.id}`);
+        });
         // 局部区间状态将由 currentSong 更新派生得到，无需额外 setter
     }, [currentSong, updateSongSkipTimes]);
 
@@ -89,7 +138,7 @@ export const useSkipIntervalHandler = ({
         const roundedValue = Math.round(value * 20) / 20;
         updateSongSkipTimes({
             skipStartTime: roundedValue,
-        }, `start_${currentSong.id}`);
+        });
         // 局部区间状态将由 currentSong 更新派生得到，无需额外 setter
     }, [currentSong, updateSongSkipTimes]);
 
@@ -98,7 +147,7 @@ export const useSkipIntervalHandler = ({
         const roundedValue = Math.round(value * 20) / 20;
         updateSongSkipTimes({
             skipEndTime: roundedValue,
-        }, `end_${currentSong.id}`);
+        });
         // 局部区间状态将由 currentSong 更新派生得到，无需额外 setter
     }, [currentSong, updateSongSkipTimes]);
 
@@ -107,4 +156,18 @@ export const useSkipIntervalHandler = ({
         handleSkipStartChange,
         handleSkipEndChange,
     };
+};
+
+const cacheSkipTimes = (
+    songId: string,
+    times: Pick<Song, 'skipStartTime' | 'skipEndTime'>,
+): void => {
+    try {
+        localStorage.setItem(`half-beat.song.${songId}`, JSON.stringify({
+            ...times,
+            updatedAt: new Date().toISOString(),
+        }));
+    } catch (err) {
+        console.warn("写入缓存失败:", err);
+    }
 };

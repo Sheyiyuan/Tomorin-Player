@@ -1,8 +1,17 @@
-import React from "react";
-import { Favorite } from "../../types";
+import React, { useCallback } from "react";
+import { convertFavorites, Favorite, type Song, type BVPreview, toFavoriteModel } from "../../types";
 import { notifications } from "@mantine/notifications";
 import * as Services from "../../../wailsjs/go/services/Service";
 import { loadBackgroundFile } from "../../utils/image";
+import type { ModalName } from "../../context/types/contexts";
+import type { useThemeEditor } from "../features/useThemeEditor";
+import type { useFavoriteActions } from "../features/useFavoriteActions";
+import type { useSkipIntervalHandler } from "../player/useSkipIntervalHandler";
+import type { useDownloadManager } from "../player/useDownloadManager";
+import type { usePlaylistActions } from "../player/usePlaylistActions";
+import type { useSearchAndBV } from "../features/useSearchAndBV";
+import type { useBVModal } from "../features/useBVModal";
+import { parseDomainError } from "../../utils/domainError";
 
 /**
  * useAppHandlers: 聚合应用级别的事件处理函数
@@ -10,37 +19,10 @@ import { loadBackgroundFile } from "../../utils/image";
  */
 export const useAppHandlers = (config: {
     // 主题编辑器
-    themeEditor: any;
-    editingThemeId: string | null;
-    newThemeName: string;
-    themeColorDraft: string;
-    backgroundColorDraft: string;
-    backgroundOpacityDraft: number;
-    backgroundImageUrlDraft: string;
-    backgroundBlurDraft: number;
-    panelColorDraft: string;
-    panelOpacityDraft: number;
-    panelBlurDraft: number;
-    panelRadiusDraft: number;
-    controlColorDraft: string;
-    controlOpacityDraft: number;
-    controlBlurDraft: number;
-    textColorPrimaryDraft: string;
-    textColorSecondaryDraft: string;
-    favoriteCardColorDraft: string;
-    cardOpacityDraft: number;
-    componentRadiusDraft: number;
-    windowControlsPosDraft: string;
-    colorSchemeDraft: string;
-    setBackgroundImageUrlDraftSafe: (url: string) => void;
-    setBackgroundBlurDraft?: (blur: number) => void;
-    setPanelBlurDraft?: (blur: number) => void;
-    setPanelRadiusDraft?: (radius: number) => void;
-    setComponentRadiusDraft?: (radius: number) => void;
-    setWindowControlsPosDraft?: (pos: string) => void;
+    themeEditor: ReturnType<typeof useThemeEditor>;
 
     // 收藏夹操作
-    favoriteActions: any;
+    favoriteActions: ReturnType<typeof useFavoriteActions>;
     editingFavId: string | null;
     editingFavName: string;
     setEditingFavId: (id: string | null) => void;
@@ -53,73 +35,47 @@ export const useAppHandlers = (config: {
     setDuplicateSourceId: (id: string | null) => void;
     importFid: string;
     setImportFid: (fid: string) => void;
-    openModal: (name: any) => void;
+	keepImportedFavoriteSynced: boolean;
+	setKeepImportedFavoriteSynced: (value: boolean) => void;
+    openModal: (name: ModalName) => void;
     setConfirmDeleteFavId: (id: string | null) => void;
 
-    // 我的收藏导入
-    myFavoriteImport?: { clearCollections?: () => void };
-
     // 跳过区间处理
-    skipIntervalHandler: any;
-
-    // 歌曲更新
-    updateStreamUrl: (url: string) => void;
+    skipIntervalHandler: ReturnType<typeof useSkipIntervalHandler>;
 
     // 播放模式
     playMode: "loop" | "random" | "single";
     setPlayMode: (mode: "loop" | "random" | "single") => void;
 
     // 下载管理
-    downloadManager: any;
+    downloadManager: ReturnType<typeof useDownloadManager>;
     setConfirmDeleteDownloaded: (confirm: boolean) => void;
-    setManagingSong: (song: any) => void;
-    closeModal: (name: any) => void;
+    setManagingSong: (song: Song | null) => void;
+    closeModal: (name: ModalName) => void;
 
     // 播放列表动作
-    playlistActions: any;
+    playlistActions: ReturnType<typeof usePlaylistActions>;
 
     // 搜索与 BV
-    searchAndBV: any;
+    searchAndBV: ReturnType<typeof useSearchAndBV>;
     newFavName: string;
     setNewFavName: (name: string) => void;
-    bvPreview: any;
+    setFavorites: (favorites: Favorite[]) => void;
+    setBvTargetFavId: (id: string | null) => void;
+    bvPreview: BVPreview | null;
     sliceStart: number;
     sliceEnd: number;
     setSliceStart: (start: number) => void;
     setSliceEnd: (end: number) => void;
 
     // 设置相关
-    setUserInfo: (info: any) => void;
-    saveCachedCustomThemes: (themes: any[]) => void;
     setCacheSize: (size: number) => void;
 
     // BV 模态
-    bvModal: any;
+    bvModal: ReturnType<typeof useBVModal>;
 }) => {
     const {
         themeEditor,
-        editingThemeId,
-        newThemeName,
-        themeColorDraft,
-        backgroundColorDraft,
-        backgroundOpacityDraft,
-        backgroundImageUrlDraft,
-        backgroundBlurDraft,
-        panelColorDraft,
-        panelOpacityDraft,
-        panelBlurDraft,
-        panelRadiusDraft,
-        controlColorDraft,
-        controlOpacityDraft,
-        controlBlurDraft,
-        textColorPrimaryDraft,
-        textColorSecondaryDraft,
-        favoriteCardColorDraft,
-        cardOpacityDraft,
-        componentRadiusDraft,
-        windowControlsPosDraft,
-        colorSchemeDraft,
-        setBackgroundImageUrlDraftSafe,
         favoriteActions,
         editingFavId,
         editingFavName,
@@ -133,10 +89,11 @@ export const useAppHandlers = (config: {
         setDuplicateSourceId,
         importFid,
         setImportFid,
+		keepImportedFavoriteSynced,
+		setKeepImportedFavoriteSynced,
         openModal,
         setConfirmDeleteFavId,
         skipIntervalHandler,
-        updateStreamUrl,
         playMode,
         setPlayMode,
         downloadManager,
@@ -154,11 +111,16 @@ export const useAppHandlers = (config: {
         sliceEnd,
         setSliceStart,
         setSliceEnd,
-        setUserInfo,
-        saveCachedCustomThemes,
         setCacheSize,
         bvModal,
     } = config;
+	const {
+		deleteFavorite,
+		editFavorite,
+		saveEditFavorite,
+		createFavorite: createFavoriteAction,
+		myFavoriteImport,
+	} = favoriteActions;
 
     // ========== 主题处理 ==========
     const handleSelectTheme = themeEditor.selectTheme;
@@ -168,61 +130,50 @@ export const useAppHandlers = (config: {
     const handleCreateThemeClick = themeEditor.createThemeClick;
     const handleSubmitTheme = () => themeEditor.submitTheme();
     const handleCloseThemeEditor = themeEditor.closeThemeEditor;
-    const handleClearBackgroundImageDraft = () => setBackgroundImageUrlDraftSafe("");
+    const handleClearBackgroundImageDraft = () => themeEditor.draftActions.updateField("backgroundImageUrl", "");
     const handleBackgroundFileDraft = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const dataUrl = await loadBackgroundFile(e);
         if (!dataUrl) return;
-        try {
-            const proxyUrl = await Services.SaveThemeImageFromDataURL(dataUrl);
-            setBackgroundImageUrlDraftSafe(proxyUrl);
-        } catch (err) {
-            notifications.show({
-                title: '背景图保存失败',
-                message: `${err}`,
-                color: 'red',
-            });
-        }
+        themeEditor.draftActions.updateField("backgroundImageUrl", dataUrl);
     };
 
     // ========== 收藏夹处理 ==========
-    const handleDeleteFavorite = (id: string) =>
-        favoriteActions.deleteFavorite(id, setConfirmDeleteFavId);
-    const handleEditFavorite = (fav: Favorite) =>
-        favoriteActions.editFavorite(fav, setEditingFavId, setEditingFavName);
-    const handleSaveEditFavorite = () =>
-        favoriteActions.saveEditFavorite(editingFavId, editingFavName);
-    const handleSubmitCreateFavorite = () =>
-        favoriteActions.createFavorite({
+	const handleDeleteFavorite = useCallback((id: string) =>
+		deleteFavorite(id, setConfirmDeleteFavId), [deleteFavorite, setConfirmDeleteFavId]);
+	const handleEditFavorite = useCallback((fav: Favorite) =>
+		editFavorite(fav, setEditingFavId, setEditingFavName), [editFavorite, setEditingFavId, setEditingFavName]);
+	const handleSaveEditFavorite = useCallback(() =>
+		saveEditFavorite(editingFavId, editingFavName), [saveEditFavorite, editingFavId, editingFavName]);
+	const handleSubmitCreateFavorite = useCallback(() =>
+		createFavoriteAction({
             name: createFavName,
             mode: createFavMode,
             duplicateSourceId,
             importFid,
-            selectedMyFavId: favoriteActions.myFavoriteImport.selectedCollectionId,
-        });
+			selectedMyFavId: myFavoriteImport.selectedCollectionId,
+			keepSynced: keepImportedFavoriteSynced,
+		}), [createFavName, createFavMode, duplicateSourceId, importFid, createFavoriteAction, myFavoriteImport.selectedCollectionId, keepImportedFavoriteSynced]);
 
-    const createFavorite = () => {
+	const createFavorite = useCallback(() => {
         setCreateFavName("新歌单");
         setCreateFavMode("blank");
         setDuplicateSourceId(null);
         setImportFid("");
+		setKeepImportedFavoriteSynced(true);
         openModal("createFavModal");
-    };
+    }, [setCreateFavName, setCreateFavMode, setDuplicateSourceId, setImportFid, setKeepImportedFavoriteSynced, openModal]);
 
     // ========== 播放区间处理 ==========
     const handleIntervalChange = skipIntervalHandler.handleIntervalChange;
     const handleSkipStartChange = skipIntervalHandler.handleSkipStartChange;
     const handleSkipEndChange = skipIntervalHandler.handleSkipEndChange;
 
-    const handleStreamUrlChange = (value: string) => {
-        updateStreamUrl(value);
-    };
-
     // ========== 播放模式 ==========
-    const handlePlayModeToggle = () => {
+	const handlePlayModeToggle = useCallback(() => {
         const newMode =
             playMode === "loop" ? "random" : playMode === "random" ? "single" : "loop";
         setPlayMode(newMode);
-    };
+    }, [playMode, setPlayMode]);
 
     // ========== 下载管理 ==========
     const handleDownload = downloadManager.handleDownload;
@@ -234,13 +185,14 @@ export const useAppHandlers = (config: {
     const handleDeleteDownloadedFile = downloadManager.handleDeleteDownloadedFile;
 
     const handleDownloadModalClose = () => {
-        closeModal("downloadModal");
+        closeModal("downloadManagerModal");
         setConfirmDeleteDownloaded(false);
         setManagingSong(null);
     };
 
     // ========== 播放列表处理 ==========
     const handleAddSongToFavorite = playlistActions.addSongToFavoriteFromList;
+    const handleAddCurrentSongToFavorite = playlistActions.addCurrentSongToFavorite;
     const handleRemoveSongFromPlaylist = playlistActions.removeSongFromPlaylist;
     const handleAddToFavoriteFromModal = playlistActions.addToFavoriteFromModal;
     const handlePlaylistSelect = playlistActions.playlistSelect;
@@ -295,9 +247,15 @@ export const useAppHandlers = (config: {
         const name = newFavName.trim();
         if (!name) return;
         try {
-            await Services.SaveFavorite({ id: "", title: name, songIds: [] } as any);
+            await Services.SaveFavorite(toFavoriteModel({
+                id: "",
+                title: name,
+                songIds: [],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            }));
             const refreshedFavs = await Services.ListFavorites();
-            setFavorites(refreshedFavs);
+            setFavorites(convertFavorites(refreshedFavs));
             const targetId =
                 refreshedFavs.find((f) => f.title === name)?.id ||
                 refreshedFavs[refreshedFavs.length - 1]?.id ||
@@ -312,7 +270,7 @@ export const useAppHandlers = (config: {
         } catch (error) {
             notifications.show({
                 title: "创建歌单失败",
-                message: String(error),
+                message: parseDomainError(error).message,
                 color: "red",
             });
         }
@@ -323,10 +281,10 @@ export const useAppHandlers = (config: {
     const handleOpenDownloadsFolder = async () => {
         try {
             await Services.OpenDownloadsFolder();
-        } catch (e: any) {
+        } catch (e: unknown) {
             notifications.show({
                 title: "打开失败",
-                message: e?.message ?? String(e),
+                message: parseDomainError(e).message,
                 color: "red",
             });
         }
@@ -335,10 +293,10 @@ export const useAppHandlers = (config: {
     const handleOpenDatabaseFile = async () => {
         try {
             await Services.OpenDatabaseFile();
-        } catch (e: any) {
+        } catch (e: unknown) {
             notifications.show({
                 title: "打开失败",
-                message: e?.message ?? String(e),
+                message: parseDomainError(e).message,
                 color: "red",
             });
         }
@@ -357,7 +315,7 @@ export const useAppHandlers = (config: {
         } catch (e) {
             notifications.show({
                 title: "清除缓存失败",
-                message: e instanceof Error ? e.message : "未知错误",
+                message: parseDomainError(e).message,
                 color: "red",
             });
         }
@@ -387,7 +345,6 @@ export const useAppHandlers = (config: {
         handleIntervalChange,
         handleSkipStartChange,
         handleSkipEndChange,
-        handleStreamUrlChange,
         // 播放模式
         handlePlayModeToggle,
         // 下载
@@ -401,6 +358,7 @@ export const useAppHandlers = (config: {
         handleDownloadModalClose,
         // 播放列表
         handleAddSongToFavorite,
+        handleAddCurrentSongToFavorite,
         handleRemoveSongFromPlaylist,
         handleAddToFavoriteFromModal,
         handlePlaylistSelect,
@@ -410,6 +368,7 @@ export const useAppHandlers = (config: {
         handleSearchResultClick,
         handleRemoteSearch,
         handleAddFromRemote,
+        handleAddSingleRemotePage,
         handleResolveBVAndAdd,
         handleLoadRemotePages,
         // BV 切片

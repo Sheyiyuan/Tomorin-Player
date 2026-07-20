@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { Song, LyricMapping } from '../../types';
+import { convertLyricMapping, type Song, type LyricMapping } from '../../types';
 import * as Services from '../../../wailsjs/go/services/Service';
 
 interface UseLyricLoaderProps {
@@ -26,7 +26,7 @@ export const useLyricLoader = ({
         Services.GetLyricMapping(currentSong.id)
             .then(lyric => {
                 if (isMounted) {
-                    setLyric(lyric);
+                    setLyric(convertLyricMapping(lyric));
                 }
             })
             .catch(() => {
@@ -38,5 +38,5 @@ export const useLyricLoader = ({
         return () => {
             isMounted = false;
         };
-    }, [currentSong?.id]);
+    }, [currentSong, setLyric]);
 };

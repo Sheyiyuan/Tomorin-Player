@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
+umask 022
 
-# Tomorin Player - Debian packaging script
+# Half Beat Player - Debian packaging script
 # Usage: scripts/build-deb.sh [VERSION]
 # If VERSION is omitted, tries to read from frontend/package.json
 
@@ -37,31 +38,22 @@ command -v jq >/dev/null || { echo "jq is required"; exit 1; }
 command -v dpkg-deb >/dev/null || { echo "dpkg-deb missing. sudo apt install dpkg-dev"; exit 1; }
 command -v gzip >/dev/null || { echo "gzip is required"; exit 1; }
 
-# Find wails
-WAILS_CMD=${WAILS_CMD:-}
-if [[ -z "$WAILS_CMD" ]]; then
-  if command -v wails >/dev/null; then WAILS_CMD="wails"; elif [[ -f "$HOME/go/bin/wails" ]]; then WAILS_CMD="$HOME/go/bin/wails"; else echo "wails not found"; exit 1; fi
+if [[ "${SKIP_APP_BUILD:-0}" != "1" ]]; then
+  echo "Building app (version ${VERSION})..."
+
+  # 将版本注入前端 (Vite 仅暴露以 VITE_ 前缀的环境变量)
+  export VITE_APP_VERSION="${VERSION}"
+
+  # 临时更新 wails.json 的 productVersion
+  BACKUP_WAILS_JSON="wails.json.bak"
+  cp wails.json "$BACKUP_WAILS_JSON"
+  jq --arg ver "$VERSION" '.windows.info.productVersion = $ver | .info.productVersion = $ver' wails.json > wails.json.tmp && mv wails.json.tmp wails.json
+  trap 'mv -f "$BACKUP_WAILS_JSON" wails.json 2>/dev/null || true' EXIT
+
+  bash scripts/wails.sh build -clean -platform linux/amd64
+else
+  echo "Reusing build/bin/${APP_NAME} for Debian packaging..."
 fi
-
-echo "Building app (version ${VERSION}) with ${WAILS_CMD}..."
-
-# Build frontend first to ensure assets are available
-echo "Building frontend..."
-cd frontend
-pnpm install
-pnpm build
-cd ..
-
-# 将版本注入前端 (Vite 仅暴露以 VITE_ 前缀的环境变量)
-export VITE_APP_VERSION="${VERSION}"
-
-# 临时更新 wails.json 的 productVersion
-BACKUP_WAILS_JSON="wails.json.bak"
-cp wails.json "$BACKUP_WAILS_JSON"
-jq --arg ver "$VERSION" '.windows.info.productVersion = $ver | .info.productVersion = $ver' wails.json > wails.json.tmp && mv wails.json.tmp wails.json
-trap 'mv -f "$BACKUP_WAILS_JSON" wails.json 2>/dev/null || true' EXIT
-
-"${WAILS_CMD}" build -clean -platform linux/amd64
 
 [[ -f build/bin/${APP_NAME} ]] || { echo "Executable missing"; exit 1; }
 
@@ -167,6 +159,6 @@ EOF
 
 chmod 0755 "${DEB_DIR}/DEBIAN/postinst" "${DEB_DIR}/DEBIAN/postrm"
 
-dpkg-deb --build "${DEB_DIR}" "build/deb/${PKG_NAME}.deb"
+dpkg-deb --root-owner-group --build "${DEB_DIR}" "build/deb/${PKG_NAME}.deb"
 
 echo "Built: build/deb/${PKG_NAME}.deb"

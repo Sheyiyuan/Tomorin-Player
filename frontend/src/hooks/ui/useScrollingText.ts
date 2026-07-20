@@ -57,13 +57,6 @@ export const useScrollingText = ({
             const containerWidthPx = containerRect.width;
             const textWidthPx = textRect.width;
 
-            console.log('滚动文本测量:', {
-                text,
-                containerWidth: containerWidthPx,
-                textWidth: textWidthPx,
-                needsScroll: textWidthPx > containerWidthPx
-            });
-
             // 只有当文本宽度超过容器宽度时才启用滚动
             const needsScroll = textWidthPx > containerWidthPx && textWidthPx > 0;
             setShouldScroll(needsScroll);
@@ -79,30 +72,25 @@ export const useScrollingText = ({
                 const totalDuration = scrollTime + (pauseDuration * 2);
 
                 setAnimationDuration(totalDuration);
-
-                console.log('滚动动画参数:', {
-                    distance,
-                    scrollTime,
-                    totalDuration,
-                    speed,
-                    pauseDuration
-                });
             }
         };
 
-        // 延迟测量，确保DOM已渲染
-        const timer = setTimeout(measureText, 100);
-
-        // 监听窗口大小变化
-        const handleResize = () => {
-            setTimeout(measureText, 100);
+        let timer = window.setTimeout(measureText, 100);
+        const scheduleMeasure = () => {
+            window.clearTimeout(timer);
+            timer = window.setTimeout(measureText, 100);
         };
 
-        window.addEventListener('resize', handleResize);
+        window.addEventListener('resize', scheduleMeasure);
+        const resizeObserver = typeof ResizeObserver === 'undefined'
+            ? null
+            : new ResizeObserver(scheduleMeasure);
+        if (resizeObserver && containerRef.current) resizeObserver.observe(containerRef.current);
 
         return () => {
-            clearTimeout(timer);
-            window.removeEventListener('resize', handleResize);
+            window.clearTimeout(timer);
+            window.removeEventListener('resize', scheduleMeasure);
+            resizeObserver?.disconnect();
         };
     }, [text, containerWidth, speed, pauseDuration, enabled]);
 

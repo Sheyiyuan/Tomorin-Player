@@ -1,50 +1,85 @@
-import React, { useEffect, useState } from "react";
-import { Modal, Group, Button, Text, Stack, Loader, Alert } from "@mantine/core";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Group, Button, Text, Stack, Loader, Alert } from "@mantine/core";
 import QRCode from "qrcode";
 import * as Services from "../../../wailsjs/go/services/Service";
+import type { DerivedStyles } from "../../types";
+import ThemedModal from "./ThemedModal";
 
 interface LoginModalProps {
     opened: boolean;
     onClose: () => void;
     onLoginSuccess: () => void;
-    panelStyles?: any;
-    derived?: any;
+    derived?: DerivedStyles;
 }
 
-export default function LoginModal({ opened, onClose, onLoginSuccess, panelStyles, derived }: LoginModalProps) {
+export default function LoginModal({ opened, onClose, onLoginSuccess, derived }: LoginModalProps) {
     const [qrUrl, setQrUrl] = useState<string>("");
-    const [qrcodeKey, setQrcodeKey] = useState<string>("");
-    const [expireAt, setExpireAt] = useState<Date | null>(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [isPolling, setIsPolling] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
-    const [statusMessage, setStatusMessage] = useState("");
     const [isExpired, setIsExpired] = useState(false);
+    const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+    const expiryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const generationRef = useRef(0);
 
-    const modalStyles = derived ? {
-        content: {
-            backgroundColor: derived.panelBackground,
-            backdropFilter: panelStyles?.backdropFilter,
-            color: derived.textColorPrimary,
-        },
-        header: {
-            backgroundColor: "transparent",
-            color: derived.textColorPrimary,
-        },
-        title: {
-            color: derived.textColorPrimary,
+    const stopPolling = useCallback(() => {
+        if (pollIntervalRef.current !== null) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
         }
-    } : undefined;
+        if (expiryTimeoutRef.current !== null) {
+            clearTimeout(expiryTimeoutRef.current);
+            expiryTimeoutRef.current = null;
+        }
+        if (successTimeoutRef.current !== null) {
+            clearTimeout(successTimeoutRef.current);
+            successTimeoutRef.current = null;
+        }
+    }, []);
 
-    const generateQR = async () => {
+    const startPolling = useCallback((key: string, generation: number) => {
+        stopPolling();
+
+        pollIntervalRef.current = setInterval(async () => {
+            try {
+                const result = await Services.PollLogin(key);
+                if (generation !== generationRef.current) return;
+
+                if (result.loggedIn) {
+                    stopPolling();
+                    successTimeoutRef.current = setTimeout(() => {
+                        if (generation !== generationRef.current) return;
+                        onLoginSuccess();
+                        onClose();
+                    }, 500);
+                }
+            } catch (error: unknown) {
+                if (generation !== generationRef.current) return;
+                console.error("轮询登录状态错误:", error);
+                stopPolling();
+                setErrorMessage("登录状态检查失败，请重新生成二维码");
+            }
+        }, 2000);
+
+        expiryTimeoutRef.current = setTimeout(() => {
+            if (generation !== generationRef.current) return;
+            stopPolling();
+            setIsExpired(true);
+        }, 30000);
+    }, [onClose, onLoginSuccess, stopPolling]);
+
+    const generateQR = useCallback(async () => {
+        stopPolling();
+        const generation = generationRef.current + 1;
+        generationRef.current = generation;
         try {
             setIsLoading(true);
             setErrorMessage("");
             setIsExpired(false);
+            setQrUrl("");
 
             const result = await Services.GenerateLoginQR();
-
-            console.log("QR 生成结果:", result);
+            if (generation !== generationRef.current) return;
 
             if (result.url && result.qrcode_key) {
                 // 使用 qrcode 库在本地生成二维码图片
@@ -56,62 +91,44 @@ export default function LoginModal({ opened, onClose, onLoginSuccess, panelStyle
                         light: '#FFFFFF'
                     }
                 });
+                if (generation !== generationRef.current) return;
 
                 setQrUrl(qrDataUrl);
-                setQrcodeKey(result.qrcode_key);
-                setExpireAt(new Date(typeof result.expire_at === 'string' ? result.expire_at : new Date().toISOString()));
-
-                // 自动开始轮询
-                startPolling(result.qrcode_key);
+                startPolling(result.qrcode_key, generation);
             } else {
                 setErrorMessage("生成二维码失败，请稍后重试");
             }
-        } catch (error: any) {
-            setErrorMessage(error?.message || "生成二维码失败");
+        } catch (error: unknown) {
+            if (generation !== generationRef.current) return;
+            setErrorMessage(error instanceof Error ? error.message : "生成二维码失败");
             console.error("生成二维码错误:", error);
         } finally {
-            setIsLoading(false);
+            if (generation === generationRef.current) setIsLoading(false);
         }
-    };
-
-    const startPolling = (key: string) => {
-        setIsPolling(true);
-
-        const pollInterval = setInterval(async () => {
-            try {
-                const result = await Services.PollLogin(key);
-
-                if (result.loggedIn) {
-                    clearInterval(pollInterval);
-                    setIsPolling(false);
-                    setTimeout(() => {
-                        onLoginSuccess();
-                        onClose();
-                    }, 500);
-                }
-            } catch (error: any) {
-                console.error("轮询登录状态错误:", error);
-                clearInterval(pollInterval);
-                setIsPolling(false);
-            }
-        }, 2000); // 每2秒轮询一次
-
-        // 30秒后自动停止轮询
-        setTimeout(() => {
-            clearInterval(pollInterval);
-            setIsPolling(false);
-            setIsExpired(true);
-        }, 30000);
-    };
+    }, [startPolling, stopPolling]);
 
     useEffect(() => {
-        if (opened && !qrUrl) {
-            generateQR();
+        if (opened) {
+            setQrUrl("");
+            setErrorMessage("");
+            setIsExpired(false);
+            void generateQR();
+            return;
         }
-    }, [opened]);
+
+        generationRef.current += 1;
+        stopPolling();
+        setQrUrl("");
+    }, [generateQR, opened, stopPolling]);
+
+    useEffect(() => () => {
+        generationRef.current += 1;
+        stopPolling();
+    }, [stopPolling]);
 
     return (
-        <Modal
+        <ThemedModal
+            derived={derived}
             opened={opened}
             onClose={onClose}
             title="B站二维码登录"
@@ -119,8 +136,6 @@ export default function LoginModal({ opened, onClose, onLoginSuccess, panelStyle
             size="sm"
             closeOnEscape={true}
             closeOnClickOutside={true}
-            styles={modalStyles}
-            className="normal-panel"
         >
             <Stack gap="md">
                 {errorMessage && (
@@ -163,7 +178,7 @@ export default function LoginModal({ opened, onClose, onLoginSuccess, panelStyle
                                     }}
                                 >
                                     <Button
-                                        onClick={generateQR}
+                                        onClick={() => void generateQR()}
                                         loading={isLoading}
                                         size="md"
                                     >
@@ -182,6 +197,6 @@ export default function LoginModal({ opened, onClose, onLoginSuccess, panelStyle
                     </Group>
                 )}
             </Stack>
-        </Modal>
+        </ThemedModal>
     );
 }

@@ -2,10 +2,10 @@ import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
 import { UserInfo } from '../../types';
-import type { ModalStates } from '../ui/useModalManager';
+import type { ModalName } from '../../context/types/contexts';
 
 interface UseLoginHandlersParams {
-    closeModal: (name: keyof ModalStates) => void;
+    closeModal: (name: ModalName) => void;
     setUserInfo: (info: UserInfo | null) => void;
     setStatus: (msg: string) => void;
 }
@@ -20,7 +20,7 @@ export const useLoginHandlers = ({ closeModal, setUserInfo, setStatus }: UseLogi
                 username: info.username || '',
                 face: info.face || '',
                 level: info.level || 0,
-                vipType: (info as any).vip_type || (info as any).vipType || 0,
+                vipType: info.vip_type || 0,
             };
             setUserInfo(mappedInfo);
             localStorage.setItem('half-beat.userInfo', JSON.stringify(mappedInfo));

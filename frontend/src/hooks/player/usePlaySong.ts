@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import type { Song } from '../../types';
-import { convertSongs } from '../../types';
+import { convertSongs, toSongModel } from '../../types';
 import * as Services from '../../../wailsjs/go/services/Service';
+import { shouldRefreshStream } from '../../utils/stream';
 
 interface UsePlaySongProps {
     queue: Song[];
@@ -13,7 +14,6 @@ interface UsePlaySongProps {
     setIsPlaying: (playing: boolean) => void;
     setStatus: (status: string) => void;
     setSongs: (songs: Song[]) => void;
-    playbackRetryRef: React.MutableRefObject<Map<string, number>>;
 }
 
 /**
@@ -29,7 +29,6 @@ export const usePlaySong = ({
     setIsPlaying,
     setStatus,
     setSongs,
-    playbackRetryRef,
 }: UsePlaySongProps) => {
     const playSong = useCallback(async (song: Song, list?: Song[]) => {
         // 注意：不在这里清除重试计数，因为重试时会再次调用这个函数
@@ -100,13 +99,15 @@ export const usePlaySong = ({
             }
         }
 
-        const exp: any = (song as any).streamUrlExpiresAt;
-        // 检查是否需要刷新URL：无URL、已过期、或不是代理URL（本地文件除外）
-        const isLocalUrl = isLocalProxyUrl(song.streamUrl || '', '/local');
-        const isProxyUrl = isLocalProxyUrl(song.streamUrl || '', '/audio');
-        const expired = !isLocalUrl && (!song.streamUrl || !isProxyUrl || (exp && new Date(exp).getTime() <= Date.now() + 60_000));
+        if (shouldRefreshStream(song) && !song.bvid) {
+            const errorMsg = '歌曲缺少 BV 号，无法通过本地代理获取播放地址';
+            notifications.show({ title: '获取播放地址失败', message: errorMsg, color: 'red' });
+            setStatus(`错误: ${errorMsg}`);
+            setIsPlaying(false);
+            return;
+        }
 
-        if (expired && song.bvid) {
+        if (shouldRefreshStream(song)) {
             try {
                 console.log("URL 过期或缺失，正在获取新的播放地址:", song.bvid);
                 setStatus(`正在获取播放地址: ${song.name}`);
@@ -119,20 +120,32 @@ export const usePlaySong = ({
                     throw new Error("无法获取代理播放地址");
                 }
 
-                const proxyUrlWithSid = song.id ? `${playInfo.ProxyURL}&sid=${encodeURIComponent(song.id)}` : playInfo.ProxyURL;
+                let cacheID = '';
+                if (song.id) {
+                    try {
+                        cacheID = await Services.GetAudioCacheID(song.id);
+                    } catch (cacheErr) {
+                        console.warn('无法获取音频缓存键，跳过被动缓存:', cacheErr);
+                    }
+                }
+                const proxyUrlWithSid = cacheID
+                    ? `${playInfo.ProxyURL}&sid=${encodeURIComponent(cacheID)}`
+                    : playInfo.ProxyURL;
 
                 toPlay = {
                     ...song,
                     streamUrl: proxyUrlWithSid,
-                    streamUrlExpiresAt: playInfo.ExpiresAt,
+                    streamUrlExpiresAt: typeof playInfo.ExpiresAt === 'string'
+                        ? playInfo.ExpiresAt
+                        : new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
                     updatedAt: new Date().toISOString()
-                } as any;
+                } satisfies Song;
                 console.log("已更新 streamUrl:", proxyUrlWithSid);
                 console.log("过期时间:", playInfo.ExpiresAt);
 
                 // 尝试保存到数据库，但如果失败也不影响播放
                 try {
-                    await Services.UpsertSongs([toPlay as any]);
+                    await Services.UpsertSongs([toSongModel(toPlay)]);
                     const rawRefreshed = await Services.ListSongs();
                     setSongs(convertSongs(rawRefreshed || []));
                 } catch (dbErr) {
@@ -160,12 +173,7 @@ export const usePlaySong = ({
                 console.warn("保存播放历史失败", e);
             });
         }
-    }, [queue, selectedFavId, setQueue, setCurrentIndex, setCurrentSong, setIsPlaying, setStatus, setSongs, playbackRetryRef]);
+    }, [queue, selectedFavId, setQueue, setCurrentIndex, setCurrentSong, setIsPlaying, setStatus, setSongs]);
 
     return { playSong };
-};
-
-const isLocalProxyUrl = (value: string, path: string): boolean => {
-    if (!value) return false;
-    return value.startsWith('http://127.0.0.1:') && value.includes(path);
 };

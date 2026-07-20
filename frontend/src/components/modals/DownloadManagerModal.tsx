@@ -1,6 +1,7 @@
 import React from "react";
-import { Button, Group, Modal, Stack, Text } from "@mantine/core";
-import type { Song } from "../../types";
+import { Button, Group, Stack, Text } from "@mantine/core";
+import type { Song, DerivedStyles } from "../../types";
+import ThemedModal from "./ThemedModal";
 
 interface DownloadManagerModalProps {
     opened: boolean;
@@ -10,8 +11,7 @@ interface DownloadManagerModalProps {
     onOpenFile: () => void;
     onDeleteFile: () => void;
     onToggleConfirmDelete: (value: boolean) => void;
-    panelStyles?: any;
-    derived?: any;
+    derived?: DerivedStyles;
 }
 
 const DownloadManagerModal: React.FC<DownloadManagerModalProps> = ({
@@ -22,33 +22,16 @@ const DownloadManagerModal: React.FC<DownloadManagerModalProps> = ({
     onOpenFile,
     onDeleteFile,
     onToggleConfirmDelete,
-    panelStyles,
     derived,
 }) => {
-    const modalStyles = derived ? {
-        content: {
-            backgroundColor: derived.modalBackground,
-            backdropFilter: panelStyles?.backdropFilter,
-            color: derived.textColorPrimary,
-        },
-        header: {
-            backgroundColor: "transparent",
-            color: derived.textColorPrimary,
-        },
-        title: {
-            color: derived.textColorPrimary,
-        }
-    } : undefined;
-
     return (
-        <Modal
+        <ThemedModal
+            derived={derived}
             opened={opened}
             onClose={onClose}
             size="sm"
             centered
             title="下载文件管理"
-            styles={modalStyles}
-            className="normal-panel"
         >
             <Stack gap="md">
                 <Text fw={600} style={{ color: derived?.textColorPrimary }}>{managingSong?.name || '未选择歌曲'}</Text>
@@ -63,7 +46,7 @@ const DownloadManagerModal: React.FC<DownloadManagerModalProps> = ({
                     </Group>
                 </Group>
             </Stack>
-        </Modal>
+        </ThemedModal>
     );
 };
 

@@ -78,7 +78,7 @@ export const useAudioSourceManager = ({
         audio.preload = "metadata";
         audio.load();
         console.log("已设置音频源:", currentSong.id, currentSong.streamUrl);
-    }, [currentSong?.id, currentSong?.streamUrl, audioRef, playingRef, playbackRetryRef]);
+    }, [currentSong, audioRef, playingRef, playbackRetryRef]);
 
     // 处理播放/暂停控制
     useEffect(() => {
@@ -105,5 +105,5 @@ export const useAudioSourceManager = ({
         } else if (!isPlaying && !audio.paused) {
             audio.pause();
         }
-    }, [currentSong?.id, isPlaying, audioRef, setIsPlaying, onBeforePlay]);
+    }, [currentSong?.id, currentSong?.streamUrl, isPlaying, audioRef, setIsPlaying, onBeforePlay]);
 };

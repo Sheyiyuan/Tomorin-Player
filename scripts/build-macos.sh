@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Tomorin Player - macOS build script
-# Usage: APP_VERSION=1.2.3 scripts/build-macos.sh [-c]
-# Requires: macOS host, Xcode toolchain, Wails CLI, Node/pnpm, optional create-dmg
+# Half Beat Player - macOS build script
+# Usage: APP_VERSION=1.2.0 scripts/build-macos.sh [-c]
+# Requires: macOS host, Xcode toolchain, Wails CLI, Node/pnpm, create-dmg
 
 CLEAN=false
 if [[ ${1:-} == "-c" ]]; then CLEAN=true; fi
@@ -20,12 +20,6 @@ fi
 
 export APP_VERSION
 export VITE_APP_VERSION="$APP_VERSION"
-
-# Ensure wails
-WAILS_CMD=${WAILS_CMD:-wails}
-if ! command -v "$WAILS_CMD" >/dev/null; then
-  if [[ -x "$HOME/go/bin/wails" ]]; then WAILS_CMD="$HOME/go/bin/wails"; else echo "wails not found" >&2; exit 1; fi
-fi
 
 # Generate macOS ICNS file from PNG source
 echo "Generating macOS icon..."
@@ -71,13 +65,6 @@ echo "macOS icon file info:"
 ls -lh build/darwin/icon.icns
 file build/darwin/icon.icns 2>/dev/null || true
 
-# Build frontend first to ensure assets are available
-echo "Building frontend..."
-cd frontend
-pnpm install
-pnpm build
-cd ..
-
 ARGS=(build -platform darwin/universal -clean)
 $CLEAN || ARGS=(build -platform darwin/universal)
 
@@ -87,22 +74,23 @@ cp wails.json "$BACKUP_WAILS_JSON"
 jq --arg ver "$APP_VERSION" '.windows.info.productVersion = $ver | .info.productVersion = $ver' wails.json > wails.json.tmp && mv wails.json.tmp wails.json
 trap 'mv -f "$BACKUP_WAILS_JSON" wails.json 2>/dev/null || true' EXIT
 
-"$WAILS_CMD" "${ARGS[@]}"
+bash scripts/wails.sh "${ARGS[@]}"
 
-# Optional: create DMG if create-dmg is available
-if command -v create-dmg >/dev/null; then
-  APP_PATH="build/bin/half-beat.app"
-  DMG_PATH="build/bin/half-beat-${APP_VERSION}.dmg"
-  create-dmg \
-    --volname "half-beat" \
-    --window-pos 200 120 \
-    --window-size 800 400 \
-    --icon-size 100 \
-    --icon "half-beat.app" 200 190 \
-    --hide-extension "half-beat.app" \
-    --app-drop-link 600 185 \
-    "$DMG_PATH" \
-    "$APP_PATH" || true
-fi
+command -v create-dmg >/dev/null || { echo "create-dmg is required" >&2; exit 1; }
+APP_PATH="build/bin/half-beat.app"
+DMG_PATH="build/bin/half-beat-${APP_VERSION}.dmg"
+[[ -f "$APP_PATH/Contents/Info.plist" ]] || { echo "Invalid app bundle: Info.plist is missing" >&2; exit 1; }
+rm -f "$DMG_PATH"
+create-dmg \
+  --volname "half-beat" \
+  --window-pos 200 120 \
+  --window-size 800 400 \
+  --icon-size 100 \
+  --icon "half-beat.app" 200 190 \
+  --hide-extension "half-beat.app" \
+  --app-drop-link 600 185 \
+  "$DMG_PATH" \
+  "$APP_PATH"
+[[ -s "$DMG_PATH" ]] || { echo "DMG was not created" >&2; exit 1; }
 
 echo "macOS build done. Artifacts in build/bin/"

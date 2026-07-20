@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"half-beat-player/internal/netguard"
 )
 
 const (
@@ -41,11 +43,18 @@ func (s *Service) SaveThemeImageFromURL(imageURL string) (string, error) {
 	if !strings.HasPrefix(trimmed, "http://") && !strings.HasPrefix(trimmed, "https://") {
 		return "", fmt.Errorf("unsupported URL scheme")
 	}
+	target, err := url.Parse(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("parse image URL: %w", err)
+	}
+	if err := netguard.ValidatePublicURL(target); err != nil {
+		return "", fmt.Errorf("image URL rejected: %w", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", trimmed, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", target.String(), nil)
 	if err != nil {
 		return "", fmt.Errorf("create request: %w", err)
 	}
@@ -57,7 +66,7 @@ func (s *Service) SaveThemeImageFromURL(imageURL string) (string, error) {
 	req.Header.Set("Accept", "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
 
-	resp, err := s.httpClient.Do(req)
+	resp, err := s.publicStreamClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("download image: %w", err)
 	}
@@ -92,7 +101,7 @@ func (s *Service) saveThemeImageBytes(data []byte, contentType string) (string, 
 	}
 
 	imageDir := filepath.Join(s.dataDir, themeImageDirName)
-	if err := os.MkdirAll(imageDir, 0o755); err != nil {
+	if err := ensurePrivateDir(imageDir); err != nil {
 		return "", fmt.Errorf("create theme image dir: %w", err)
 	}
 
@@ -102,12 +111,13 @@ func (s *Service) saveThemeImageBytes(data []byte, contentType string) (string, 
 	path := filepath.Join(imageDir, fileName)
 
 	if _, err := os.Stat(path); err == nil {
+		_ = os.Chmod(path, 0o600)
 		return s.getThemeImageProxyURL(fileName), nil
 	}
 
 	tmp := path + ".part"
 	_ = os.Remove(tmp)
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return "", fmt.Errorf("write image: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
@@ -122,7 +132,7 @@ func (s *Service) getThemeImageProxyURL(fileName string) string {
 	if s.audioProxy != nil {
 		return s.audioProxy.GetThemeImageProxyURL(fileName)
 	}
-	return fmt.Sprintf("http://127.0.0.1:9999/theme-image?f=%s", url.QueryEscape(fileName))
+	return ""
 }
 
 func decodeImageDataURL(dataURL string) (string, []byte, error) {

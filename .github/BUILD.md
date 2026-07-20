@@ -93,7 +93,7 @@ Makefile 调用 `scripts/` 中的平台实现；Linux 上的 Wails 包装器会�
 3. **依赖要求**：
 
    - 所有构建需要 Go 1.22+
-   - 前端构建需要 Node.js 20+ 和 pnpm 11.4.0
+   - 前端构建需要 Node.js 22.13+ 和 pnpm 11.4.0
 
 ## 自定义配置
 

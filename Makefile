@@ -70,12 +70,12 @@ frontend-build:
 	$(PNPM) --dir $(FRONTEND_DIR) run build
 
 check: ## Run tests, static analysis, typechecking, lint, and frontend build
-	$(GO) test ./...
-	$(GO) vet ./...
 	$(PNPM) --dir $(FRONTEND_DIR) run typecheck
 	$(PNPM) --dir $(FRONTEND_DIR) run lint
 	$(PNPM) --dir $(FRONTEND_DIR) run test
 	$(PNPM) --dir $(FRONTEND_DIR) run build
+	$(GO) test ./...
+	$(GO) vet ./...
 
 dev: ## Start Wails development mode
 	$(WAILS_RUNNER) dev $(WAILS_ARGS)

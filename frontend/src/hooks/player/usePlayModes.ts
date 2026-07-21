@@ -3,7 +3,7 @@ import type { Song, Favorite } from '../../types';
 import type { QueueItem } from '../../context/types/contexts';
 
 interface UsePlayModesProps {
-    songs: Song[];
+	loadFavoriteSongs: (favoriteId: string) => Promise<Song[]>;
     queue: Song[];
     currentIndex: number;
     setQueue: (queue: Song[]) => void;
@@ -21,7 +21,7 @@ interface UsePlayModesProps {
  * playFavorite - 播放整个歌单
  */
 export const usePlayModes = ({
-    songs,
+	loadFavoriteSongs,
     queue,
     currentIndex: _currentIndex,
     setQueue,
@@ -32,28 +32,17 @@ export const usePlayModes = ({
     queueItems = [],
     setCurrentQueueItemId,
 }: UsePlayModesProps) => {
-    /**
-     * 播放单曲
-     * 如果播放列表为空，添加歌曲所在歌单；否则插入到当前播放歌曲的下一首
-     */
-    const playSingleSong = useCallback(async (song: Song, songFavorite?: Favorite) => {
-        // 如果当前播放列表为空
-        if (queue.length === 0) {
-            // 添加歌曲所在歌单到播放列表
-            let songList: Song[] = [];
-            if (songFavorite) {
-                songList = songFavorite.songIds
-                    .map((reference) => songs.find((candidate) => candidate.id === reference.songId))
-                    .filter((candidate): candidate is Song => Boolean(candidate));
-            }
-            // 如果没有歌单或歌单为空，只播放单曲
-            if (songList.length === 0) {
-                songList = [song];
-            }
-            setQueue(songList);
-            const idx = songList.findIndex((s) => s.id === song.id);
-            setCurrentIndex(idx >= 0 ? idx : 0);
-            await playSong(song, songList);
+	/**
+	 * 播放单曲
+	 * 单击歌曲不会隐式加载完整歌单；完整加载只由播放全部触发。
+	 */
+	const playSingleSong = useCallback(async (song: Song) => {
+		// 如果当前播放列表为空
+		if (queue.length === 0) {
+			const songList = [song];
+			setQueue(songList);
+			setCurrentIndex(0);
+			await playSong(song, songList);
         } else {
             const existingItem = queueItems.find((item) => item.song === song);
             if (existingItem) {
@@ -75,22 +64,20 @@ export const usePlayModes = ({
             setIsPlaying(true);
             await playSong(song, newQueue);
         }
-    }, [songs, queue, queueItems, setQueue, setCurrentIndex, setCurrentQueueItemId, setCurrentSong, setIsPlaying, playSong]);
+	}, [queue, queueItems, setQueue, setCurrentIndex, setCurrentQueueItemId, setCurrentSong, setIsPlaying, playSong]);
 
     /**
      * 播放歌单
      * 替换整个播放列表为歌单内容
      */
-    const playFavorite = useCallback((fav: Favorite) => {
-        const list = fav.songIds
-            .map((reference) => songs.find((candidate) => candidate.id === reference.songId))
-            .filter((candidate): candidate is Song => Boolean(candidate));
+    const playFavorite = useCallback(async (fav: Favorite) => {
+		const list = await loadFavoriteSongs(fav.id);
         if (list.length === 0) return;
         // 播放歌单时，替换整个播放列表
         setQueue(list);
         setCurrentIndex(0);
-        playSong(list[0], list);
-    }, [songs, setQueue, setCurrentIndex, playSong]);
+		await playSong(list[0], list);
+    }, [loadFavoriteSongs, setQueue, setCurrentIndex, playSong]);
 
     return {
         playSingleSong,

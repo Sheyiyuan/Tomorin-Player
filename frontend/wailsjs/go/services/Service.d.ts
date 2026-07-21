@@ -4,11 +4,15 @@ import {models} from '../models';
 import {time} from '../models';
 import {services} from '../models';
 
+export function AddSongsToFavorite(arg1:string,arg2:Array<string>):Promise<models.FavoriteSummary>;
+
 export function ApplyLyricCandidate(arg1:string,arg2:string):Promise<models.LyricView>;
 
 export function ClearAudioCache():Promise<void>;
 
 export function ClearLibrary():Promise<void>;
+
+export function CreateLocalFavorite(arg1:string):Promise<models.FavoriteSummary>;
 
 export function CreateStreamSource(arg1:string,arg2:string,arg3:time.Time):Promise<string>;
 
@@ -30,6 +34,8 @@ export function DetachFavoriteSource(arg1:string,arg2:boolean):Promise<models.Fa
 
 export function DownloadSong(arg1:string):Promise<string>;
 
+export function DuplicateFavorite(arg1:string,arg2:string):Promise<models.FavoriteSummary>;
+
 export function EnsureAudioProxyRunning():Promise<string>;
 
 export function ExportData():Promise<services.ExportData>;
@@ -42,11 +48,15 @@ export function GetAudioCacheID(arg1:string):Promise<string>;
 
 export function GetAudioCacheSize():Promise<number>;
 
+export function GetBiliFavoriteImportTask(arg1:string):Promise<models.BiliFavoriteImportTask>;
+
 export function GetDownloadedSongIDs(arg1:Array<string>):Promise<Array<string>>;
 
 export function GetFavoriteCollectionBVIDs(arg1:number):Promise<Array<models.BiliFavoriteInfo>>;
 
 export function GetFavoriteCollectionInfo(arg1:number):Promise<models.BiliFavoriteCollection>;
+
+export function GetFavoriteMemberships(arg1:string):Promise<Array<string>>;
 
 export function GetFavoriteSyncStatus(arg1:string):Promise<models.PlaylistSyncStatus>;
 
@@ -72,6 +82,8 @@ export function GetPlaylist():Promise<models.Playlist>;
 
 export function GetProxyBaseURL():Promise<string>;
 
+export function GetSongsByIDs(arg1:Array<string>):Promise<Array<models.Song>>;
+
 export function GetThemes():Promise<Array<models.Theme>>;
 
 export function GetUserInfo():Promise<services.UserInfo>;
@@ -89,6 +101,10 @@ export function IsLoggedIn():Promise<boolean>;
 export function IsSongDownloaded(arg1:string):Promise<boolean>;
 
 export function IsWindowMaximized():Promise<boolean>;
+
+export function ListFavoriteSongs(arg1:models.FavoriteSongPageRequest):Promise<models.FavoriteSongPage>;
+
+export function ListFavoriteSummaries():Promise<Array<models.FavoriteSummary>>;
 
 export function ListFavorites():Promise<Array<models.Favorite>>;
 
@@ -126,6 +142,10 @@ export function RefreshProxyURL(arg1:string):Promise<string>;
 
 export function RejectLyricCandidate(arg1:string,arg2:string):Promise<models.LyricView>;
 
+export function RemoveSongFromFavorite(arg1:string,arg2:string):Promise<models.FavoriteSummary>;
+
+export function RenameFavorite(arg1:string,arg2:string):Promise<models.FavoriteSummary>;
+
 export function ResolveBiliAudio(arg1:string):Promise<models.BiliAudio>;
 
 export function RestoreAutomaticLyric(arg1:string):Promise<models.LyricView>;
@@ -150,6 +170,8 @@ export function SearchBVID(arg1:string):Promise<Array<models.Song>>;
 
 export function SearchBiliVideos(arg1:string,arg2:number,arg3:number,arg4:string):Promise<Array<models.Song>>;
 
+export function SearchLocalSongPage(arg1:models.LocalSongSearchRequest):Promise<models.LocalSongSearchPage>;
+
 export function SearchLocalSongs(arg1:string):Promise<Array<models.Song>>;
 
 export function SearchLyrics(arg1:models.LyricSearchRequest):Promise<models.LyricSearchTask>;
@@ -160,6 +182,8 @@ export function SetCurrentTheme(arg1:string):Promise<void>;
 
 export function SetLyricOffset(arg1:string,arg2:number):Promise<models.LyricView>;
 
+export function StartBiliFavoriteImport(arg1:models.BiliFavoriteImportRequest):Promise<models.BiliFavoriteImportTask>;
+
 export function SyncFavorite(arg1:string,arg2:boolean):Promise<models.FavoriteSyncTask>;
 
 export function SyncStaleBiliFavorites(arg1:number):Promise<Array<models.PlaylistSyncStatus>>;
@@ -169,3 +193,5 @@ export function UnmaximizeWindow():Promise<void>;
 export function UpdateTheme(arg1:models.Theme):Promise<void>;
 
 export function UpsertSongs(arg1:Array<models.Song>):Promise<void>;
+
+export function UpsertSongsAndReturn(arg1:Array<models.Song>):Promise<Array<models.Song>>;

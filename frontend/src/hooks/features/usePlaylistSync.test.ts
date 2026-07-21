@@ -2,27 +2,27 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const serviceMocks = vi.hoisted(() => ({
-	listFavorites: vi.fn(),
+	listFavoriteSummaries: vi.fn(),
 	listSongs: vi.fn(),
 	syncFavorite: vi.fn(),
 	getFavoriteSyncTask: vi.fn(),
 	getFavoriteSyncStatus: vi.fn(),
 	syncStaleBiliFavorites: vi.fn(),
 	detachFavoriteSource: vi.fn(),
-	saveFavorite: vi.fn(),
+	duplicateFavorite: vi.fn(),
 }));
 
 const notificationMocks = vi.hoisted(() => ({ show: vi.fn() }));
 
 vi.mock('../../../wailsjs/go/services/Service', () => ({
-	ListFavorites: serviceMocks.listFavorites,
+	ListFavoriteSummaries: serviceMocks.listFavoriteSummaries,
 	ListSongs: serviceMocks.listSongs,
 	SyncFavorite: serviceMocks.syncFavorite,
 	GetFavoriteSyncTask: serviceMocks.getFavoriteSyncTask,
 	GetFavoriteSyncStatus: serviceMocks.getFavoriteSyncStatus,
 	SyncStaleBiliFavorites: serviceMocks.syncStaleBiliFavorites,
 	DetachFavoriteSource: serviceMocks.detachFavoriteSource,
-	SaveFavorite: serviceMocks.saveFavorite,
+	DuplicateFavorite: serviceMocks.duplicateFavorite,
 }));
 
 vi.mock('../../utils/wails', () => ({ waitForWailsRuntime: vi.fn(async () => undefined) }));
@@ -38,11 +38,11 @@ const source = {
 describe('usePlaylistSync', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		serviceMocks.listFavorites.mockResolvedValue([]);
+		serviceMocks.listFavoriteSummaries.mockResolvedValue([]);
 		serviceMocks.listSongs.mockResolvedValue([]);
 		serviceMocks.syncStaleBiliFavorites.mockResolvedValue([]);
 		serviceMocks.getFavoriteSyncStatus.mockResolvedValue({ source });
-		serviceMocks.saveFavorite.mockResolvedValue(undefined);
+		serviceMocks.duplicateFavorite.mockResolvedValue({ id: 'copy', title: 'copy', songCount: 0, createdAt: '', updatedAt: '' });
 	});
 
 	afterEach(() => {
@@ -81,20 +81,38 @@ describe('usePlaylistSync', () => {
 	});
 
 	it('polls a running task before refreshing the library', async () => {
-		serviceMocks.syncFavorite.mockResolvedValue({ id: 'task', favoriteIds: ['favorite'], status: 'queued', completedFavorites: 0, totalFavorites: 1 });
-		serviceMocks.getFavoriteSyncTask.mockResolvedValue({ id: 'task', favoriteIds: ['favorite'], status: 'succeeded', completedFavorites: 1, totalFavorites: 1 });
+		serviceMocks.syncFavorite.mockResolvedValue({ id: 'task', favoriteIds: ['favorite'], status: 'queued', completedFavorites: 0, totalFavorites: 1, progress: { stage: 'fetching' } });
+		serviceMocks.getFavoriteSyncTask.mockResolvedValue({ id: 'task', favoriteIds: ['favorite'], status: 'succeeded', completedFavorites: 1, totalFavorites: 1, progress: { stage: 'completed', completedVideoCount: 2, totalVideoCount: 2 } });
 		const setFavorites = vi.fn();
 		const setSongs = vi.fn();
 		const { result } = renderHook(() => usePlaylistSync({ setFavorites, setSongs }));
 		await act(async () => { await result.current.sync('favorite'); });
 		expect(serviceMocks.syncFavorite).toHaveBeenCalledWith('favorite', false);
 		expect(serviceMocks.getFavoriteSyncTask).toHaveBeenCalledWith('task');
-		expect(serviceMocks.listFavorites).toHaveBeenCalled();
-		expect(serviceMocks.listSongs).toHaveBeenCalled();
+		expect(serviceMocks.listFavoriteSummaries).toHaveBeenCalled();
+		expect(serviceMocks.listSongs).not.toHaveBeenCalled();
+		expect(result.current.taskByFavorite.favorite.progress).toMatchObject({ stage: 'completed', completedVideoCount: 2, totalVideoCount: 2 });
+	});
+
+	it('reports skipped resources separately without treating them as pending', async () => {
+		serviceMocks.syncFavorite.mockResolvedValue({ id: 'task', favoriteIds: ['favorite'], status: 'succeeded', completedFavorites: 1, totalFavorites: 1 });
+		serviceMocks.getFavoriteSyncStatus.mockResolvedValue({
+			source: { ...source, syncState: 'synced', remoteCount: 2 },
+			run: { addedCount: 0, removedCount: 0, skippedCount: 1, pendingCount: 0, remoteCount: 2 },
+		});
+		const { result } = renderHook(() => usePlaylistSync({ setFavorites: vi.fn(), setSongs: vi.fn() }));
+
+		await act(async () => { await result.current.sync('favorite'); });
+
+		expect(notificationMocks.show).toHaveBeenCalledWith({
+			title: '歌单同步完成',
+			message: '新增 0 首，移除 0 首，跳过 1 项，待解析 0 项',
+			color: 'green',
+		});
 	});
 
 	it('reports local-copy failures and leaves the original mirror unchanged', async () => {
-		serviceMocks.saveFavorite.mockRejectedValue(new Error('rpc: {"code":"SYNC_LOCAL_COMMIT_FAILED","message":"数据库暂时不可写","retryable":true}'));
+		serviceMocks.duplicateFavorite.mockRejectedValue(new Error('rpc: {"code":"SYNC_LOCAL_COMMIT_FAILED","message":"数据库暂时不可写","retryable":true}'));
 		const favorite = { id: 'favorite', title: 'mirror', songIds: [], source, createdAt: '', updatedAt: '' };
 		const { result } = renderHook(() => usePlaylistSync({ setFavorites: vi.fn(), setSongs: vi.fn() }));
 

@@ -3,7 +3,7 @@ import { Card, Center, Loader, Tabs } from "@mantine/core";
 import { SongDetailCard, CurrentPlaylistCard, FavoriteListCard } from "../cards";
 import { LyricErrorBoundary } from "../lyrics/LyricErrorBoundary";
 import type { LyricsPanelProps } from "../lyrics/LyricsPanel";
-import type { DerivedStyles, Favorite, PlaylistSyncStatus, Song } from "../../types";
+import type { DerivedStyles, Favorite, FavoriteSyncTask, PlaylistSyncStatus, Song } from "../../types";
 
 const LyricsPanel = lazy(() => import("../lyrics/LyricsPanel"));
 
@@ -26,7 +26,13 @@ interface MainLayoutProps {
     onSongVolumeOffsetChange?: (songId: string, offsetDb: number | null) => void;
     lyrics: LyricsPanelProps;
     currentFav: Favorite | null;
-    currentFavSongs: Song[];
+	currentFavSongs?: Song[];
+	currentFavSongTotal?: number;
+	getCurrentFavSong?: (index: number) => Song | undefined;
+	onCurrentFavVisibleRangeChange?: (startIndex: number, endIndex: number) => void;
+	currentFavSongsLoading?: boolean;
+	currentFavSongsError?: string;
+	retryCurrentFavSongs?: () => void;
     searchQuery: string;
     onSearchChange: (query: string) => void;
     onPlaySong: (song: Song) => void;
@@ -55,7 +61,8 @@ interface MainLayoutProps {
 	onDuplicateFavorite: (favorite: Favorite) => Promise<void>;
 	onLoginRequired: () => void;
     syncingFavoriteIds: Set<string>;
-    syncStatusByFavorite: Record<string, PlaylistSyncStatus>;
+	syncStatusByFavorite: Record<string, PlaylistSyncStatus>;
+	syncTaskByFavorite?: Record<string, FavoriteSyncTask>;
     componentRadius?: number;
     coverRadius?: number;
     controlBackground?: string;
@@ -120,7 +127,13 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
                             panelBackground={props.panelBackground}
                             panelStyles={props.panelStyles}
                             currentFav={props.currentFav}
-                            currentFavSongs={props.currentFavSongs}
+								currentFavSongs={props.currentFavSongs}
+								songTotal={props.currentFavSongTotal ?? props.currentFavSongs?.length}
+								getSong={props.getCurrentFavSong}
+								onVisibleRangeChange={props.onCurrentFavVisibleRangeChange}
+								isLoading={props.currentFavSongsLoading ?? false}
+								loadError={props.currentFavSongsError}
+								onRetryLoad={props.retryCurrentFavSongs}
                             currentSongId={props.currentSong?.id}
                             searchQuery={props.searchQuery}
                             onSearchChange={props.onSearchChange}
@@ -167,7 +180,8 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
 				onDuplicateFavorite={props.onDuplicateFavorite}
 				onLoginRequired={props.onLoginRequired}
                 syncingIds={props.syncingFavoriteIds}
-                syncStatusByFavorite={props.syncStatusByFavorite}
+				syncStatusByFavorite={props.syncStatusByFavorite}
+				syncTaskByFavorite={props.syncTaskByFavorite ?? {}}
                 themeColor={props.themeColor}
                 componentRadius={props.componentRadius}
                 controlBackground={props.controlBackground}

@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { Badge, Button, Checkbox, Group, Stack, Text } from '@mantine/core';
 import { Copy, LogIn, RefreshCw, Trash2 } from 'lucide-react';
-import type { DerivedStyles, Favorite, PlaylistSyncStatus } from '../../types';
+import { favoriteSongCount, type DerivedStyles, type Favorite, type FavoriteSyncTask, type PlaylistSyncStatus } from '../../types';
 import ThemedModal from '../modals/ThemedModal';
+import PlaylistTaskProgress from './PlaylistTaskProgress';
 
 interface PlaylistSyncModalProps {
     favorite: Favorite | null;
-    status?: PlaylistSyncStatus;
+	status?: PlaylistSyncStatus;
+	task?: FavoriteSyncTask;
     opened: boolean;
     syncing: boolean;
     themeColor: string;
@@ -25,7 +27,7 @@ const formatLastSync = (value?: string): string => {
     return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 };
 
-const PlaylistSyncModal: React.FC<PlaylistSyncModalProps> = ({ favorite, status, opened, syncing, themeColor, derived, onClose, onSync, onDetach, onDuplicate, onDelete, onLoginRequired }) => {
+const PlaylistSyncModal: React.FC<PlaylistSyncModalProps> = ({ favorite, status, task, opened, syncing, themeColor, derived, onClose, onSync, onDetach, onDuplicate, onDelete, onLoginRequired }) => {
     const [acknowledged, setAcknowledged] = useState(false);
 	const [deleteAcknowledged, setDeleteAcknowledged] = useState(false);
     const source = status?.source ?? favorite?.source;
@@ -45,10 +47,22 @@ const PlaylistSyncModal: React.FC<PlaylistSyncModalProps> = ({ favorite, status,
 						{source.remoteTitle && <Text size="sm" c="dimmed">远端标题：{source.remoteTitle}</Text>}
                         <Text size="sm" c="dimmed">上次同步：{formatLastSync(source.lastSyncedAt)}</Text>
 						<Text size="sm" c="dimmed">最近尝试：{formatLastSync(source.lastAttemptedAt)}</Text>
-						<Text size="sm" c="dimmed">远端 {status?.run?.remoteCount ?? source.remoteCount} 项 · 已解析 {status?.run?.resolvedCount ?? favorite.songIds.length} 首 · 本地 {favorite.songIds.length} 首</Text>
+						<Text size="sm" c="dimmed">远端 {status?.run?.remoteCount ?? source.remoteCount} 项 · 已解析 {status?.run?.resolvedCount ?? favoriteSongCount(favorite)} 首 · 本地 {favoriteSongCount(favorite)} 首</Text>
                         {source.lastErrorMessage && <Text size="sm" c="red" role="status">{source.lastErrorMessage}</Text>}
-                        {status?.run && <Text size="sm" c="dimmed">最近变化：新增 {status.run.addedCount} 首，移除 {status.run.removedCount} 首，待解析 {status.run.pendingCount} 项</Text>}
+                        {status?.run && (
+							<Text size="sm" c="dimmed">
+								最近变化：新增 {status.run.addedCount} 首，移除 {status.run.removedCount} 首，跳过 {status.run.skippedCount} 项，待解析 {status.run.pendingCount} 项
+							</Text>
+						)}
                     </Stack>
+					{syncing && task && (
+						<PlaylistTaskProgress
+							progress={task.progress}
+							themeColor={themeColor}
+							completedFavorites={task.completedFavorites}
+							totalFavorites={task.totalFavorites}
+						/>
+					)}
                     <Button leftSection={<RefreshCw size={16} />} color={themeColor} loading={syncing} onClick={() => onSync(favorite.id)}>立即同步</Button>
 					{source.syncState === 'auth-required' && <Button leftSection={<LogIn size={16} />} variant="light" color={themeColor} onClick={onLoginRequired}>重新登录</Button>}
 					<Button leftSection={<Copy size={16} />} variant="light" color={themeColor} onClick={() => { void onDuplicate(favorite).catch(() => undefined); }}>创建本地副本</Button>

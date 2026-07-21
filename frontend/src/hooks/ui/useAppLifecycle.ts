@@ -3,7 +3,7 @@ import type { MutableRefObject } from "react";
 import * as Services from "../../../wailsjs/go/services/Service";
 import { DEFAULT_THEMES } from "../../utils/constants";
 import type { Theme, Favorite, Song, UserInfo, PlayerSetting } from "../../types";
-import { convertSongs, convertFavorites, convertThemes, convertPlayerSetting, convertUserInfo } from "../../types";
+import { convertSongs, convertFavoriteSummaries, convertThemes, convertPlayerSetting, convertUserInfo } from "../../types";
 import type { PlayMode } from "../../context/types/contexts";
 import { waitForWailsRuntime } from "../../utils/wails";
 
@@ -214,12 +214,9 @@ export const useAppLifecycle = ({
                     console.warn("Seed 失败", seedErr);
                 }
 
-                const [songList, favList] = await Promise.all([
-                    Services.ListSongs(),
-                    Services.ListFavorites(),
-                ]);
-
-                const songsWithCache = convertSongs(songList).map((song) => {
+				const favList = convertFavoriteSummaries(await Services.ListFavoriteSummaries());
+				setFavorites(favList);
+				const applyCachedIntervals = (song: Song): Song => {
                     try {
                         const cacheKey = `half-beat.song.${song.id}`;
                         const cached = localStorage.getItem(cacheKey);
@@ -235,21 +232,17 @@ export const useAppLifecycle = ({
                         console.warn(`恢复歌曲 ${song.id} 缓存失败:`, err);
                     }
                     return song;
-                });
-
-                setSongs(convertSongs(songsWithCache));
-                setFavorites(convertFavorites(favList));
+				};
 
                 try {
                     const savedPlaylist = await Services.GetPlaylist();
                     if (savedPlaylist && savedPlaylist.queue) {
                         const queueIds = JSON.parse(savedPlaylist.queue || "[]");
                         if (queueIds.length > 0) {
-                            const restoredQueue = queueIds
-                                .map((id: string) => songsWithCache.find((s) => s.id === id))
-                                .filter(Boolean) as Song[];
+							const restoredQueue = convertSongs(await Services.GetSongsByIDs(queueIds)).map(applyCachedIntervals);
 
                             if (restoredQueue.length > 0) {
+								setSongs(restoredQueue);
                                 setQueue(restoredQueue);
                                 const validIndex = Math.min(savedPlaylist.currentIndex || 0, restoredQueue.length - 1);
                                 setCurrentIndex(validIndex);
@@ -266,7 +259,7 @@ export const useAppLifecycle = ({
                 try {
                     const history = await Services.GetPlayHistory();
                     if (history && history.songId) {
-                        const lastSong = songsWithCache.find((s) => s.id === history.songId);
+						const [lastSong] = convertSongs(await Services.GetSongsByIDs([history.songId])).map(applyCachedIntervals);
                         if (lastSong) {
                             if (history.favoriteId) {
                                 const favIdx = favList.findIndex((f) => f.id === history.favoriteId);
@@ -274,25 +267,18 @@ export const useAppLifecycle = ({
                                     setSelectedFavId(history.favoriteId);
                                 }
                             }
-                            const songIdx = songsWithCache.findIndex((s) => s.id === history.songId);
-                            if (songIdx >= 0) {
-                                setQueue(songsWithCache);
-                                setCurrentIndex(songIdx);
+							setSongs([lastSong]);
+								setQueue([lastSong]);
+								setCurrentIndex(0);
                                 setCurrentSong(lastSong);
                                 return;
-                            }
                         }
                     }
                 } catch (historyErr) {
                     console.warn("恢复播放历史失败", historyErr);
                 }
 
-                if (songsWithCache.length) {
-                    setQueue(songsWithCache);
-                    setCurrentIndex(0);
-                    setCurrentSong(songsWithCache[0]);
-                }
-                setStatus(songsWithCache.length ? "就绪" : "请添加歌曲");
+				setStatus("请添加歌曲");
             } catch (e: unknown) {
                 console.error(e);
                 setStatus(`错误: ${e instanceof Error ? e.message : String(e)}`);

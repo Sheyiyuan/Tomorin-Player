@@ -1,6 +1,7 @@
 import React from "react";
 import { Button, Group, Select, Stack, Text, TextInput, Loader, Switch } from "@mantine/core";
-import type { Favorite, DerivedStyles } from "../../types";
+import { favoriteSongCount, type Favorite, type DerivedStyles, type PlaylistSyncProgress } from "../../types";
+import PlaylistTaskProgress from "../playlists/PlaylistTaskProgress";
 import ThemedModal from "./ThemedModal";
 
 type CreateFavMode = "blank" | "duplicate" | "importMine" | "importFid";
@@ -26,6 +27,7 @@ interface CreateFavoriteModalProps {
     selectedMyCollectionId: number | null;
 	keepSynced: boolean;
 	isSubmitting: boolean;
+	importProgress?: PlaylistSyncProgress;
 
     onClose: () => void;
     onNameChange: (value: string) => void;
@@ -58,6 +60,7 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
     selectedMyCollectionId,
 	keepSynced,
 	isSubmitting,
+	importProgress,
 
     onClose,
     onNameChange,
@@ -131,7 +134,7 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
                     <Select
                         label="选择要复制的歌单"
                         placeholder={favorites.length ? "选择歌单" : "暂无歌单"}
-                        data={favorites.map((f) => ({ value: f.id, label: `${f.title} (${f.songIds.length} 首)` }))}
+                        data={favorites.map((f) => ({ value: f.id, label: `${f.title} (${favoriteSongCount(f)} 首)` }))}
                         value={duplicateSourceId}
                         onChange={(val) => onDuplicateSourceChange(val)}
                         searchable
@@ -196,7 +199,10 @@ const CreateFavoriteModal: React.FC<CreateFavoriteModalProps> = ({
 						/>
 						{keepSynced && <Text size="xs" c={derived?.textColorSecondary}>完整同步后，Bilibili 已移除的条目也会从本歌单移除；歌曲、歌词、封面、下载和缓存不会删除。转换为本地歌单后将永久停止同步，重新关联需要再次导入。</Text>}
 					</Stack>
-                )}
+				)}
+				{isSubmitting && importProgress && (createFavMode === "importMine" || createFavMode === "importFid") && (
+					<PlaylistTaskProgress progress={importProgress} themeColor={themeColor} />
+				)}
                 <Group justify="flex-end" mt="sm">
 					<Button variant="subtle" color={themeColor} onClick={handleClose} disabled={isSubmitting} style={{ color: derived?.textColorPrimary }}>取消</Button>
 					<Button color={themeColor} onClick={() => { void onSubmit(); }} loading={isSubmitting} disabled={isSubmitting}>确认</Button>

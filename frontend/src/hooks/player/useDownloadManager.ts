@@ -1,14 +1,14 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
-import { Song, Favorite } from '../../types';
+import { Song, Favorite, favoriteSongCount } from '../../types';
 import type { ModalName } from '../../context/types/contexts';
 
 const getErrorMessage = (error: unknown): string => error instanceof Error ? error.message : String(error);
 
 interface UseDownloadManagerProps {
     currentSong: Song | null;
-    currentFavSongs: Song[];
+	loadFavoriteSongs: (favoriteId: string) => Promise<Song[]>;
     downloadedSongIds: Set<string>;
     managingSong: Song | null;
     setStatus: (status: string) => void;
@@ -21,7 +21,7 @@ interface UseDownloadManagerProps {
 
 export const useDownloadManager = ({
     currentSong,
-    currentFavSongs,
+	loadFavoriteSongs,
     downloadedSongIds,
     managingSong,
     setStatus,
@@ -90,11 +90,12 @@ export const useDownloadManager = ({
     }, [currentSong, handleDownloadSong]);
 
     const handleDownloadAllFavorite = useCallback(async (fav: Favorite) => {
-        if (!fav || fav.songIds.length === 0) {
+		if (!fav || favoriteSongCount(fav) === 0) {
             notifications.show({ title: '无法操作', message: '歌单为空', color: 'red' });
             return;
         }
-        const songsToDownload = currentFavSongs.filter(s => !downloadedSongIds.has(s.id));
+		const favoriteSongs = await loadFavoriteSongs(fav.id);
+		const songsToDownload = favoriteSongs.filter(s => !downloadedSongIds.has(s.id));
         if (songsToDownload.length === 0) {
             notifications.show({ title: '提示', message: '所有歌曲都已下载', color: 'blue' });
             return;
@@ -119,7 +120,7 @@ export const useDownloadManager = ({
             message: `成功 ${successCount} 首，失败 ${failCount} 首`,
             color: failCount === 0 ? 'green' : 'yellow',
         });
-    }, [currentFavSongs, downloadedSongIds, setStatus, setDownloadedSongIds]);
+    }, [loadFavoriteSongs, downloadedSongIds, setStatus, setDownloadedSongIds]);
 
     const handleOpenDownloadedFile = useCallback(async () => {
         if (!managingSong) return;

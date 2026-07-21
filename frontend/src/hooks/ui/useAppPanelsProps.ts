@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import type { DerivedStyles, Favorite, PlaylistSyncStatus, Song, UserInfo } from "../../types";
+import { useCallback, useMemo } from "react";
+import type { DerivedStyles, Favorite, FavoriteSyncTask, PlaylistSyncStatus, Song, UserInfo } from "../../types";
 import type { ModalName, PlayMode, QueueItem, RepeatMode } from '../../context/types/contexts';
 import type { useLyrics } from "../features/useLyrics";
 
@@ -8,6 +8,8 @@ const NOOP_INDEX = (_index: number) => undefined;
 const NOOP_ID = (_id: string) => undefined;
 const NOOP_REORDER = (_from: string, _to: string) => undefined;
 const NOOP_SONG = (_song: Song) => undefined;
+const NOOP_RANGE = (_start: number, _end: number) => undefined;
+const EMPTY_SYNC_TASKS: Record<string, FavoriteSyncTask> = {};
 
 interface UseAppPanelsPropsParams {
     // TopBar deps
@@ -37,7 +39,13 @@ interface UseAppPanelsPropsParams {
     songVolumeOffsetDb: number | null;
     onSongVolumeOffsetChange: (songId: string, offsetDb: number | null) => void;
     currentFav: Favorite | null;
-    currentFavSongs: Song[];
+	currentFavSongs?: Song[];
+	currentFavSongTotal?: number;
+	getCurrentFavSong?: (index: number) => Song | undefined;
+	onCurrentFavVisibleRangeChange?: (startIndex: number, endIndex: number) => void;
+	currentFavSongsLoading?: boolean;
+	currentFavSongsError?: string;
+	retryCurrentFavSongs?: () => void;
     searchQuery: string;
     setSearchQuery: (val: string) => void;
     downloadedSongIds: Set<string>;
@@ -52,7 +60,7 @@ interface UseAppPanelsPropsParams {
     selectedFavId: string | null;
     setSelectedFavId: (id: string | null) => void;
     setConfirmDeleteFavId: (id: string | null) => void;
-    playSingleSong: (song: Song, songFavorite?: Favorite) => Promise<void>;
+	playSingleSong: (song: Song) => Promise<void>;
     createFavorite: () => void;
     handleEditFavorite: (fav: Favorite) => void;
     handleDeleteFavorite: (id: string) => Promise<void>;
@@ -106,6 +114,7 @@ interface UseAppPanelsPropsParams {
 	onDuplicateFavorite: (favorite: Favorite) => Promise<void>;
 	syncingFavoriteIds: Set<string>;
 	syncStatusByFavorite: Record<string, PlaylistSyncStatus>;
+	syncTaskByFavorite?: Record<string, FavoriteSyncTask>;
 	derived: DerivedStyles;
 }
 
@@ -135,7 +144,13 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
 		songVolumeOffsetDb,
 		onSongVolumeOffsetChange,
 		currentFav,
-		currentFavSongs,
+		currentFavSongs = [],
+		currentFavSongTotal = currentFavSongs.length,
+		getCurrentFavSong: getCurrentFavSongParam,
+		onCurrentFavVisibleRangeChange = NOOP_RANGE,
+		currentFavSongsLoading = false,
+		currentFavSongsError,
+		retryCurrentFavSongs = NOOP,
 		searchQuery,
 		setSearchQuery,
 		downloadedSongIds,
@@ -202,8 +217,10 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
 		onDuplicateFavorite,
 		syncingFavoriteIds,
 		syncStatusByFavorite,
+		syncTaskByFavorite = EMPTY_SYNC_TASKS,
 		derived,
 	} = params;
+	const getCurrentFavSong = useCallback((index: number) => getCurrentFavSongParam?.(index) ?? currentFavSongs[index], [currentFavSongs, getCurrentFavSongParam]);
 
 	const topBarProps = useMemo(() => ({
             userInfo,
@@ -268,13 +285,17 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
 				modalRadius: derived.modalRadius,
 			},
             currentFav,
-            currentFavSongs,
+			currentFavSongTotal,
+			getCurrentFavSong,
+			onCurrentFavVisibleRangeChange,
+			currentFavSongsLoading,
+			currentFavSongsError,
+			retryCurrentFavSongs,
             searchQuery,
             onSearchChange: setSearchQuery,
             onPlaySong: (song: Song) => {
                 // 从歌单点击歌曲时，使用 playSingleSong 避免替换当前播放队列
-                const fav = currentFav || favorites.find(f => f.songIds.some(ref => ref.songId === song.id));
-                playSingleSong(song, fav);
+				void playSingleSong(song);
             },
             onPlayNext: onPlayNextSong,
             onEnqueueLast: onEnqueueLastSong,
@@ -286,7 +307,7 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             onToggleConfirmRemove: setConfirmRemoveSongId,
             onPlayAll: () => {
                 if (currentFav) {
-                    playFavorite(currentFav);
+					void playFavorite(currentFav);
                 }
             },
             onDownloadAll: () => {
@@ -313,6 +334,7 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
 				onLoginRequired: () => openModal("loginModal"),
 				syncingFavoriteIds,
 				syncStatusByFavorite,
+				syncTaskByFavorite,
 				derived,
 			componentRadius,
 			coverRadius,
@@ -321,7 +343,7 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
 			favoriteCardBackground,
 			textColorPrimary,
 			textColorSecondary,
-		} as const), [currentSong, panelBackground, panelStyles, themeColor, computedColorScheme, placeholderCover, maxSkipLimit, formatTime, formatTimeWithMs, handleIntervalChange, handleSkipStartChange, handleSkipEndChange, handleSongInfoUpdate, globalVolumeCompensationDb, songVolumeOffsetDb, onSongVolumeOffsetChange, lyricsState.view, lyricsState.state, lyricsState.error, lyricsState.message, lyricsState.actions, getLyricProgress, onLyricSeek, controlBackground, textColorPrimary, textColorSecondary, componentRadius, derived, currentFav, currentFavSongs, searchQuery, setSearchQuery, playSingleSong, onPlayNextSong, onEnqueueLastSong, favorites, downloadedSongIds, handleDownloadSong, handleAddSongToFavorite, handleRemoveSongFromPlaylist, confirmRemoveSongId, setConfirmRemoveSongId, playFavorite, handleDownloadAllFavorite, selectedFavId, setSelectedFavId, setConfirmDeleteFavId, createFavorite, handleEditFavorite, handleDeleteFavorite, confirmDeleteFavId, onSyncFavorite, onLoadFavoriteSyncStatus, onDetachFavorite, onDuplicateFavorite, openModal, syncingFavoriteIds, syncStatusByFavorite, coverRadius, controlStyles, favoriteCardBackground]);
+		} as const), [currentSong, panelBackground, panelStyles, themeColor, computedColorScheme, placeholderCover, maxSkipLimit, formatTime, formatTimeWithMs, handleIntervalChange, handleSkipStartChange, handleSkipEndChange, handleSongInfoUpdate, globalVolumeCompensationDb, songVolumeOffsetDb, onSongVolumeOffsetChange, lyricsState.view, lyricsState.state, lyricsState.error, lyricsState.message, lyricsState.actions, getLyricProgress, onLyricSeek, controlBackground, textColorPrimary, textColorSecondary, componentRadius, derived, currentFav, currentFavSongTotal, getCurrentFavSong, onCurrentFavVisibleRangeChange, currentFavSongsLoading, currentFavSongsError, retryCurrentFavSongs, searchQuery, setSearchQuery, playSingleSong, onPlayNextSong, onEnqueueLastSong, favorites, downloadedSongIds, handleDownloadSong, handleAddSongToFavorite, handleRemoveSongFromPlaylist, confirmRemoveSongId, setConfirmRemoveSongId, playFavorite, handleDownloadAllFavorite, selectedFavId, setSelectedFavId, setConfirmDeleteFavId, createFavorite, handleEditFavorite, handleDeleteFavorite, confirmDeleteFavId, onSyncFavorite, onLoadFavoriteSyncStatus, onDetachFavorite, onDuplicateFavorite, openModal, syncingFavoriteIds, syncStatusByFavorite, syncTaskByFavorite, coverRadius, controlStyles, favoriteCardBackground]);
 
 	const controlsPanelProps = useMemo(() => ({
             themeColor,

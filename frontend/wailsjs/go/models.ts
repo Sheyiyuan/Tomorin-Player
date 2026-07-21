@@ -87,6 +87,7 @@ export namespace models {
 	    resolvedCount: number;
 	    addedCount: number;
 	    removedCount: number;
+	    skippedCount: number;
 	    pendingCount: number;
 	    errorCode: string;
 	    errorMessage: string;
@@ -107,6 +108,7 @@ export namespace models {
 	        this.resolvedCount = source["resolvedCount"];
 	        this.addedCount = source["addedCount"];
 	        this.removedCount = source["removedCount"];
+	        this.skippedCount = source["skippedCount"];
 	        this.pendingCount = source["pendingCount"];
 	        this.errorCode = source["errorCode"];
 	        this.errorMessage = source["errorMessage"];
@@ -316,6 +318,74 @@ export namespace models {
 		    return a;
 		}
 	}
+	export class PlaylistSyncProgress {
+	    stage: string;
+	    favoriteId?: string;
+	    completedVideoCount: number;
+	    totalVideoCount: number;
+	    skippedCount: number;
+
+	    static createFrom(source: any = {}) {
+	        return new PlaylistSyncProgress(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.stage = source["stage"];
+	        this.favoriteId = source["favoriteId"];
+	        this.completedVideoCount = source["completedVideoCount"];
+	        this.totalVideoCount = source["totalVideoCount"];
+	        this.skippedCount = source["skippedCount"];
+	    }
+	}
+	export class BiliFavoriteImportTask {
+	    id: string;
+	    status: string;
+	    progress: PlaylistSyncProgress;
+	    result?: BiliFavoriteImportResult;
+	    errorCode: string;
+	    errorMessage: string;
+	    retryable: boolean;
+	    errorDetails?: Record<string, string>;
+	    startedAt: time.Time;
+	    finishedAt?: time.Time;
+
+	    static createFrom(source: any = {}) {
+	        return new BiliFavoriteImportTask(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.status = source["status"];
+	        this.progress = this.convertValues(source["progress"], PlaylistSyncProgress);
+	        this.result = this.convertValues(source["result"], BiliFavoriteImportResult);
+	        this.errorCode = source["errorCode"];
+	        this.errorMessage = source["errorMessage"];
+	        this.retryable = source["retryable"];
+	        this.errorDetails = source["errorDetails"];
+	        this.startedAt = this.convertValues(source["startedAt"], time.Time);
+	        this.finishedAt = this.convertValues(source["finishedAt"], time.Time);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class BiliFavoriteInfo {
 	    bvid: string;
 	    title: string;
@@ -333,12 +403,179 @@ export namespace models {
 	    }
 	}
 
+	export class Song {
+	    id: string;
+	    bvid: string;
+	    name: string;
+	    singer: string;
+	    singerId: string;
+	    cover: string;
+	    coverLocal: string;
+	    sourceId: string;
+	    streamUrl: string;
+	    streamUrlExpiresAt: time.Time;
+	    lyric: string;
+	    lyricOffset: number;
+	    skipStartTime: number;
+	    skipEndTime: number;
+	    pageNumber: number;
+	    pageTitle: string;
+	    videoTitle: string;
+	    totalPages: number;
+	    duration: number;
+	    createdAt: time.Time;
+	    updatedAt: time.Time;
+
+	    static createFrom(source: any = {}) {
+	        return new Song(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.bvid = source["bvid"];
+	        this.name = source["name"];
+	        this.singer = source["singer"];
+	        this.singerId = source["singerId"];
+	        this.cover = source["cover"];
+	        this.coverLocal = source["coverLocal"];
+	        this.sourceId = source["sourceId"];
+	        this.streamUrl = source["streamUrl"];
+	        this.streamUrlExpiresAt = this.convertValues(source["streamUrlExpiresAt"], time.Time);
+	        this.lyric = source["lyric"];
+	        this.lyricOffset = source["lyricOffset"];
+	        this.skipStartTime = source["skipStartTime"];
+	        this.skipEndTime = source["skipEndTime"];
+	        this.pageNumber = source["pageNumber"];
+	        this.pageTitle = source["pageTitle"];
+	        this.videoTitle = source["videoTitle"];
+	        this.totalPages = source["totalPages"];
+	        this.duration = source["duration"];
+	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
+	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class FavoriteSongPage {
+	    items: Song[];
+	    total: number;
+	    offset: number;
+	    limit: number;
+	    revision: string;
+
+	    static createFrom(source: any = {}) {
+	        return new FavoriteSongPage(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.items = this.convertValues(source["items"], Song);
+	        this.total = source["total"];
+	        this.offset = source["offset"];
+	        this.limit = source["limit"];
+	        this.revision = source["revision"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class FavoriteSongPageRequest {
+	    favoriteId: string;
+	    query: string;
+	    offset: number;
+	    limit: number;
+
+	    static createFrom(source: any = {}) {
+	        return new FavoriteSongPageRequest(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.favoriteId = source["favoriteId"];
+	        this.query = source["query"];
+	        this.offset = source["offset"];
+	        this.limit = source["limit"];
+	    }
+	}
+	export class FavoriteSummary {
+	    id: string;
+	    title: string;
+	    songCount: number;
+	    source?: PlaylistSource;
+	    createdAt: time.Time;
+	    updatedAt: time.Time;
+
+	    static createFrom(source: any = {}) {
+	        return new FavoriteSummary(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.title = source["title"];
+	        this.songCount = source["songCount"];
+	        this.source = this.convertValues(source["source"], PlaylistSource);
+	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
+	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class FavoriteSyncTask {
 	    id: string;
 	    favoriteIds: string[];
 	    status: string;
 	    completedFavorites: number;
 	    totalFavorites: number;
+	    progress: PlaylistSyncProgress;
 	    result?: PlaylistSyncStatus;
 	    errorCode: string;
 	    errorMessage: string;
@@ -358,6 +595,7 @@ export namespace models {
 	        this.status = source["status"];
 	        this.completedFavorites = source["completedFavorites"];
 	        this.totalFavorites = source["totalFavorites"];
+	        this.progress = this.convertValues(source["progress"], PlaylistSyncProgress);
 	        this.result = this.convertValues(source["result"], PlaylistSyncStatus);
 	        this.errorCode = source["errorCode"];
 	        this.errorMessage = source["errorMessage"];
@@ -384,6 +622,58 @@ export namespace models {
 		    }
 		    return a;
 		}
+	}
+	export class LocalSongSearchPage {
+	    items: Song[];
+	    total: number;
+	    offset: number;
+	    limit: number;
+
+	    static createFrom(source: any = {}) {
+	        return new LocalSongSearchPage(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.items = this.convertValues(source["items"], Song);
+	        this.total = source["total"];
+	        this.offset = source["offset"];
+	        this.limit = source["limit"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class LocalSongSearchRequest {
+	    query: string;
+	    offset: number;
+	    limit: number;
+
+	    static createFrom(source: any = {}) {
+	        return new LocalSongSearchRequest(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.query = source["query"];
+	        this.offset = source["offset"];
+	        this.limit = source["limit"];
+	    }
 	}
 	export class LyricLine {
 	    startMs: number;
@@ -856,76 +1146,8 @@ export namespace models {
 	}
 
 
-	export class Song {
-	    id: string;
-	    bvid: string;
-	    name: string;
-	    singer: string;
-	    singerId: string;
-	    cover: string;
-	    coverLocal: string;
-	    sourceId: string;
-	    streamUrl: string;
-	    streamUrlExpiresAt: time.Time;
-	    lyric: string;
-	    lyricOffset: number;
-	    skipStartTime: number;
-	    skipEndTime: number;
-	    pageNumber: number;
-	    pageTitle: string;
-	    videoTitle: string;
-	    totalPages: number;
-	    duration: number;
-	    createdAt: time.Time;
-	    updatedAt: time.Time;
 
-	    static createFrom(source: any = {}) {
-	        return new Song(source);
-	    }
 
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.bvid = source["bvid"];
-	        this.name = source["name"];
-	        this.singer = source["singer"];
-	        this.singerId = source["singerId"];
-	        this.cover = source["cover"];
-	        this.coverLocal = source["coverLocal"];
-	        this.sourceId = source["sourceId"];
-	        this.streamUrl = source["streamUrl"];
-	        this.streamUrlExpiresAt = this.convertValues(source["streamUrlExpiresAt"], time.Time);
-	        this.lyric = source["lyric"];
-	        this.lyricOffset = source["lyricOffset"];
-	        this.skipStartTime = source["skipStartTime"];
-	        this.skipEndTime = source["skipEndTime"];
-	        this.pageNumber = source["pageNumber"];
-	        this.pageTitle = source["pageTitle"];
-	        this.videoTitle = source["videoTitle"];
-	        this.totalPages = source["totalPages"];
-	        this.duration = source["duration"];
-	        this.createdAt = this.convertValues(source["createdAt"], time.Time);
-	        this.updatedAt = this.convertValues(source["updatedAt"], time.Time);
-	    }
-
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
 
 	export class Theme {
 	    id: string;

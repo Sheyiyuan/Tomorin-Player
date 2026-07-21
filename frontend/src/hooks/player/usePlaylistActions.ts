@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
-import { Song, Favorite, convertFavorites, toFavoriteModel } from '../../types';
+import { Song, Favorite, convertFavoriteSummary } from '../../types';
 import type { ModalName } from '../../context/types/contexts';
 import { removeQueueItem, reorderQueue } from '../../utils/player';
 import { parseDomainError } from '../../utils/domainError';
@@ -15,7 +15,7 @@ interface UsePlaylistActionsProps {
     setCurrentSong: (song: Song | null) => void;
     setIsPlaying: (playing: boolean) => void;
     currentFav: Favorite | null;
-    setFavorites: (favorites: Favorite[]) => void;
+	setFavorites: (favorites: Favorite[] | ((current: Favorite[]) => Favorite[])) => void;
     setStatus: (status: string) => void;
     setConfirmRemoveSongId: (id: string | null) => void;
     openModal: (name: ModalName) => void;
@@ -60,13 +60,8 @@ export const usePlaylistActions = ({
     const removeSongFromPlaylist = useCallback(async (song: Song) => {
         if (!currentFav) return;
         try {
-            const updatedFav = {
-                ...currentFav,
-                songIds: currentFav.songIds.filter((ref) => ref.songId !== song.id),
-            };
-            await Services.SaveFavorite(toFavoriteModel(updatedFav));
-            const rawRefreshedFavs = await Services.ListFavorites();
-            setFavorites(convertFavorites(rawRefreshedFavs || []));
+			const updatedFavorite = convertFavoriteSummary(await Services.RemoveSongFromFavorite(currentFav.id, song.id));
+			setFavorites((favorites) => favorites.map((favorite) => favorite.id === currentFav.id ? updatedFavorite : favorite));
             setConfirmRemoveSongId(null);
             notifications.show({ title: '已移出歌单', message: song.name, color: 'green' });
         } catch (e: unknown) {

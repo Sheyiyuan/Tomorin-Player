@@ -1,8 +1,15 @@
 import { MantineProvider } from "@mantine/core";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Favorite, Song } from "../../types";
 import CurrentPlaylistCard from "./CurrentPlaylistCard";
+
+vi.mock("@tanstack/react-virtual", () => ({
+    useVirtualizer: ({ count }: { count: number }) => ({
+        getVirtualItems: () => Array.from({ length: Math.min(count, 24) }, (_, index) => ({ index, start: index * 47 })),
+        getTotalSize: () => count * 47,
+    }),
+}));
 
 const songs: Song[] = [
     {
@@ -55,5 +62,23 @@ describe("CurrentPlaylistCard", () => {
         fireEvent.click(screen.getAllByRole("button", { name: "下载歌曲" })[0]);
         expect(onDownloadSong).toHaveBeenCalledWith(songs[0]);
         expect(onPlaySong).toHaveBeenCalledTimes(1);
+    });
+
+    it("mounts only the visible window for a 10,000-song playlist", async () => {
+        const onVisibleRangeChange = vi.fn();
+        renderQueue({
+            currentFavSongs: [],
+            songTotal: 10_000,
+            getSong: (index) => index === 0 ? songs[0] : undefined,
+            onVisibleRangeChange,
+        });
+
+        const list = screen.getByRole("list", { name: "当前歌单" });
+        const rows = within(list).getAllByRole("listitem");
+        expect(rows).toHaveLength(24);
+        expect(rows[0]).toHaveAttribute("aria-current", "true");
+        expect(rows[0]).toHaveAttribute("aria-setsize", "10000");
+        expect(within(list).getByLabelText("正在加载第 2 首")).toBeInTheDocument();
+        await waitFor(() => expect(onVisibleRangeChange).toHaveBeenCalledWith(0, 23));
     });
 });

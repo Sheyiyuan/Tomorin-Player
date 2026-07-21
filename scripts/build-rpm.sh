@@ -4,7 +4,7 @@ umask 022
 
 # Half Beat Player - RPM packaging script
 # Usage: APP_VERSION=1.2.0 scripts/build-rpm.sh
-# Requirements: fpm, rpm, jq, wails, ImageMagick (for icon resize), gtk/webkit dev packages
+# Requirements: fpm, rpm, jq, wails, gtk/webkit dev packages
 
 APP_NAME="half-beat"
 APP_VERSION=${APP_VERSION:-}
@@ -20,7 +20,6 @@ fi
 
 # Ensure tools
 command -v fpm >/dev/null || { echo "fpm is required (sudo gem install fpm)" >&2; exit 1; }
-command -v convert >/dev/null || { echo "ImageMagick 'convert' is required" >&2; exit 1; }
 
 if [[ "${SKIP_APP_BUILD:-0}" != "1" ]]; then
   export APP_VERSION
@@ -31,7 +30,7 @@ if [[ "${SKIP_APP_BUILD:-0}" != "1" ]]; then
   # Temporarily patch wails.json productVersion
   BACKUP_WAILS_JSON="wails.json.bak"
   cp wails.json "$BACKUP_WAILS_JSON"
-  jq --arg ver "$APP_VERSION" '.windows.info.productVersion = $ver | .info.productVersion = $ver' wails.json > wails.json.tmp && mv wails.json.tmp wails.json
+  jq --arg ver "$APP_VERSION" '.info.productVersion = $ver' wails.json > wails.json.tmp && mv wails.json.tmp wails.json
   trap 'mv -f "$BACKUP_WAILS_JSON" wails.json 2>/dev/null || true' EXIT
 
   bash scripts/wails.sh build -clean -platform linux/amd64

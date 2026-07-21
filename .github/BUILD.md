@@ -70,6 +70,8 @@ make package-windows VERSION=1.2.0
 make package-macos VERSION=1.2.0
 ```
 
+`make check` 会验证 `build/appicon.png` 是 512x512 RGBA，并与设计源逐像素一致。Windows 打包还会读取最终 EXE 的图标资源；macOS 打包会检查 `CFBundleIconFile` 和应用包中的 `iconfile.icns`。
+
 只生成一种 Linux 包时可以使用：
 
 ```bash

@@ -13,28 +13,6 @@
     "frontend:dev:watcher": "pnpm run dev",
     "frontend:dev:serverUrl": "auto",
     "platform": "linux",
-    "linux": {
-        "icon": "assets/icons/appicon.png",
-        "windowIsTranslucent": false
-    },
-    "darwin": {
-        "icon": "build/darwin/icon.icns",
-        "bundleId": "com.sheyiyuan.half-beat",
-        "category": "public.app-category.music"
-    },
-    "windows": {
-        "icon": "build/windows/icon.ico",
-        "webviewIsTransparent": false,
-        "windowIsTranslucent": false,
-        "dropShadow": false,
-        "info": {
-            "productVersion": "${APP_VERSION}",
-            "productName": "half-beat",
-            "companyName": "Sheyiyuan",
-            "copyright": "Copyright © 2025 Sheyiyuan",
-            "comments": "基于 B站 API 的音乐播放器"
-        }
-    },
     "info": {
         "productVersion": "${APP_VERSION}",
         "productName": "half-beat",

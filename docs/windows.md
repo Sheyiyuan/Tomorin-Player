@@ -29,7 +29,9 @@
 - 提示找不到 DLL/无法启动：
   - 解决：安装 Windows 更新与 Visual C++ Redistributable（x64）
 - 图标错误：
-  - 新版本已修复。安装后如仍异常，可刷新图标缓存（重启 Explorer）。
+  - 先从任务栏取消固定旧项，从开始菜单启动新安装的应用后重新固定。
+  - 若只有资源管理器仍显示旧图标，可重新登录，或在任务管理器中重新启动“Windows 资源管理器”。
+  - 不需要删除系统图标缓存；完整排查流程见 [Windows 图标适配与排查](windows-icon-adaptation.md)。
 
 ## 命令行诊断
 
@@ -59,3 +61,6 @@ make package-windows VERSION=1.2.0 CLEAN=1
 构建脚本会：
 - 注入 `VITE_APP_VERSION` 到前端
 - 临时写入 `wails.json` 的 `productVersion`（构建后恢复）
+- 检查 Wails 标准图标源 `build/appicon.png`
+- 删除旧 `build/windows/icon.ico`，让 Wails 从标准源重新生成
+- 检查最终 EXE 的 `RT_GROUP_ICON`/`RT_ICON` 资源和六档图标像素

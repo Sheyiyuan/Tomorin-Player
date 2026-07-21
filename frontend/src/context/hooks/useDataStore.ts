@@ -40,13 +40,3 @@ export const useCurrentFavorite = () => useDataStore(state => {
     const { favorites, selectedFavId } = state.data;
     return selectedFavId ? favorites.find(f => f.id === selectedFavId) || null : null;
 });
-
-export const useCurrentFavoriteSongs = () => useDataStore(state => {
-    const { songs, favorites, selectedFavId } = state.data;
-    if (!selectedFavId) return [];
-
-    const currentFav = favorites.find(f => f.id === selectedFavId);
-    if (!currentFav) return [];
-
-    return songs.filter(s => currentFav.songIds.some(ref => ref.songId === s.id));
-});

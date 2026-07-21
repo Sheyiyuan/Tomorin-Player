@@ -3,41 +3,51 @@ import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
 import {
     convertFavorite,
-    convertFavorites,
+	convertFavoriteSummaries,
 	convertFavoriteSyncTask,
     convertPlaylistSyncStatus,
-    convertSongs,
-	toFavoriteModel,
-    type Favorite,
-    type PlaylistSyncStatus,
-    type Song,
+	type Favorite,
+	type FavoriteSyncTask,
+	type PlaylistSyncStatus,
+	type Song,
 } from '../../types';
 import { waitForWailsRuntime } from '../../utils/wails';
 import { parseDomainError } from '../../utils/domainError';
 
 interface UsePlaylistSyncOptions {
     setFavorites: (favorites: Favorite[]) => void;
-    setSongs: (songs: Song[]) => void;
+	setSongs?: (songs: Song[]) => void;
 }
 
 const waitForSyncTaskPoll = (): Promise<void> => new Promise((resolve) => {
 	window.setTimeout(resolve, 150);
 });
 
-export const usePlaylistSync = ({ setFavorites, setSongs }: UsePlaylistSyncOptions) => {
-    const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
-    const [statusByFavorite, setStatusByFavorite] = useState<Record<string, PlaylistSyncStatus>>({});
+export const usePlaylistSync = ({ setFavorites }: UsePlaylistSyncOptions) => {
+	const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
+	const [statusByFavorite, setStatusByFavorite] = useState<Record<string, PlaylistSyncStatus>>({});
+	const [taskByFavorite, setTaskByFavorite] = useState<Record<string, FavoriteSyncTask>>({});
+
+	const updateTask = useCallback((task: FavoriteSyncTask) => {
+		setTaskByFavorite((current) => {
+			const next = { ...current };
+			for (const favoriteId of task.favoriteIds) next[favoriteId] = task;
+			return next;
+		});
+	}, []);
 
     const refreshLibrary = useCallback(async () => {
-        const [favorites, songs] = await Promise.all([Services.ListFavorites(), Services.ListSongs()]);
-        setFavorites(convertFavorites(favorites ?? []));
-        setSongs(convertSongs(songs ?? []));
-    }, [setFavorites, setSongs]);
+		const favorites = await Services.ListFavoriteSummaries();
+		setFavorites(convertFavoriteSummaries(favorites ?? []));
+    }, [setFavorites]);
 
-    const sync = useCallback(async (favoriteId: string) => {
-        setSyncingIds((current) => new Set(current).add(favoriteId));
-        try {
+	const sync = useCallback(async (favoriteId: string) => {
+		let activeFavoriteIds = [favoriteId];
+		setSyncingIds((current) => new Set(current).add(favoriteId));
+		try {
 			let task = convertFavoriteSyncTask(await Services.SyncFavorite(favoriteId, false));
+			activeFavoriteIds = task.favoriteIds.length > 0 ? task.favoriteIds : activeFavoriteIds;
+			updateTask(task);
 			setSyncingIds((current) => {
 				const next = new Set(current);
 				for (const id of task.favoriteIds) next.add(id);
@@ -46,6 +56,8 @@ export const usePlaylistSync = ({ setFavorites, setSongs }: UsePlaylistSyncOptio
 			while (task.status === 'queued' || task.status === 'running') {
 				await waitForSyncTaskPoll();
 				task = convertFavoriteSyncTask(await Services.GetFavoriteSyncTask(task.id));
+				activeFavoriteIds = task.favoriteIds.length > 0 ? task.favoriteIds : activeFavoriteIds;
+				updateTask(task);
 			}
 			const status = convertPlaylistSyncStatus(await Services.GetFavoriteSyncStatus(favoriteId));
             setStatusByFavorite((current) => ({ ...current, [favoriteId]: status }));
@@ -63,7 +75,9 @@ export const usePlaylistSync = ({ setFavorites, setSongs }: UsePlaylistSyncOptio
             await refreshLibrary();
             notifications.show({
                 title: status.run?.pendingCount ? '同步完成，部分曲目待解析' : '歌单同步完成',
-                message: status.run ? `新增 ${status.run.addedCount} 首，移除 ${status.run.removedCount} 首` : '',
+				message: status.run
+					? `新增 ${status.run.addedCount} 首，移除 ${status.run.removedCount} 首，跳过 ${status.run.skippedCount} 项，待解析 ${status.run.pendingCount} 项`
+					: '',
                 color: status.run?.pendingCount ? 'yellow' : 'green',
             });
         } catch (cause) {
@@ -75,14 +89,14 @@ export const usePlaylistSync = ({ setFavorites, setSongs }: UsePlaylistSyncOptio
 				message: parsed.message,
 				color: parsed.code === 'SYNC_RATE_LIMITED' ? 'yellow' : 'red',
 			});
-        } finally {
-            setSyncingIds((current) => {
-                const next = new Set(current);
-                next.delete(favoriteId);
-                return next;
-            });
-        }
-    }, [refreshLibrary]);
+		} finally {
+			setSyncingIds((current) => {
+				const next = new Set(current);
+				for (const id of activeFavoriteIds) next.delete(id);
+				return next;
+			});
+		}
+	}, [refreshLibrary, updateTask]);
 
 	const loadStatus = useCallback(async (favoriteId: string) => {
 		try {
@@ -108,14 +122,7 @@ export const usePlaylistSync = ({ setFavorites, setSongs }: UsePlaylistSyncOptio
 
 	const createLocalCopy = useCallback(async (favorite: Favorite) => {
 		try {
-			await Services.SaveFavorite(toFavoriteModel({
-				id: '',
-				title: `${favorite.title}（本地副本）`,
-				songIds: favorite.songIds.map((reference, position) => ({ ...reference, id: 0, favoriteId: '', position })),
-				source: undefined,
-				createdAt: new Date().toISOString(),
-				updatedAt: new Date().toISOString(),
-			}));
+			await Services.DuplicateFavorite(favorite.id, `${favorite.title}（本地副本）`);
 			await refreshLibrary();
 			notifications.show({ title: '已创建本地副本', message: favorite.title, color: 'green' });
 		} catch (cause) {
@@ -159,5 +166,5 @@ export const usePlaylistSync = ({ setFavorites, setSongs }: UsePlaylistSyncOptio
         };
     }, [refreshLibrary]);
 
-	return { syncingIds, statusByFavorite, sync, loadStatus, detach, createLocalCopy, refreshLibrary };
+	return { syncingIds, statusByFavorite, taskByFavorite, sync, loadStatus, detach, createLocalCopy, refreshLibrary };
 };

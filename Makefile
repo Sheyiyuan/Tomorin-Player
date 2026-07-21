@@ -19,7 +19,7 @@ UNAME_S := $(shell uname -s 2>/dev/null || printf 'Windows')
 
 .PHONY: help install test test-go test-frontend vet typecheck lint frontend-build \
 	check dev bindings build package package-deb package-rpm package-linux \
-	package-windows package-macos verify-linux-packages clean
+	package-windows package-macos verify-app-icon verify-linux-packages clean
 
 help: ## Show available targets
 	@printf '%s\n' \
@@ -37,6 +37,7 @@ help: ## Show available targets
 		'  make package-rpm             Build an RPM package' \
 		'  make package-windows         Build Windows executable and NSIS installer' \
 		'  make package-macos           Build macOS universal app and DMG' \
+		'  make verify-app-icon         Verify the canonical Wails icon source' \
 		'  make verify-linux-packages   Verify DEB/RPM installation with Docker' \
 		'  make clean                   Remove generated build output' \
 		'' \
@@ -49,7 +50,7 @@ help: ## Show available targets
 install: ## Install frontend dependencies from the lockfile
 	$(PNPM) --dir $(FRONTEND_DIR) install --frozen-lockfile
 
-test: test-go test-frontend ## Run all automated tests
+test: verify-app-icon test-go test-frontend ## Run all automated tests
 
 test-go:
 	$(GO) test ./...
@@ -69,7 +70,7 @@ lint:
 frontend-build:
 	$(PNPM) --dir $(FRONTEND_DIR) run build
 
-check: ## Run tests, static analysis, typechecking, lint, and frontend build
+check: verify-app-icon ## Run tests, static analysis, typechecking, lint, and frontend build
 	$(PNPM) --dir $(FRONTEND_DIR) run typecheck
 	$(PNPM) --dir $(FRONTEND_DIR) run lint
 	$(PNPM) --dir $(FRONTEND_DIR) run test
@@ -77,13 +78,13 @@ check: ## Run tests, static analysis, typechecking, lint, and frontend build
 	$(GO) test ./...
 	$(GO) vet ./...
 
-dev: ## Start Wails development mode
+dev: verify-app-icon ## Start Wails development mode
 	$(WAILS_RUNNER) dev $(WAILS_ARGS)
 
 bindings: ## Regenerate frontend bindings from exported Go methods
 	$(WAILS_RUNNER) generate module
 
-build: ## Build the application for the current platform
+build: verify-app-icon ## Build the application for the current platform
 	APP_VERSION="$(VERSION)" VITE_APP_VERSION="$(VERSION)" \
 		$(WAILS_RUNNER) build $(WAILS_CLEAN_FLAG) $(WAILS_ARGS)
 
@@ -116,8 +117,12 @@ endif
 package-macos: ## Build a universal macOS app and DMG
 	APP_VERSION="$(VERSION)" bash scripts/build-macos.sh $(CLEAN_FLAG)
 
+verify-app-icon: ## Verify build/appicon.png before Wails reads it
+	$(GO) run ./scripts/verify-app-icon
+
 verify-linux-packages: ## Install and remove DEB/RPM packages in clean containers
 	bash scripts/verify-linux-packages.sh "$(ARTIFACT_ROOT)"
 
 clean: ## Remove generated build output
-	rm -rf build frontend/dist frontend/package.json.md5 wails.json.tmp wails.json.bak
+	rm -rf build/bin build/darwin build/windows build/deb build/rpm \
+		frontend/dist frontend/package.json.md5 wails.json.tmp wails.json.bak

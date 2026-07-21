@@ -1,10 +1,16 @@
 import { MantineProvider } from '@mantine/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Favorite, Song } from '../../types';
 import CurrentPlaylistCard from './CurrentPlaylistCard';
 import FavoriteListCard from './FavoriteListCard';
 import AddToFavoriteModal from '../modals/AddToFavoriteModal';
+
+const serviceMocks = vi.hoisted(() => ({ getFavoriteMemberships: vi.fn() }));
+
+vi.mock('../../../wailsjs/go/services/Service', () => ({
+	GetFavoriteMemberships: serviceMocks.getFavoriteMemberships,
+}));
 
 const song: Song = {
     id: 'song', bvid: 'BV1xx411c7mD', name: 'Song', singer: 'Singer', singerId: '', cover: '', coverLocal: '', sourceId: '',
@@ -18,6 +24,9 @@ const favorite: Favorite = {
 };
 
 describe('locked playlists', () => {
+	beforeEach(() => {
+		serviceMocks.getFavoriteMemberships.mockResolvedValue([]);
+	});
     it('disables membership removal in the queue', () => {
         render(<MantineProvider><CurrentPlaylistCard panelBackground="#000" panelStyles={{}} currentFav={favorite} currentFavSongs={[song]} searchQuery="" onSearchChange={vi.fn()} onPlaySong={vi.fn()} themeColor="blue" downloadedSongIds={new Set()} onDownloadSong={vi.fn()} onAddSongToFavorite={vi.fn()} onRemoveSongFromPlaylist={vi.fn()} confirmRemoveSongId={null} onToggleConfirmRemove={vi.fn()} onPlayAll={vi.fn()} onDownloadAll={vi.fn()} /></MantineProvider>);
         expect(screen.getByText('只读同步')).toBeInTheDocument();
@@ -41,12 +50,13 @@ describe('locked playlists', () => {
 		expect(onDeleteFavorite).toHaveBeenCalledWith(favorite.id);
     });
 
-    it('disables locked destinations in the add-to-playlist modal', () => {
+	it('disables locked destinations in the add-to-playlist modal', async () => {
         const onAdd = vi.fn();
         const lockedTarget = { ...favorite, songIds: [] };
         render(<MantineProvider><AddToFavoriteModal opened onClose={vi.fn()} favorites={[lockedTarget]} currentSong={song} themeColor="blue" onAdd={onAdd} /></MantineProvider>);
-        const target = screen.getByRole('button', { name: 'Locked （同步歌单）' });
-        expect(target).toBeDisabled();
+		const target = screen.getByRole('button', { name: 'Locked （同步歌单）' });
+		expect(target).toBeDisabled();
+		await waitFor(() => expect(serviceMocks.getFavoriteMemberships).toHaveBeenCalledWith(song.id));
         fireEvent.click(target);
         expect(onAdd).not.toHaveBeenCalled();
     });

@@ -25,10 +25,15 @@ const (
 )
 
 type favoriteSyncCall struct {
-	done   chan struct{}
-	status models.PlaylistSyncStatus
-	err    error
+	done        chan struct{}
+	status      models.PlaylistSyncStatus
+	err         error
+	progress    models.PlaylistSyncProgress
+	hasProgress bool
+	reporters   []playlistSyncProgressReporter
 }
+
+type playlistSyncProgressReporter func(models.PlaylistSyncProgress)
 
 type favoriteSyncTaskState struct {
 	task        models.FavoriteSyncTask
@@ -38,27 +43,38 @@ type favoriteSyncTaskState struct {
 	force       bool
 }
 
+type biliFavoriteImportTaskState struct {
+	task models.BiliFavoriteImportTask
+}
+
 type favoriteSnapshotCall struct {
 	done     chan struct{}
 	snapshot favoriteSnapshot
 }
 
 type favoriteSnapshot struct {
-	info      *models.BiliFavoriteCollection
-	remote    []models.BiliFavoriteInfo
-	err       error
-	fetchedAt time.Time
+	info         *models.BiliFavoriteCollection
+	resources    []biliFavoriteResource
+	remote       []models.BiliFavoriteInfo
+	skippedCount int
+	err          error
+	fetchedAt    time.Time
 }
 
 // ImportBiliFavorite creates a playlist and performs its initial exact-mirror
 // synchronization. Unlocked imports are detached after the initial snapshot.
 func (s *Service) ImportBiliFavorite(request models.BiliFavoriteImportRequest) (models.BiliFavoriteImportResult, error) {
+	return s.importBiliFavorite(request, nil)
+}
+
+func (s *Service) importBiliFavorite(request models.BiliFavoriteImportRequest, report playlistSyncProgressReporter) (models.BiliFavoriteImportResult, error) {
 	mediaID := request.RemoteID
 	name := request.Name
 	locked := request.Locked
 	if mediaID <= 0 {
 		return models.BiliFavoriteImportResult{}, fmt.Errorf("收藏夹 ID 必须大于 0")
 	}
+	reportSyncProgress(report, models.PlaylistSyncProgress{Stage: "fetching"})
 	info, err := s.GetFavoriteCollectionInfo(mediaID)
 	if err != nil {
 		return models.BiliFavoriteImportResult{}, fmt.Errorf("获取收藏夹信息: %w", err)
@@ -90,21 +106,106 @@ func (s *Service) ImportBiliFavorite(request models.BiliFavoriteImportRequest) (
 	}); err != nil {
 		return models.BiliFavoriteImportResult{}, err
 	}
-	status, err := s.syncFavorite(favorite.ID, true)
+	status, err := s.syncFavoriteWithProgress(favorite.ID, true, report)
 	if err != nil {
 		_ = s.DeleteFavorite(favorite.ID)
 		return models.BiliFavoriteImportResult{}, err
 	}
 	if !locked {
 		if _, err := s.DetachFavoriteSource(favorite.ID, true); err != nil {
+			_ = s.DeleteFavorite(favorite.ID)
 			return models.BiliFavoriteImportResult{}, err
 		}
 	}
 	var loaded models.Favorite
 	if err := s.db.Preload("SongIDs", func(db *gorm.DB) *gorm.DB { return db.Order("position ASC, id ASC") }).Preload("Source", "locked = ?", true).First(&loaded, "id = ?", favorite.ID).Error; err != nil {
+		_ = s.DeleteFavorite(favorite.ID)
 		return models.BiliFavoriteImportResult{}, err
 	}
 	return models.BiliFavoriteImportResult{Favorite: loaded, SyncStatus: status}, nil
+}
+
+// StartBiliFavoriteImport starts an asynchronous import that can be polled for progress.
+func (s *Service) StartBiliFavoriteImport(request models.BiliFavoriteImportRequest) (models.BiliFavoriteImportTask, error) {
+	if request.RemoteID <= 0 {
+		return models.BiliFavoriteImportTask{}, fmt.Errorf("收藏夹 ID 必须大于 0")
+	}
+	taskID := uuid.NewString()
+	state := &biliFavoriteImportTaskState{task: models.BiliFavoriteImportTask{
+		ID:        taskID,
+		Status:    "queued",
+		Progress:  models.PlaylistSyncProgress{Stage: "queued"},
+		StartedAt: time.Now(),
+	}}
+	s.favoriteImportTaskMu.Lock()
+	if s.favoriteImportTasks == nil {
+		s.favoriteImportTasks = make(map[string]*biliFavoriteImportTaskState)
+	}
+	s.favoriteImportTasks[taskID] = state
+	task := copyBiliFavoriteImportTask(state.task)
+	s.favoriteImportTaskMu.Unlock()
+
+	go s.runBiliFavoriteImportTask(taskID, request)
+	return task, nil
+}
+
+// GetBiliFavoriteImportTask returns an immutable snapshot for frontend polling.
+func (s *Service) GetBiliFavoriteImportTask(taskID string) (models.BiliFavoriteImportTask, error) {
+	s.favoriteImportTaskMu.Lock()
+	defer s.favoriteImportTaskMu.Unlock()
+	state := s.favoriteImportTasks[strings.TrimSpace(taskID)]
+	if state == nil {
+		return models.BiliFavoriteImportTask{}, fmt.Errorf("导入任务不存在或已失效")
+	}
+	return copyBiliFavoriteImportTask(state.task), nil
+}
+
+func (s *Service) runBiliFavoriteImportTask(taskID string, request models.BiliFavoriteImportRequest) {
+	s.favoriteImportTaskMu.Lock()
+	state := s.favoriteImportTasks[taskID]
+	if state == nil {
+		s.favoriteImportTaskMu.Unlock()
+		return
+	}
+	state.task.Status = "running"
+	s.favoriteImportTaskMu.Unlock()
+
+	report := func(progress models.PlaylistSyncProgress) {
+		s.favoriteImportTaskMu.Lock()
+		if current := s.favoriteImportTasks[taskID]; current != nil {
+			current.task.Progress = mergePlaylistSyncProgress(current.task.Progress, progress)
+		}
+		s.favoriteImportTaskMu.Unlock()
+	}
+	result, importErr := s.importBiliFavorite(request, report)
+
+	s.favoriteImportTaskMu.Lock()
+	defer s.favoriteImportTaskMu.Unlock()
+	state = s.favoriteImportTasks[taskID]
+	if state == nil {
+		return
+	}
+	now := time.Now()
+	state.task.FinishedAt = &now
+	if importErr != nil {
+		state.task.Status = "failed"
+		state.task.ErrorCode, state.task.ErrorMessage, state.task.Retryable, state.task.ErrorDetails = taskErrorFields(importErr, ErrorCodeSyncLocalCommit)
+		return
+	}
+	state.task.Status = "succeeded"
+	state.task.Progress.Stage = "completed"
+	state.task.Progress.CompletedVideoCount = state.task.Progress.TotalVideoCount
+	state.task.Result = &result
+}
+
+func copyBiliFavoriteImportTask(source models.BiliFavoriteImportTask) models.BiliFavoriteImportTask {
+	copy := source
+	copy.ErrorDetails = cloneStringMap(source.ErrorDetails)
+	if source.Result != nil {
+		result := *source.Result
+		copy.Result = &result
+	}
+	return copy
 }
 
 // SyncFavorite starts or reuses a process-level synchronization task. Local
@@ -202,6 +303,8 @@ func (s *Service) runFavoriteSyncTask(taskID string) {
 				state.task.Status = "failed"
 			} else {
 				state.task.Status = "succeeded"
+				state.task.Progress.Stage = "completed"
+				state.task.Progress.CompletedVideoCount = state.task.Progress.TotalVideoCount
 			}
 			state.task.FinishedAt = &now
 			if s.favoriteTaskBySource[state.sourceKey] == taskID {
@@ -211,9 +314,18 @@ func (s *Service) runFavoriteSyncTask(taskID string) {
 			return
 		}
 		force := state.force
+		state.task.Progress = models.PlaylistSyncProgress{Stage: "fetching", FavoriteID: favoriteID}
 		s.favoriteTaskMu.Unlock()
 
-		status, syncErr := s.syncFavorite(favoriteID, force)
+		report := func(progress models.PlaylistSyncProgress) {
+			progress.FavoriteID = favoriteID
+			s.favoriteTaskMu.Lock()
+			if current := s.favoriteTasks[taskID]; current != nil {
+				current.task.Progress = mergePlaylistSyncProgress(current.task.Progress, progress)
+			}
+			s.favoriteTaskMu.Unlock()
+		}
+		status, syncErr := s.syncFavoriteWithProgress(favoriteID, force, report)
 		s.favoriteTaskMu.Lock()
 		state = s.favoriteTasks[taskID]
 		if state != nil {
@@ -238,17 +350,65 @@ func copyFavoriteSyncTask(source models.FavoriteSyncTask) models.FavoriteSyncTas
 	return copy
 }
 
+func reportSyncProgress(report playlistSyncProgressReporter, progress models.PlaylistSyncProgress) {
+	if report != nil {
+		report(progress)
+	}
+}
+
+func mergePlaylistSyncProgress(current, next models.PlaylistSyncProgress) models.PlaylistSyncProgress {
+	if next.Stage == "" {
+		return current
+	}
+	if current.FavoriteID == next.FavoriteID && playlistSyncStageRank(next.Stage) < playlistSyncStageRank(current.Stage) {
+		return current
+	}
+	if current.Stage == next.Stage && current.FavoriteID == next.FavoriteID && current.CompletedVideoCount > next.CompletedVideoCount {
+		next.CompletedVideoCount = current.CompletedVideoCount
+	}
+	return next
+}
+
+func playlistSyncStageRank(stage string) int {
+	switch stage {
+	case "fetching":
+		return 1
+	case "resolving":
+		return 2
+	case "committing":
+		return 3
+	case "completed":
+		return 4
+	default:
+		return 0
+	}
+}
+
 func (s *Service) syncFavorite(favoriteID string, bypassMinimumInterval bool) (models.PlaylistSyncStatus, error) {
+	return s.syncFavoriteWithProgress(favoriteID, bypassMinimumInterval, nil)
+}
+
+func (s *Service) syncFavoriteWithProgress(favoriteID string, bypassMinimumInterval bool, report playlistSyncProgressReporter) (models.PlaylistSyncStatus, error) {
 	s.favoriteSyncMu.Lock()
 	if s.favoriteSyncCalls == nil {
 		s.favoriteSyncCalls = make(map[string]*favoriteSyncCall)
 	}
 	if running := s.favoriteSyncCalls[favoriteID]; running != nil {
+		if report != nil {
+			running.reporters = append(running.reporters, report)
+		}
+		progress, hasProgress := running.progress, running.hasProgress
 		s.favoriteSyncMu.Unlock()
+		if report != nil && hasProgress {
+			report(progress)
+		}
 		<-running.done
 		return running.status, running.err
 	}
 	call := &favoriteSyncCall{done: make(chan struct{})}
+	if report != nil {
+		call.reporters = append(call.reporters, report)
+	}
 	s.favoriteSyncCalls[favoriteID] = call
 	if s.favoriteSyncSlots == nil {
 		s.favoriteSyncSlots = make(chan struct{}, 2)
@@ -257,7 +417,9 @@ func (s *Service) syncFavorite(favoriteID string, bypassMinimumInterval bool) (m
 	s.favoriteSyncMu.Unlock()
 
 	slots <- struct{}{}
-	call.status, call.err = s.executeFavoriteSync(favoriteID, bypassMinimumInterval)
+	call.status, call.err = s.executeFavoriteSync(favoriteID, bypassMinimumInterval, func(progress models.PlaylistSyncProgress) {
+		s.publishFavoriteSyncProgress(call, progress)
+	})
 	<-slots
 	s.favoriteSyncMu.Lock()
 	delete(s.favoriteSyncCalls, favoriteID)
@@ -266,7 +428,19 @@ func (s *Service) syncFavorite(favoriteID string, bypassMinimumInterval bool) (m
 	return call.status, call.err
 }
 
-func (s *Service) executeFavoriteSync(favoriteID string, bypassMinimumInterval bool) (models.PlaylistSyncStatus, error) {
+func (s *Service) publishFavoriteSyncProgress(call *favoriteSyncCall, progress models.PlaylistSyncProgress) {
+	s.favoriteSyncMu.Lock()
+	call.progress = mergePlaylistSyncProgress(call.progress, progress)
+	call.hasProgress = true
+	current := call.progress
+	reporters := append([]playlistSyncProgressReporter(nil), call.reporters...)
+	s.favoriteSyncMu.Unlock()
+	for _, report := range reporters {
+		report(current)
+	}
+}
+
+func (s *Service) executeFavoriteSync(favoriteID string, bypassMinimumInterval bool, report playlistSyncProgressReporter) (models.PlaylistSyncStatus, error) {
 	source, err := s.loadLockedPlaylistSource(favoriteID)
 	if err != nil {
 		return models.PlaylistSyncStatus{}, err
@@ -308,6 +482,7 @@ func (s *Service) executeFavoriteSync(favoriteID string, bypassMinimumInterval b
 		return models.PlaylistSyncStatus{}, err
 	}
 
+	reportSyncProgress(report, models.PlaylistSyncProgress{Stage: "fetching"})
 	snapshot := s.fetchFavoriteSnapshot(mediaID)
 	if snapshot.err != nil {
 		code := errorCodeOr(snapshot.err, ErrorCodeSyncIncomplete)
@@ -316,15 +491,22 @@ func (s *Service) executeFavoriteSync(favoriteID string, bypassMinimumInterval b
 		return status, snapshot.err
 	}
 
-	draft, err := s.preparePlaylistSync(source, snapshot.remote)
+	draft, err := s.preparePlaylistSyncWithProgress(source, snapshot.remote, snapshot.skippedCount, report)
 	if err != nil {
 		_ = s.failPlaylistSync(source.ID, run.ID, ErrorCodeSyncLocalCommit, "准备同步失败", err)
 		status, _ := s.GetFavoriteSyncStatus(favoriteID)
 		return status, domainError(ErrorCodeSyncLocalCommit, "无法准备本地同步事务", err)
 	}
-	draft.remoteCount = len(snapshot.remote)
+	draft.remoteCount = len(snapshot.resources)
+	draft.skippedCount = snapshot.skippedCount
 	draft.remoteTitle = snapshot.info.Title
-	draft.snapshotHash = snapshotHash(snapshot.remote)
+	draft.snapshotHash = snapshotHash(snapshot.resources)
+	reportSyncProgress(report, models.PlaylistSyncProgress{
+		Stage:               "committing",
+		CompletedVideoCount: draft.videoCount,
+		TotalVideoCount:     draft.videoCount,
+		SkippedCount:        snapshot.skippedCount,
+	})
 	if err := s.commitPlaylistSync(source, &run, draft); err != nil {
 		if errorCodeOr(err, "") == ErrorCodePlaylistDetached {
 			status, _ := s.GetFavoriteSyncStatus(favoriteID)
@@ -360,20 +542,21 @@ func (s *Service) fetchFavoriteSnapshot(mediaID int64) favoriteSnapshot {
 	s.favoriteSyncMu.Unlock()
 
 	info, err := s.GetFavoriteCollectionInfo(mediaID)
-	var remote []models.BiliFavoriteInfo
+	var resources []biliFavoriteResource
 	if err == nil {
-		remote, err = s.GetFavoriteCollectionBVIDs(mediaID)
+		resources, err = s.getFavoriteCollectionResources(mediaID)
 	}
 	if err == nil && info == nil {
 		err = domainError(ErrorCodeSyncIncomplete, "收藏夹元信息缺失", nil)
 	}
-	if err == nil && info.Count != len(remote) {
+	if err == nil && info.Count != len(resources) {
 		err = domainErrorWithDetails(ErrorCodeSyncIncomplete, "收藏夹声明数量与完整快照不一致", true, map[string]string{
 			"declaredCount": fmt.Sprint(info.Count),
-			"receivedCount": fmt.Sprint(len(remote)),
+			"receivedCount": fmt.Sprint(len(resources)),
 		}, nil)
 	}
-	call.snapshot = favoriteSnapshot{info: info, remote: remote, err: err, fetchedAt: time.Now()}
+	remote, skippedCount := supportedFavoriteVideos(resources)
+	call.snapshot = favoriteSnapshot{info: info, resources: resources, remote: remote, skippedCount: skippedCount, err: err, fetchedAt: time.Now()}
 
 	s.favoriteSyncMu.Lock()
 	delete(s.favoriteSnapshots, key)
@@ -390,12 +573,18 @@ type playlistSyncDraft struct {
 	items        []models.PlaylistSourceItem
 	refs         []models.SongRef
 	remoteCount  int
+	skippedCount int
 	pendingCount int
 	snapshotHash string
 	remoteTitle  string
+	videoCount   int
 }
 
 func (s *Service) preparePlaylistSync(source models.PlaylistSource, remote []models.BiliFavoriteInfo) (playlistSyncDraft, error) {
+	return s.preparePlaylistSyncWithProgress(source, remote, 0, nil)
+}
+
+func (s *Service) preparePlaylistSyncWithProgress(source models.PlaylistSource, remote []models.BiliFavoriteInfo, skippedCount int, report playlistSyncProgressReporter) (playlistSyncDraft, error) {
 	var existingItems []models.PlaylistSourceItem
 	if err := s.db.Where("source_id = ?", source.ID).Order("position ASC").Find(&existingItems).Error; err != nil {
 		return playlistSyncDraft{}, err
@@ -424,11 +613,17 @@ func (s *Service) preparePlaylistSync(source models.PlaylistSource, remote []mod
 		seenBVID[bvid] = struct{}{}
 		orderedBVIDs = append(orderedBVIDs, bvid)
 	}
+	reportSyncProgress(report, models.PlaylistSyncProgress{
+		Stage:           "resolving",
+		TotalVideoCount: len(orderedBVIDs),
+		SkippedCount:    skippedCount,
+	})
 	resolved := make(map[string]resolvedVideo, len(orderedBVIDs))
 	if len(orderedBVIDs) > 0 {
 		jobs := make(chan string)
 		var resolvedMu sync.Mutex
 		var workers sync.WaitGroup
+		completed := 0
 		workerCount := min(4, len(orderedBVIDs))
 		workers.Add(workerCount)
 		for range workerCount {
@@ -438,6 +633,13 @@ func (s *Service) preparePlaylistSync(source models.PlaylistSource, remote []mod
 					video, resolveErr := s.resolveCompleteVideoInfo(bvid)
 					resolvedMu.Lock()
 					resolved[bvid] = resolvedVideo{video: video, err: resolveErr}
+					completed++
+					reportSyncProgress(report, models.PlaylistSyncProgress{
+						Stage:               "resolving",
+						CompletedVideoCount: completed,
+						TotalVideoCount:     len(orderedBVIDs),
+						SkippedCount:        skippedCount,
+					})
 					resolvedMu.Unlock()
 				}
 			}()
@@ -449,7 +651,7 @@ func (s *Service) preparePlaylistSync(source models.PlaylistSource, remote []mod
 		workers.Wait()
 	}
 
-	draft := playlistSyncDraft{songs: []models.Song{}, items: []models.PlaylistSourceItem{}, refs: []models.SongRef{}}
+	draft := playlistSyncDraft{songs: []models.Song{}, items: []models.PlaylistSourceItem{}, refs: []models.SongRef{}, videoCount: len(orderedBVIDs)}
 	position := 0
 	for _, bvid := range orderedBVIDs {
 		resolution := resolved[bvid]
@@ -612,6 +814,7 @@ func (s *Service) commitPlaylistSync(source models.PlaylistSource, run *models.P
 		run.ResolvedCount = len(draft.refs)
 		run.AddedCount = added
 		run.RemovedCount = removed
+		run.SkippedCount = draft.skippedCount
 		run.PendingCount = draft.pendingCount
 		run.FinishedAt = &now
 		return tx.Save(run).Error
@@ -813,12 +1016,10 @@ func deterministicID(prefix, value string) string {
 	return prefix + "-" + hex.EncodeToString(sum[:12])
 }
 
-func snapshotHash(items []models.BiliFavoriteInfo) string {
+func snapshotHash(items []biliFavoriteResource) string {
 	parts := make([]string, 0, len(items))
-	for _, item := range items {
-		if item.BVID != "" {
-			parts = append(parts, item.BVID)
-		}
+	for index, item := range items {
+		parts = append(parts, fmt.Sprintf("%d:%d:%d:%s", index, item.ID, item.Type, item.BVID))
 	}
 	sum := sha256.Sum256([]byte(strings.Join(parts, "\n")))
 	return hex.EncodeToString(sum[:])

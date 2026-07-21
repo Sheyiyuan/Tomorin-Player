@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ActionIcon, AspectRatio, Badge, Button, Group, Image, Paper, ScrollArea, SegmentedControl, Stack, Tabs, Text, TextInput } from "@mantine/core";
 import { Search } from "lucide-react";
-import type { Song, Favorite, DerivedStyles } from "../../types";
+import { favoriteSongCount, type Song, type Favorite, type DerivedStyles } from "../../types";
 import { useImageProxy } from "../../hooks/ui/useImageProxy";
 import { PLACEHOLDER_COVER } from "../../utils/constants";
 import ThemedModal from "./ThemedModal";
@@ -270,7 +270,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                                                         <Text size="xs" c="dimmed" lineClamp={1}>
                                                             {item.kind === "song"
                                                                 ? item.song.singer || item.song.singerId || "未知 UP"
-                                                                : `fid: ${item.favorite.id} · 曲目数: ${item.favorite.songIds.length}`}
+                                                                : `fid: ${item.favorite.id} · 曲目数: ${favoriteSongCount(item.favorite)}`}
                                                         </Text>
                                                         {item.kind === "song" && item.song.bvid ? (
                                                             <Text size="xs" c="dimmed">BV: {item.song.bvid}</Text>
@@ -395,7 +395,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                                                         <Text size="xs" c="dimmed" lineClamp={1}>
                                                             {item.kind === "song"
                                                                 ? item.song.singer || item.song.singerId || "未知 UP"
-                                                                : `fid: ${item.favorite.id} · 曲目数: ${item.favorite.songIds.length}`}
+                                                                : `fid: ${item.favorite.id} · 曲目数: ${favoriteSongCount(item.favorite)}`}
                                                         </Text>
                                                         {item.kind === "song" && item.song.bvid ? (
                                                             <Text size="xs" c="dimmed">BV: {item.song.bvid}</Text>

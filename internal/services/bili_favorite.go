@@ -10,6 +10,12 @@ import (
 	"half-beat-player/internal/models"
 )
 
+type biliFavoriteResource struct {
+	ID   int64
+	Type int
+	BVID string
+}
+
 // GetMyFavoriteCollections 获取当前登录用户的收藏夹列表
 func (s *Service) GetMyFavoriteCollections() ([]models.BiliFavoriteCollection, error) {
 	if !s.IsLoggedIn() {
@@ -147,6 +153,16 @@ func (s *Service) GetFavoriteCollectionInfo(mediaID int64) (*models.BiliFavorite
 // GetFavoriteCollectionBVIDs 获取指定收藏夹的所有 BVID（公开收藏夹可用，无需登录）
 // 使用 /x/v3/fav/resource/ids API，一次性获取所有内容ID
 func (s *Service) GetFavoriteCollectionBVIDs(mediaID int64) ([]models.BiliFavoriteInfo, error) {
+	resources, err := s.getFavoriteCollectionResources(mediaID)
+	if err != nil {
+		return nil, err
+	}
+
+	result, _ := supportedFavoriteVideos(resources)
+	return result, nil
+}
+
+func (s *Service) getFavoriteCollectionResources(mediaID int64) ([]biliFavoriteResource, error) {
 	endpoint := s.biliAPIURL(fmt.Sprintf("/x/v3/fav/resource/ids?media_id=%d&platform=web", mediaID))
 
 	req, err := http.NewRequest("GET", endpoint, nil)
@@ -201,28 +217,28 @@ func (s *Service) GetFavoriteCollectionBVIDs(mediaID int64) ([]models.BiliFavori
 		return nil, classifyBiliFavoriteError(resp.StatusCode, res.Code, msg)
 	}
 
-	// 只返回视频类型的内容（type=2），过滤音频和视频合集
-	var result []models.BiliFavoriteInfo
+	resources := make([]biliFavoriteResource, 0, len(res.Data))
 	for _, item := range res.Data {
-		if item.Type != 2 {
+		bvid := strings.TrimSpace(item.BVID)
+		if bvid == "" {
+			bvid = strings.TrimSpace(item.BvID)
+		}
+		resources = append(resources, biliFavoriteResource{ID: item.ID, Type: item.Type, BVID: bvid})
+	}
+	return resources, nil
+}
+
+func supportedFavoriteVideos(resources []biliFavoriteResource) ([]models.BiliFavoriteInfo, int) {
+	var result []models.BiliFavoriteInfo
+	skippedCount := 0
+	for _, item := range resources {
+		if item.Type != 2 || item.BVID == "" {
+			skippedCount++
 			continue
 		}
-
-		bvid := item.BVID
-		if bvid == "" {
-			bvid = item.BvID
-		}
-
-		if bvid != "" {
-			result = append(result, models.BiliFavoriteInfo{
-				BVID:  bvid,
-				Title: "", // ids 接口不返回标题，需要后续通过解析 BV 号获取
-				Cover: "", // ids 接口不返回封面
-			})
-		}
+		result = append(result, models.BiliFavoriteInfo{BVID: item.BVID})
 	}
-
-	return result, nil
+	return result, skippedCount
 }
 
 func (s *Service) biliAPIURL(path string) string {

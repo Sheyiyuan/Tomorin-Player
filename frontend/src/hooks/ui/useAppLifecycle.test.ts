@@ -9,8 +9,9 @@ const serviceMocks = vi.hoisted(() => ({
     getPlayerSetting: vi.fn(),
     isLoggedIn: vi.fn(),
     seed: vi.fn(),
-    listSongs: vi.fn(),
-    listFavorites: vi.fn(),
+	listSongs: vi.fn(),
+	listFavoriteSummaries: vi.fn(),
+	getSongsByIDs: vi.fn(),
     getPlaylist: vi.fn(),
     getPlayHistory: vi.fn(),
 	refreshProxyURL: vi.fn(),
@@ -21,8 +22,9 @@ vi.mock('../../../wailsjs/go/services/Service', () => ({
     GetPlayerSetting: serviceMocks.getPlayerSetting,
     IsLoggedIn: serviceMocks.isLoggedIn,
     Seed: serviceMocks.seed,
-    ListSongs: serviceMocks.listSongs,
-    ListFavorites: serviceMocks.listFavorites,
+	ListSongs: serviceMocks.listSongs,
+	ListFavoriteSummaries: serviceMocks.listFavoriteSummaries,
+	GetSongsByIDs: serviceMocks.getSongsByIDs,
     GetPlaylist: serviceMocks.getPlaylist,
     GetPlayHistory: serviceMocks.getPlayHistory,
 	RefreshProxyURL: serviceMocks.refreshProxyURL,
@@ -74,7 +76,8 @@ describe('useAppLifecycle theme hydration', () => {
         serviceMocks.isLoggedIn.mockResolvedValue(false);
         serviceMocks.seed.mockResolvedValue(undefined);
         serviceMocks.listSongs.mockResolvedValue([]);
-        serviceMocks.listFavorites.mockResolvedValue([]);
+		serviceMocks.listFavoriteSummaries.mockResolvedValue([]);
+		serviceMocks.getSongsByIDs.mockResolvedValue([]);
         serviceMocks.getPlaylist.mockResolvedValue({ queue: '[]', currentIndex: 0 });
         serviceMocks.getPlayHistory.mockResolvedValue({});
 
@@ -104,7 +107,9 @@ describe('useAppLifecycle theme hydration', () => {
             skipPersistRef,
         }));
 
-        await waitFor(() => expect(saveCachedCustomThemes).toHaveBeenCalledWith([]));
+		await waitFor(() => expect(saveCachedCustomThemes).toHaveBeenCalledWith([]));
+		expect(serviceMocks.listFavoriteSummaries).toHaveBeenCalled();
+		expect(serviceMocks.listSongs).not.toHaveBeenCalled();
         const lastThemes = setThemes.mock.calls.at(-1)?.[0];
         expect(lastThemes).toHaveLength(DEFAULT_THEMES.length);
         expect(lastThemes).not.toEqual(expect.arrayContaining([

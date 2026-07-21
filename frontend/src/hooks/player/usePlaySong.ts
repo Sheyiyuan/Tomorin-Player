@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import type { Song } from '../../types';
-import { convertSongs, toSongModel } from '../../types';
+import { toSongModel } from '../../types';
 import * as Services from '../../../wailsjs/go/services/Service';
 import { shouldRefreshStream } from '../../utils/stream';
 
@@ -13,7 +13,8 @@ interface UsePlaySongProps {
     setCurrentSong: (song: Song | null) => void;
     setIsPlaying: (playing: boolean) => void;
     setStatus: (status: string) => void;
-    setSongs: (songs: Song[]) => void;
+	setSongs: (songs: Song[] | ((current: Song[]) => Song[])) => void;
+	onSongUpdated?: (song: Song) => void;
 }
 
 /**
@@ -27,8 +28,9 @@ export const usePlaySong = ({
     setCurrentIndex,
     setCurrentSong,
     setIsPlaying,
-    setStatus,
-    setSongs,
+	setStatus,
+	setSongs,
+	onSongUpdated,
 }: UsePlaySongProps) => {
     const playSong = useCallback(async (song: Song, list?: Song[]) => {
         // 注意：不在这里清除重试计数，因为重试时会再次调用这个函数
@@ -144,14 +146,14 @@ export const usePlaySong = ({
                 console.log("过期时间:", playInfo.ExpiresAt);
 
                 // 尝试保存到数据库，但如果失败也不影响播放
-                try {
-                    await Services.UpsertSongs([toSongModel(toPlay)]);
-                    const rawRefreshed = await Services.ListSongs();
-                    setSongs(convertSongs(rawRefreshed || []));
-                } catch (dbErr) {
-                    console.warn("保存到数据库失败（不影响播放）:", dbErr);
-                    // 继续使用内存中的 toPlay 继续播放
-                }
+				try {
+					await Services.UpsertSongs([toSongModel(toPlay)]);
+				} catch (dbErr) {
+					console.warn("保存到数据库失败（不影响播放）:", dbErr);
+					// 继续使用内存中的 toPlay 继续播放
+				}
+				setSongs((current) => current.map((candidate) => candidate.id === toPlay.id ? toPlay : candidate));
+				onSongUpdated?.(toPlay);
                 setStatus("就绪");
             } catch (e) {
                 const errorMsg = e instanceof Error ? e.message : '未知错误';
@@ -173,7 +175,7 @@ export const usePlaySong = ({
                 console.warn("保存播放历史失败", e);
             });
         }
-    }, [queue, selectedFavId, setQueue, setCurrentIndex, setCurrentSong, setIsPlaying, setStatus, setSongs]);
+	}, [queue, selectedFavId, setQueue, setCurrentIndex, setCurrentSong, setIsPlaying, setStatus, setSongs, onSongUpdated]);
 
     return { playSong };
 };

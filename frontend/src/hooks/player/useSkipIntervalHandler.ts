@@ -8,16 +8,18 @@ interface UseSkipIntervalHandlerProps {
     currentSong: Song | null;
     setCurrentSong: (song: Song) => void;
     setSongs: (songs: Song[] | ((prev: Song[]) => Song[])) => void;
-    setQueue: (songs: Song[] | ((prev: Song[]) => Song[])) => void;
-    saveTimerRef: React.MutableRefObject<Map<string, NodeJS.Timeout>>;
+	setQueue: (songs: Song[] | ((prev: Song[]) => Song[])) => void;
+	saveTimerRef: React.MutableRefObject<Map<string, NodeJS.Timeout>>;
+	onSongUpdated?: (song: Song) => void;
 }
 
 export const useSkipIntervalHandler = ({
     currentSong,
     setCurrentSong,
     setSongs,
-    setQueue,
-    saveTimerRef,
+	setQueue,
+	saveTimerRef,
+	onSongUpdated,
 }: UseSkipIntervalHandlerProps) => {
     const currentSongRef = useRef(currentSong);
     const persistedTimesRef = useRef(new Map<string, Pick<Song, 'skipStartTime' | 'skipEndTime'>>());
@@ -66,9 +68,10 @@ export const useSkipIntervalHandler = ({
         );
 
         // 3. 立即同步更新 queue
-        setQueue(prevQueue =>
-            prevQueue.map(s => s.id === updated.id ? updated : s)
-        );
+		setQueue(prevQueue =>
+			prevQueue.map(s => s.id === updated.id ? updated : s)
+		);
+		onSongUpdated?.(updated);
 
         // 4. 立即写入 localStorage 缓存
         cacheSkipTimes(updated.id, updated);
@@ -103,9 +106,10 @@ export const useSkipIntervalHandler = ({
                         currentSongRef.current = rolledBackSong;
                         setCurrentSong(rolledBackSong);
                     }
-                    setSongs(prevSongs => prevSongs.map(rollback));
-                    setQueue(prevQueue => prevQueue.map(rollback));
-                    cacheSkipTimes(updated.id, persisted);
+					setSongs(prevSongs => prevSongs.map(rollback));
+					setQueue(prevQueue => prevQueue.map(rollback));
+					onSongUpdated?.({ ...updated, ...persisted });
+					cacheSkipTimes(updated.id, persisted);
                 }
                 notifications.show({
                     title: "播放区间保存失败",
@@ -120,7 +124,7 @@ export const useSkipIntervalHandler = ({
         }, 500);
 
         saveTimerRef.current.set(saveKey, timer);
-    }, [setCurrentSong, setSongs, setQueue, saveTimerRef]);
+	}, [setCurrentSong, setSongs, setQueue, saveTimerRef, onSongUpdated]);
 
     const handleIntervalChange = useCallback((start: number, end: number) => {
         if (!currentSong) return;

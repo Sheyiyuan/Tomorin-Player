@@ -67,7 +67,7 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq dpkg-dev libgtk-3-dev libwebkit2gtk-4.1-dev icoutils imagemagick nsis gcc-mingw-w64-x86-64 ruby ruby-dev rubygems rpm
+          sudo apt-get install -y jq dpkg-dev libgtk-3-dev libwebkit2gtk-4.1-dev nsis gcc-mingw-w64-x86-64 ruby ruby-dev rubygems rpm
           sudo gem install --no-document fpm -v 1.17.0
 
       - name: Install Wails CLI

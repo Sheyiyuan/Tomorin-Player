@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState } from "react";
 import { ActionIcon, Badge, Card, Group, Menu, ScrollArea, Stack, Text, Tooltip } from "@mantine/core";
 import { Copy, LockKeyhole, MoreVertical, Play, Plus, RefreshCw, Settings2, Trash2 } from "lucide-react";
-import { DerivedStyles, Favorite, PlaylistSyncStatus } from "../../types";
+import { DerivedStyles, Favorite, FavoriteSyncTask, PlaylistSyncStatus, favoriteSongCount } from "../../types";
 
 const PlaylistSyncModal = lazy(() => import("../playlists/PlaylistSyncModal"));
 
@@ -23,7 +23,8 @@ export type FavoriteListCardProps = {
 	onDuplicateFavorite: (favorite: Favorite) => Promise<void>;
 	onLoginRequired: () => void;
     syncingIds: Set<string>;
-    syncStatusByFavorite: Record<string, PlaylistSyncStatus>;
+	syncStatusByFavorite: Record<string, PlaylistSyncStatus>;
+	syncTaskByFavorite?: Record<string, FavoriteSyncTask>;
     themeColor: string;
     componentRadius?: number;
     controlBackground?: string;
@@ -36,7 +37,7 @@ export type FavoriteListCardProps = {
 const FavoriteListCard: React.FC<FavoriteListCardProps> = ({
     panelBackground, panelStyles, favorites, selectedFavId, onSelectFavorite, onPlayFavorite,
     onCreateFavorite, onEditFavorite, onDeleteFavorite, onToggleConfirmDelete, confirmDeleteFavId,
-	onSyncFavorite, onLoadSyncStatus, onDetachFavorite, onDuplicateFavorite, onLoginRequired, syncingIds, syncStatusByFavorite, themeColor, componentRadius = 6,
+	onSyncFavorite, onLoadSyncStatus, onDetachFavorite, onDuplicateFavorite, onLoginRequired, syncingIds, syncStatusByFavorite, syncTaskByFavorite = {}, themeColor, componentRadius = 6,
 	favoriteCardBackground, textColorPrimary, textColorSecondary, derived,
 }) => {
     const [syncFavorite, setSyncFavorite] = useState<Favorite | null>(null);
@@ -69,7 +70,7 @@ const FavoriteListCard: React.FC<FavoriteListCardProps> = ({
 									<Tooltip label={`播放 ${favorite.title}`}><ActionIcon variant="subtle" color={themeColor} aria-label={`播放 ${favorite.title}`} onClick={(event) => { event.stopPropagation(); onPlayFavorite(favorite); }}><Play size={15} /></ActionIcon></Tooltip>
                                     <Stack gap={2} miw={0} style={{ flex: 1 }}>
 										<Group gap={5} wrap="nowrap"><Text fw={600} size="sm" c={textColorPrimary} truncate>{favorite.title}</Text>{locked && <LockKeyhole size={12} color={textColorSecondary} aria-label="同步歌单" />}</Group>
-										<Group gap={5}><Text size="xs" c={textColorSecondary}>{favorite.songIds.length} 首</Text>{locked && <Badge size="xs" variant="transparent" color={syncState === "error" ? "red" : syncState === "stale" || syncState === "auth-required" ? "yellow" : themeColor}>{syncing ? "同步中" : syncState === "auth-required" ? "需登录" : syncState === "error" ? "失败" : syncState === "stale" ? "待更新" : "已同步"}</Badge>}</Group>
+										<Group gap={5}><Text size="xs" c={textColorSecondary}>{favoriteSongCount(favorite)} 首</Text>{locked && <Badge size="xs" variant="transparent" color={syncState === "error" ? "red" : syncState === "stale" || syncState === "auth-required" ? "yellow" : themeColor}>{syncing ? "同步中" : syncState === "auth-required" ? "需登录" : syncState === "error" ? "失败" : syncState === "stale" ? "待更新" : "已同步"}</Badge>}</Group>
                                     </Stack>
                                     <Menu
 										position="bottom-end"
@@ -109,7 +110,7 @@ const FavoriteListCard: React.FC<FavoriteListCardProps> = ({
                     {favorites.length === 0 && <Text size="sm" c="dimmed" ta="center" py="xl">还没有歌单</Text>}
                 </Stack>
             </ScrollArea>
-			<Suspense fallback={null}><PlaylistSyncModal favorite={syncFavorite} status={syncFavorite ? syncStatusByFavorite[syncFavorite.id] : undefined} opened={Boolean(syncFavorite)} syncing={syncFavorite ? syncingIds.has(syncFavorite.id) : false} themeColor={themeColor} derived={derived} onClose={() => setSyncFavorite(null)} onSync={onSyncFavorite} onDetach={onDetachFavorite} onDuplicate={onDuplicateFavorite} onDelete={onDeleteFavorite} onLoginRequired={onLoginRequired} /></Suspense>
+				<Suspense fallback={null}><PlaylistSyncModal favorite={syncFavorite} status={syncFavorite ? syncStatusByFavorite[syncFavorite.id] : undefined} task={syncFavorite ? syncTaskByFavorite[syncFavorite.id] : undefined} opened={Boolean(syncFavorite)} syncing={syncFavorite ? syncingIds.has(syncFavorite.id) : false} themeColor={themeColor} derived={derived} onClose={() => setSyncFavorite(null)} onSync={onSyncFavorite} onDetach={onDetachFavorite} onDuplicate={onDuplicateFavorite} onDelete={onDeleteFavorite} onLoginRequired={onLoginRequired} /></Suspense>
         </Card>
     );
 };

@@ -47,7 +47,7 @@ if [[ "${SKIP_APP_BUILD:-0}" != "1" ]]; then
   # 临时更新 wails.json 的 productVersion
   BACKUP_WAILS_JSON="wails.json.bak"
   cp wails.json "$BACKUP_WAILS_JSON"
-  jq --arg ver "$VERSION" '.windows.info.productVersion = $ver | .info.productVersion = $ver' wails.json > wails.json.tmp && mv wails.json.tmp wails.json
+  jq --arg ver "$VERSION" '.info.productVersion = $ver' wails.json > wails.json.tmp && mv wails.json.tmp wails.json
   trap 'mv -f "$BACKUP_WAILS_JSON" wails.json 2>/dev/null || true' EXIT
 
   bash scripts/wails.sh build -clean -platform linux/amd64

@@ -1,5 +1,5 @@
 import React, { useCallback } from "react";
-import { convertFavorites, Favorite, type Song, type BVPreview, toFavoriteModel } from "../../types";
+import { convertFavoriteSummaries, convertFavoriteSummary, Favorite, type Song, type BVPreview } from "../../types";
 import { notifications } from "@mantine/notifications";
 import * as Services from "../../../wailsjs/go/services/Service";
 import { loadBackgroundFile } from "../../utils/image";
@@ -243,24 +243,14 @@ export const useAppHandlers = (config: {
         setSliceEnd(safeEnd);
     };
 
-    const handleCreateFavoriteInModal = async () => {
-        const name = newFavName.trim();
-        if (!name) return;
-        try {
-            await Services.SaveFavorite(toFavoriteModel({
-                id: "",
-                title: name,
-                songIds: [],
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            }));
-            const refreshedFavs = await Services.ListFavorites();
-            setFavorites(convertFavorites(refreshedFavs));
-            const targetId =
-                refreshedFavs.find((f) => f.title === name)?.id ||
-                refreshedFavs[refreshedFavs.length - 1]?.id ||
-                null;
-            setBvTargetFavId(targetId);
+	const handleCreateFavoriteInModal = async () => {
+		const name = newFavName.trim();
+		if (!name) return;
+		try {
+			const created = convertFavoriteSummary(await Services.CreateLocalFavorite(name));
+			const refreshedFavs = convertFavoriteSummaries(await Services.ListFavoriteSummaries());
+			setFavorites(refreshedFavs);
+			setBvTargetFavId(created.id);
             notifications.show({
                 title: "已创建歌单",
                 message: name,

@@ -7,7 +7,7 @@
 ```bash
 sudo dnf install -y ruby ruby-devel rubygems rpm-build gcc-c++ make
 sudo gem install --no-document fpm -v 1.17.0
-sudo dnf install -y ImageMagick jq
+sudo dnf install -y jq
 # Wails CLI
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 ```

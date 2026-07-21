@@ -62,9 +62,25 @@ export interface Favorite {
     id: string;
     title: string;
     songIds: SongRef[];
+	songCount?: number;
 	source?: PlaylistSource;
     createdAt: string;
     updatedAt: string;
+}
+
+export interface FavoriteSongPage {
+	items: Song[];
+	total: number;
+	offset: number;
+	limit: number;
+	revision: string;
+}
+
+export interface LocalSongSearchPage {
+	items: Song[];
+	total: number;
+	offset: number;
+	limit: number;
 }
 
 export interface LyricLine {
@@ -147,6 +163,7 @@ export interface PlaylistSyncRun {
 	resolvedCount?: number;
 	addedCount: number;
 	removedCount: number;
+	skippedCount: number;
 	pendingCount: number;
 	errorCode: string;
 	errorMessage: string;
@@ -159,13 +176,40 @@ export interface PlaylistSyncStatus {
 	run?: PlaylistSyncRun;
 }
 
+export type PlaylistSyncStage = 'queued' | 'fetching' | 'resolving' | 'committing' | 'completed';
+
+export interface PlaylistSyncProgress {
+	stage: PlaylistSyncStage;
+	favoriteId?: string;
+	completedVideoCount: number;
+	totalVideoCount: number;
+	skippedCount: number;
+}
+
 export interface FavoriteSyncTask {
 	id: string;
 	favoriteIds: string[];
 	status: 'queued' | 'running' | 'succeeded' | 'failed';
 	completedFavorites: number;
 	totalFavorites: number;
+	progress: PlaylistSyncProgress;
 	result?: PlaylistSyncStatus;
+	errorCode: string;
+	errorMessage: string;
+	retryable: boolean;
+	errorDetails: Record<string, string>;
+	startedAt: string;
+	finishedAt?: string;
+}
+
+export interface BiliFavoriteImportTask {
+	id: string;
+	status: 'queued' | 'running' | 'succeeded' | 'failed';
+	progress: PlaylistSyncProgress;
+	result?: {
+		favorite: Favorite;
+		syncStatus: PlaylistSyncStatus;
+	};
 	errorCode: string;
 	errorMessage: string;
 	retryable: boolean;
@@ -367,10 +411,45 @@ export function convertFavorite(value: unknown): Favorite {
         id: asString(f.id),
         title: asString(f.title),
         songIds: Array.isArray(f.songIds) ? f.songIds.map(convertSongRef) : [],
+		songCount: Array.isArray(f.songIds) ? f.songIds.length : asNumber(f.songCount),
 		source: f.source ? convertPlaylistSource(f.source) : undefined,
         createdAt: asString(f.createdAt),
         updatedAt: asString(f.updatedAt),
     };
+}
+
+export function convertFavoriteSummary(value: unknown): Favorite {
+	const favorite = asRecord(value);
+	return {
+		id: asString(favorite.id),
+		title: asString(favorite.title),
+		songIds: [],
+		songCount: asNumber(favorite.songCount),
+		source: favorite.source ? convertPlaylistSource(favorite.source) : undefined,
+		createdAt: asString(favorite.createdAt),
+		updatedAt: asString(favorite.updatedAt),
+	};
+}
+
+export function convertFavoriteSongPage(value: unknown): FavoriteSongPage {
+	const page = asRecord(value);
+	return {
+		items: Array.isArray(page.items) ? convertSongs(page.items) : [],
+		total: asNumber(page.total),
+		offset: asNumber(page.offset),
+		limit: asNumber(page.limit),
+		revision: asString(page.revision),
+	};
+}
+
+export function convertLocalSongSearchPage(value: unknown): LocalSongSearchPage {
+	const page = asRecord(value);
+	return {
+		items: Array.isArray(page.items) ? convertSongs(page.items) : [],
+		total: asNumber(page.total),
+		offset: asNumber(page.offset),
+		limit: asNumber(page.limit),
+	};
 }
 
 export function convertLyricLine(value: unknown): LyricLine {
@@ -466,7 +545,8 @@ export function convertPlaylistSyncRun(value: unknown): PlaylistSyncRun {
 		id: asString(run.id), sourceId: asString(run.sourceId), status: asString(run.status),
 		snapshotComplete: asBoolean(run.snapshotComplete), remoteCount: asNumber(run.remoteCount),
 		resolvedCount: asNumber(run.resolvedCount),
-		addedCount: asNumber(run.addedCount), removedCount: asNumber(run.removedCount), pendingCount: asNumber(run.pendingCount),
+		addedCount: asNumber(run.addedCount), removedCount: asNumber(run.removedCount),
+		skippedCount: asNumber(run.skippedCount), pendingCount: asNumber(run.pendingCount),
 		errorCode: asString(run.errorCode), errorMessage: asString(run.errorMessage), startedAt: asString(run.startedAt),
 		finishedAt: asOptionalString(run.finishedAt),
 	};
@@ -480,6 +560,20 @@ export function convertPlaylistSyncStatus(value: unknown): PlaylistSyncStatus {
 	};
 }
 
+export function convertPlaylistSyncProgress(value: unknown): PlaylistSyncProgress {
+	const progress = asRecord(value);
+	const stage = progress.stage === 'fetching' || progress.stage === 'resolving' || progress.stage === 'committing' || progress.stage === 'completed'
+		? progress.stage
+		: 'queued';
+	return {
+		stage,
+		favoriteId: asOptionalString(progress.favoriteId),
+		completedVideoCount: asNumber(progress.completedVideoCount),
+		totalVideoCount: asNumber(progress.totalVideoCount),
+		skippedCount: asNumber(progress.skippedCount),
+	};
+}
+
 export function convertFavoriteSyncTask(value: unknown): FavoriteSyncTask {
 	const task = asRecord(value);
 	const status = task.status === 'running' || task.status === 'succeeded' || task.status === 'failed' ? task.status : 'queued';
@@ -489,7 +583,29 @@ export function convertFavoriteSyncTask(value: unknown): FavoriteSyncTask {
 		status,
 		completedFavorites: asNumber(task.completedFavorites),
 		totalFavorites: asNumber(task.totalFavorites),
+		progress: convertPlaylistSyncProgress(task.progress),
 		result: task.result ? convertPlaylistSyncStatus(task.result) : undefined,
+		errorCode: asString(task.errorCode),
+		errorMessage: asString(task.errorMessage),
+		retryable: asBoolean(task.retryable),
+		errorDetails: asStringRecord(task.errorDetails),
+		startedAt: asString(task.startedAt),
+		finishedAt: asOptionalString(task.finishedAt),
+	};
+}
+
+export function convertBiliFavoriteImportTask(value: unknown): BiliFavoriteImportTask {
+	const task = asRecord(value);
+	const status = task.status === 'running' || task.status === 'succeeded' || task.status === 'failed' ? task.status : 'queued';
+	const result = task.result ? asRecord(task.result) : undefined;
+	return {
+		id: asString(task.id),
+		status,
+		progress: convertPlaylistSyncProgress(task.progress),
+		result: result ? {
+			favorite: convertFavorite(result.favorite),
+			syncStatus: convertPlaylistSyncStatus(result.syncStatus),
+		} : undefined,
 		errorCode: asString(task.errorCode),
 		errorMessage: asString(task.errorMessage),
 		retryable: asBoolean(task.retryable),
@@ -501,6 +617,14 @@ export function convertFavoriteSyncTask(value: unknown): FavoriteSyncTask {
 
 export function convertFavorites(favs: readonly unknown[]): Favorite[] {
     return favs.map(convertFavorite);
+}
+
+export function convertFavoriteSummaries(favorites: readonly unknown[]): Favorite[] {
+	return favorites.map(convertFavoriteSummary);
+}
+
+export function favoriteSongCount(favorite: Favorite): number {
+	return favorite.songCount ?? favorite.songIds.length;
 }
 
 export function convertTheme(value: unknown): Theme {

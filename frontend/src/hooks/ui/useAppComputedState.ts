@@ -4,15 +4,12 @@
  */
 
 import { useMemo } from 'react';
-import type { Song } from '../../types';
 
 interface UseAppComputedStateProps {
     duration: number;
     backgroundImageUrl: string;
     backgroundBlur: number;
     backgroundWithOpacity: string;
-    songs: Song[];
-    searchQuery: string;
 }
 
 export const useAppComputedState = ({
@@ -20,8 +17,6 @@ export const useAppComputedState = ({
     backgroundImageUrl,
     backgroundBlur,
     backgroundWithOpacity,
-    songs,
-    searchQuery,
 }: UseAppComputedStateProps) => {
     // 播放区间相关派生值
     const maxSkipLimit = duration > 0 ? duration : 1;
@@ -38,19 +33,8 @@ export const useAppComputedState = ({
         transform: "none",
     }), [backgroundWithOpacity, backgroundImageUrl, backgroundBlur]);
 
-    // 过滤的歌曲列表
-    const filteredSongs = useMemo(() =>
-        songs.filter((s) =>
-            searchQuery === "" ||
-            s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            s.singer.toLowerCase().includes(searchQuery.toLowerCase())
-        ),
-        [songs, searchQuery]
-    );
-
     return {
         maxSkipLimit,
         backgroundStyle,
-        filteredSongs,
     };
 };

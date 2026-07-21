@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { notifications } from '@mantine/notifications';
 import * as Services from '../../../wailsjs/go/services/Service';
-import { Song, Favorite, convertSong, convertSongs, convertFavorites, toFavoriteModel, toSongModels, type BVPreview } from '../../types';
+import { Song, Favorite, convertSong, convertSongs, convertFavoriteSummary, toSongModels, type BVPreview } from '../../types';
 import { SongClass } from '../../types';
 import { getPagePlaybackInterval, selectRemotePagesForPreview } from '../../utils/bv';
 import { parseDomainError } from '../../utils/domainError';
@@ -20,8 +20,8 @@ interface UseBVModalProps {
     setBvSinger: (singer: string) => void;
     setSliceStart: (start: number) => void;
     setSliceEnd: (end: number) => void;
-    setSongs: (songs: Song[]) => void;
-    setFavorites: (favorites: Favorite[]) => void;
+	setSongs: (songs: Song[] | ((current: Song[]) => Song[])) => void;
+	setFavorites: (favorites: Favorite[] | ((current: Favorite[]) => Favorite[])) => void;
     setSelectedFavId: (id: string | null) => void;
 }
 
@@ -103,7 +103,6 @@ export const useBVModal = ({
 
             // 2. 为每个分P创建独立流源与歌曲实例
             const newSongs: Song[] = [];
-            const createdSourceIds: string[] = [];
             const isMultiPageBatch = pagesToAdd.length > 1 && !bvPreview.singlePageOnly;
 
             for (const page of pagesToAdd) {
@@ -114,7 +113,6 @@ export const useBVModal = ({
                     playInfo.RawURL,
                     playInfo.ExpiresAt
                 );
-                createdSourceIds.push(sourceId);
                 const pageInterval = getPagePlaybackInterval(
                     isMultiPageBatch,
                     start,
@@ -147,48 +145,27 @@ export const useBVModal = ({
                 })));
             }
 
-            try {
-                await Services.UpsertSongs(toSongModels(newSongs));
-            } catch (err) {
+            let addedSongs: Song[];
+			try {
+				addedSongs = convertSongs(await Services.UpsertSongsAndReturn(toSongModels(newSongs)));
+			} catch (err) {
                 throw new Error(`保存歌曲失败: ${err instanceof Error ? err.message : String(err)}`);
             }
-
-            let refreshed: Song[] = [];
-            try {
-                const data = await Services.ListSongs();
-                refreshed = convertSongs(data);
-            } catch (err) {
-                throw new Error(`获取歌曲列表失败: ${err instanceof Error ? err.message : String(err)}`);
-            }
-
-            setSongs(refreshed);
-
-            // 每个流源只对应本次创建的一首歌曲。
-            const sourceIdSet = new Set(createdSourceIds);
-            const addedSongs = refreshed.filter((s) => sourceIdSet.has(s.sourceId));
+			setSongs((current) => {
+				const byID = new Map(current.map((song) => [song.id, song]));
+				for (const song of addedSongs) byID.set(song.id, song);
+				return [...byID.values()];
+			});
 
             if (addedSongs.length > 0 && targetFavId) {
                 const fav = favorites.find((f) => f.id === targetFavId);
                 if (fav) {
-                    const updatedFav = {
-                        ...fav,
-						songIds: [...fav.songIds, ...addedSongs.map((s, index) => ({ id: 0, songId: s.id, favoriteId: fav.id, position: fav.songIds.length + index }))],
-                    };
                     try {
-                        await Services.SaveFavorite(toFavoriteModel(updatedFav));
+						const updatedFavorite = convertFavoriteSummary(await Services.AddSongsToFavorite(fav.id, addedSongs.map((song) => song.id)));
+						setFavorites((current) => current.map((favorite) => favorite.id === fav.id ? updatedFavorite : favorite));
                     } catch (err) {
                         throw new Error(`保存歌单失败: ${err instanceof Error ? err.message : String(err)}`);
                     }
-
-                    let refreshedFavs: typeof favorites = [];
-                    try {
-                        const raw = await Services.ListFavorites();
-                        refreshedFavs = convertFavorites(raw);
-                    } catch (err) {
-                        throw new Error(`获取歌单列表失败: ${err instanceof Error ? err.message : String(err)}`);
-                    }
-
-                    setFavorites(refreshedFavs);
                     setSelectedFavId(fav.id);
                 }
             }

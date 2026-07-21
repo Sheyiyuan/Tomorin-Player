@@ -252,7 +252,7 @@ make package-macos
 │   │   └── utils/          # 工具函数 (图片处理、时间格式化)
 │   └── wailsjs/            # Wails 自动生成的 JS 绑定
 ├── scripts/                # 跨平台构建与打包脚本
-├── build/                  # 构建产物与平台特定配置 (图标、NSIS 脚本)
+├── build/                  # Wails 标准图标源与生成的构建产物
 ├── assets/                 # 静态资源
 ├── main.go                 # 应用入口，初始化服务与 Wails 运行时
 └── wails.json              # Wails 项目配置文件

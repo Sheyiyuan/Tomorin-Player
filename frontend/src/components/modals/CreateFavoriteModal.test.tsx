@@ -74,4 +74,38 @@ describe("CreateFavoriteModal", () => {
 		fireEvent.keyDown(document, { key: "Escape" });
 		expect(onClose).not.toHaveBeenCalled();
 	});
+
+	it("shows real import progress while resolving videos", () => {
+		render(
+			<MantineProvider>
+				<CreateFavoriteModal
+					opened
+					themeColor="blue"
+					favorites={[]}
+					createFavName="Mirror"
+					createFavMode="importFid"
+					duplicateSourceId={null}
+					importFid="42"
+					myCollections={[]}
+					isLoadingCollections={false}
+					selectedMyCollectionId={null}
+					keepSynced
+					isSubmitting
+					importProgress={{ stage: "resolving", completedVideoCount: 12, totalVideoCount: 40, skippedCount: 2 }}
+					onClose={vi.fn()}
+					onNameChange={vi.fn()}
+					onModeChange={vi.fn()}
+					onDuplicateSourceChange={vi.fn()}
+					onImportFidChange={vi.fn()}
+					onMyCollectionSelect={vi.fn()}
+					onFetchMyCollections={vi.fn()}
+					onKeepSyncedChange={vi.fn()}
+					onSubmit={vi.fn()}
+				/>
+			</MantineProvider>,
+		);
+
+		expect(screen.getByText("正在解析视频 12 / 40")).toBeInTheDocument();
+		expect(screen.getByText("已跳过 2 项不支持的内容")).toBeInTheDocument();
+	});
 });

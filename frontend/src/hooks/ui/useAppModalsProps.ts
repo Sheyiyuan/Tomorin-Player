@@ -22,8 +22,9 @@ interface UseAppModalsPropsParams {
     searchState: ReturnType<typeof useAppSearchState>;
     bvResolver: ReturnType<typeof useBVResolver>;
     handlers: ReturnType<typeof useAppHandlers>;
-    myFavoriteImport: ReturnType<typeof useFavoriteActions>["myFavoriteImport"];
+	myFavoriteImport: ReturnType<typeof useFavoriteActions>["myFavoriteImport"];
 	isCreatingFavorite: boolean;
+	favoriteImportProgress: ReturnType<typeof useFavoriteActions>["favoriteImportProgress"];
     favorites: Favorite[];
     currentSong: Song | null;
     pendingFavoriteSong: Song | null;
@@ -47,8 +48,9 @@ export const useAppModalsProps = ({
     searchState,
     bvResolver,
     handlers,
-    myFavoriteImport,
+	myFavoriteImport,
 	isCreatingFavorite,
+	favoriteImportProgress,
     favorites,
     currentSong,
     pendingFavoriteSong,
@@ -135,8 +137,9 @@ export const useAppModalsProps = ({
         myCollections: myFavoriteImport.myCollections,
         isLoadingCollections: myFavoriteImport.isLoading,
         selectedMyCollectionId: myFavoriteImport.selectedCollectionId,
-			keepSynced: favoritesState.keepImportedFavoriteSynced,
-			isSubmitting: isCreatingFavorite,
+				keepSynced: favoritesState.keepImportedFavoriteSynced,
+				isSubmitting: isCreatingFavorite,
+				importProgress: favoriteImportProgress,
         onNameChange: favoritesState.setCreateFavName,
         onModeChange: favoritesState.setCreateFavMode,
         onDuplicateSourceChange: favoritesState.setDuplicateSourceId,

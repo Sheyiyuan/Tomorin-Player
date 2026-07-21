@@ -1,5 +1,6 @@
 # Build directories
-build/
+build/*
+!build/appicon.png
 frontend/dist/
 
 # IDE
@@ -50,6 +51,7 @@ lerna-debug.log*
 # Wails
 .wails/
 *.wails.json.bak
+frontend/package.json.md5
 
 # Misc
 .cache/

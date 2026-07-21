@@ -6,7 +6,7 @@
 
 **基于 B站 API 的音乐播放器，实现电脑上的「听视频」自由**
 
-当前版本：v1.1.0（2026-01-18）
+当前版本：v1.2.0（2026-02-05）
 
 _使用 Wails v2 构建的跨平台桌面应用_
 
@@ -92,14 +92,46 @@ _使用 Wails v2 构建的跨平台桌面应用_
 
 为了提供核心功能，本项目会在本地存储以下数据：
 
-- **数据目录**：通常位于系统的用户配置目录下（如 Linux 的 `~/.config/half-beat/`，Windows 的 `AppData/Roaming/half-beat/`）。
-- **登录凭证**：B 站登录后的 Cookie 信息加密存储于本地 `sessdata.json` 中，仅用于与 B 站服务器通信。
+- **数据目录**：通常位于系统用户配置目录的 `half-beat/app_data/` 下（如 Linux 的 `~/.config/half-beat/app_data/`）。
+- **登录凭证**：B 站登录后的 `SESSDATA` 保存在本地 SQLite 数据库中，仅用于与 B 站服务器通信。当前未额外加密，请保护好本机账户和数据目录。
 - **本地数据库**：歌单、歌曲元数据及应用设置存储在 `half-beat.db` (SQLite) 中。
-- **网络说明**：应用启动时会在本地运行音频代理服务器（仅监听 `127.0.0.1`），用于转发音频流以绕过防盗链限制。默认优先使用动态可用端口，旧版固定端口 `9999` 仍作为兼容回退。
+- **网络说明**：应用启动时会在本地动态选择端口运行代理服务器（仅监听 `127.0.0.1`），用于转发经过目标检查的音频和图片请求。旧版代理 URL 会在启动后刷新为当前端口和进程令牌。
 - **可靠性说明**：若播放过程中出现本地代理不可达，前端会触发后端进行最佳努力的代理自恢复，然后再重试刷新播放地址。
 - **主题图片**：用户设置的主题背景图会保存为本地缓存文件，仅保存引用路径；远程 URL 仅在用户保存主题时刷新，展示时统一走本地代理。
 
 本项目**不会**上传任何个人数据到第三方服务器（Bilibili 官方服务器除外）。
+
+---
+
+## 安装方法
+
+### 1. 下载安装包
+
+前往 [Releases 页面](https://github.com/Sheyiyuan/Half-Beat-Player/releases) 下载适合您操作系统的安装包。
+
+- **Windows**: 下载 `.exe` 安装程序并运行。
+- **macOS**: 下载 `.dmg` 文件并双击安装。
+- **Linux**: 下载 `.deb` 或 `.rpm` 包，使用以下命令安装：
+
+```bash
+# Debian/Ubuntu
+sudo dpkg -i half-beat_<version>_amd64.deb
+sudo apt-get install -f  # 修复依赖
+
+# Fedora/RHEL
+sudo rpm -i half-beat-<version>-<release>.x86_64.rpm
+```
+
+### 2. Arch 用户
+
+Arch Linux 用户可以通过 AUR 安装 `half-beat-bin` 包：
+
+```bash
+# yay
+yay -S half-beat-bin
+# paru
+paru -S half-beat-bin
+```
 
 ---
 
@@ -108,21 +140,28 @@ _使用 Wails v2 构建的跨平台桌面应用_
 ### 前置要求
 
 - **Go**: 1.22+
-- **Node.js**: 18+
-- **pnpm**: 8+
-- **Wails**: v2.11+
+- **Node.js**: 20+
+- **pnpm**: 11.4.0
+- **Wails**: v2.11.0
+- **GNU Make**: 4+
 - **CGO 编译器**: (Windows 需要 gcc, Linux 需要 build-essential)
 
 ### 运行开发版
 
 ```bash
-# 安装前端依赖
-cd frontend
-pnpm install
+# 安装固定版本的 Wails CLI
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 
-# 返回根目录启动开发模式
-cd ..
-wails dev
+# 安装前端依赖并启动开发模式
+make install
+make dev
+```
+
+运行测试或完整质量检查：
+
+```bash
+make test
+make check
 ```
 
 ---
@@ -131,32 +170,35 @@ wails dev
 
 ### 基础构建
 
-使用 Wails CLI 构建当前平台的可执行文件：
+构建当前平台的可执行文件：
 
 ```bash
-wails build
+make build
 ```
 
-### 脚本化打包 (推荐)
+`scripts/wails.sh` 会定位 Wails CLI，并在 Linux 上自动选择 WebKitGTK 4.0/4.1 构建标签。
 
-项目提供了自动化脚本，支持版本注入和多平台打包。
+### 统一打包入口
+
+Makefile 统一调用现有平台脚本，支持版本注入和多平台打包。直接执行 `make package` 会选择当前主机平台。
 
 #### 1. 设置版本号 (可选)
 
-可以通过环境变量注入版本号，否则将从 `frontend/package.json` 读取：
+可以通过 Make 变量注入版本号，否则将从 `frontend/package.json` 读取：
 
 ```bash
-export APP_VERSION=1.1.0
+make package VERSION=1.2.0
 ```
 
 #### 2. Linux 打包 (DEB/RPM)
 
 ```bash
-# 构建 DEB 包 (Debian/Ubuntu)
-./scripts/build-deb.sh
+# 一次编译，同时生成 DEB 和 RPM
+make package-linux
 
-# 构建 RPM 包 (Fedora/RHEL)
-./scripts/build-rpm.sh
+# 也可以只生成一种包
+make package-deb
+make package-rpm
 ```
 
 #### 3. Windows 打包 (NSIS)
@@ -164,18 +206,16 @@ export APP_VERSION=1.1.0
 支持在 Linux 下使用 MinGW 交叉编译：
 
 ```bash
-# 构建 NSIS 安装程序
-./scripts/windows/build-windows.sh
-
-# 清理并构建
-./scripts/windows/build-windows.sh -c
+make package-windows
 ```
 
 #### 4. macOS 打包
 
 ```bash
-./scripts/build-macos.sh
+make package-macos
 ```
+
+现有 `scripts/build-*.sh` 仍作为底层平台实现保留，日常开发和 CI 应优先使用 Make 目标。
 
 详细文档请参考：
 
@@ -183,6 +223,10 @@ export APP_VERSION=1.1.0
 - [macOS 构建与安装](docs/macos.md)
 - [Debian/Ubuntu 打包](docs/debian.md)
 - [RPM 打包](docs/rpm.md)
+- [前端架构](docs/architecture.md)
+- [性能基线](docs/performance-baseline.md)
+- [发布验证状态](docs/release-verification.md)
+- [安全设计决策](docs/security-decisions.md)
 
 ---
 
@@ -203,12 +247,12 @@ export APP_VERSION=1.1.0
 │   ├── src/
 │   │   ├── components/     # UI 组件 (Mantine v8)
 │   │   ├── hooks/          # 业务逻辑封装 (播放器控制、数据获取)
-│   │   ├── context/        # 全局状态管理 (主题、播放状态)
+│   │   ├── context/        # Player/Data/Theme/UI 四个领域 Context
 │   │   ├── api.ts          # Wails 自动生成的 Go 方法绑定调用
 │   │   └── utils/          # 工具函数 (图片处理、时间格式化)
 │   └── wailsjs/            # Wails 自动生成的 JS 绑定
 ├── scripts/                # 跨平台构建与打包脚本
-├── build/                  # 构建产物与平台特定配置 (图标、NSIS 脚本)
+├── build/                  # Wails 标准图标源与生成的构建产物
 ├── assets/                 # 静态资源
 ├── main.go                 # 应用入口，初始化服务与 Wails 运行时
 └── wails.json              # Wails 项目配置文件
@@ -227,5 +271,6 @@ export APP_VERSION=1.1.0
 
 ## 开源协议
 
-- 本项目**代码**部分采用 [MIT License](LICENSE) 协议开源。
-- 本项目使用的 **Logo、图标、视觉资产、文档文字内容及代码文件中与软件功能无关的文案内容**（包括但不限于 README 中的个人说明、项目简介、代码注释等）版权归原作者所有，**不属于** MIT 协议授权范围。未经许可，禁止在其他项目或衍生作品中直接使用这些资产。
+- 本项目的**源代码与仓库文档**按 [MIT License](LICENSE) 授权。
+- 项目 Logo、应用图标和其他品牌视觉资产不包含在 MIT 授权中，除非对应文件另有明确许可。
+- Bilibili 视频、音频、封面、商标以及第三方依赖仍归各自权利人所有，不因本仓库许可证获得额外授权。

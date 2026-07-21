@@ -1,12 +1,12 @@
 /**
- * 播放器状态选择器 Hook
- * 提供细粒度的状态订阅，减少不必要的重新渲染
+ * 播放器 Context 读取 Hook。
+ * selector 只简化返回值，不会阻止 Provider 更新触发组件重渲染。
  */
 
 import { usePlayerContext } from '../contexts/PlayerContext';
 import { PlayerContextValue } from '../types/contexts';
 
-// ========== 基础选择器 Hook ==========
+// ========== 基础读取 Hook ==========
 export const usePlayerStore = <T = PlayerContextValue>(
     selector?: (state: PlayerContextValue) => T
 ): T => {
@@ -32,17 +32,15 @@ export const useDuration = () => usePlayerStore(state => state.playback.duration
 export const useQueue = () => usePlayerStore(state => state.queue);
 export const useQueueSongs = () => usePlayerStore(state => state.queue.songs);
 export const useCurrentIndex = () => usePlayerStore(state => state.queue.currentIndex);
+export const useQueueItems = () => usePlayerStore(state => state.queue.items);
+export const useCurrentQueueItemId = () => usePlayerStore(state => state.queue.currentQueueItemId);
+export const useShuffleEnabled = () => usePlayerStore(state => state.queue.shuffleEnabled);
+export const useRepeatMode = () => usePlayerStore(state => state.queue.repeatMode);
 
 // 控制选择器
 export const useControls = () => usePlayerStore(state => state.controls);
 export const useVolume = () => usePlayerStore(state => state.controls.volume);
 export const usePlayMode = () => usePlayerStore(state => state.controls.playMode);
-export const useSkipSettings = () => usePlayerStore(state => ({
-    skipStartTime: state.controls.skipStartTime,
-    skipEndTime: state.controls.skipEndTime,
-    skipEnabled: state.controls.skipEnabled,
-}));
-
 // 操作选择器
 export const usePlayerActions = () => usePlayerStore(state => state.actions);
 
@@ -64,11 +62,6 @@ export const usePlayerControls = () => usePlayerStore(state => ({
     volume: state.controls.volume,
     playMode: state.controls.playMode,
     actions: {
-        play: state.actions.play,
-        pause: state.actions.pause,
-        togglePlay: state.actions.togglePlay,
-        nextSong: state.actions.nextSong,
-        prevSong: state.actions.prevSong,
         setVolume: state.actions.setVolume,
         setPlayMode: state.actions.setPlayMode,
     },

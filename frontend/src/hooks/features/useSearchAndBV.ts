@@ -1,8 +1,9 @@
 import { useCallback } from "react";
 import { notifications } from "@mantine/notifications";
 import * as Services from "../../../wailsjs/go/services/Service";
-import { Song, Favorite, convertSongs } from "../../types";
-import type { ModalStates } from '../ui/useModalManager';
+import { Song, Favorite, convertSongs, type BVPreview } from "../../types";
+import type { ModalName } from '../../context/types/contexts';
+import { parseDomainError } from "../../utils/domainError";
 
 interface UseSearchAndBVProps {
     themeColor: string;
@@ -12,18 +13,16 @@ interface UseSearchAndBVProps {
     setGlobalSearchTerm: (term: string) => void;
     setRemoteResults: (results: Song[]) => void;
     setRemoteLoading: (loading: boolean) => void;
-    setBvPreview: (preview: any) => void;
+    setBvPreview: (preview: BVPreview | null) => void;
     setBvSongName: (name: string) => void;
     setBvSinger: (singer: string) => void;
     setBvTargetFavId: (id: string | null) => void;
-    setBvModalOpen: (open: boolean) => void;
+    openBvModal: () => void;
     setResolvingBV: (resolving: boolean) => void;
-    setIsLoggedIn: (logged: boolean) => void;
     playSingleSong: (song: Song) => void;
     playFavorite: (fav: Favorite) => void;
     setSelectedFavId: (id: string | null) => void;
-    openModal: (name: keyof ModalStates) => void;
-    closeModal: (name: keyof ModalStates) => void;
+    closeModal: (name: ModalName) => void;
 }
 
 type GlobalSearchResult = { kind: "song"; song: Song } | { kind: "favorite"; favorite: Favorite };
@@ -33,6 +32,17 @@ type RemoteSearchOptions = {
     page?: number;
     pageSize?: number;
 };
+
+interface AudioPreviewInfo {
+    title: string;
+    cover: string;
+    url: string;
+    expiresAt: unknown;
+    duration: number;
+    author: string;
+}
+
+const getExpiryString = (value: unknown): string => typeof value === 'string' ? value : '';
 
 export const useSearchAndBV = ({
     themeColor,
@@ -46,15 +56,18 @@ export const useSearchAndBV = ({
     setBvSongName,
     setBvSinger,
     setBvTargetFavId,
-    setBvModalOpen,
+    openBvModal,
     setResolvingBV,
-    setIsLoggedIn,
     playSingleSong,
     playFavorite,
     setSelectedFavId,
-    openModal,
     closeModal,
 }: UseSearchAndBVProps) => {
+	const defaultWritableFavoriteId = useCallback((): string | null => {
+		const selected = favorites.find((favorite) => favorite.id === selectedFavId);
+		if (selected && selected.source?.locked !== true) return selected.id;
+		return favorites.find((favorite) => favorite.source?.locked !== true)?.id ?? null;
+	}, [favorites, selectedFavId]);
     const normalizeRemotePages = useCallback((items: Song[]) => {
         const remoteOnly = items.filter((s) => !s.id || s.id.trim() === "");
         const seen = new Set<string>();
@@ -131,19 +144,13 @@ export const useSearchAndBV = ({
             } else {
                 // 关键字搜索：调用 SearchBiliVideos
                 try {
-                    let list: any[] = [];
-                    try {
-                        list = await (Services as any).SearchBiliVideos(term, page, pageSize, order);
-                    } catch (err) {
-                        // 兼容旧后端签名（无 order 参数）
-                        list = await (Services as any).SearchBiliVideos(term, page, pageSize);
-                    }
+                    const list = await Services.SearchBiliVideos(term, page, pageSize, order);
                     setRemoteResults(convertSongs(list || []));
                 } catch (err) {
                     console.warn("[remoteSearch] SearchBiliVideos failed:", err);
                     notifications.show({
                         title: "B站搜索失败",
-                        message: err instanceof Error ? err.message : String(err || "未知错误"),
+                        message: parseDomainError(err).message,
                         color: "orange",
                     });
                     setRemoteResults([]);
@@ -153,7 +160,7 @@ export const useSearchAndBV = ({
             console.error("[remoteSearch] Unexpected error:", e);
             notifications.show({
                 title: "搜索异常",
-                message: e instanceof Error ? e.message : "未知错误",
+                message: parseDomainError(e).message,
                 color: "red",
             });
             setRemoteResults([]);
@@ -206,7 +213,7 @@ export const useSearchAndBV = ({
                             id: "",
                             bvid,
                             name: audioProbe.title || "未命名视频",
-                            singer: (audioProbe as any).author || "",
+                            singer: audioProbe.author || "",
                             singerId: "",
                             cover: audioProbe.cover || "",
                             sourceId: "",
@@ -216,7 +223,7 @@ export const useSearchAndBV = ({
                     }
                 }
 
-                let audioInfo: any = null;
+                let audioInfo: AudioPreviewInfo | null = null;
                 try {
                     audioInfo = await Services.ResolveBiliAudio(bvid);
                 } catch (err) {
@@ -239,13 +246,13 @@ export const useSearchAndBV = ({
                     title: audioInfo?.title || "未命名视频",
                     cover: audioInfo?.cover || "",
                     url: audioInfo?.url || "",
-                    expiresAt: (audioInfo?.expiresAt as any) || "",
-                    duration: (audioInfo?.duration as any) || 0,
+                    expiresAt: getExpiryString(audioInfo?.expiresAt),
+                    duration: audioInfo?.duration || 0,
                 });
                 setBvSongName(audioInfo?.title || "未命名视频");
-                setBvSinger(((audioInfo?.author as any) || "").replace(/\s+/g, " ").trim());
-                setBvTargetFavId(selectedFavId || favorites[0]?.id || null);
-                setBvModalOpen(true);
+                setBvSinger((audioInfo?.author || "").replace(/\s+/g, " ").trim());
+				setBvTargetFavId(defaultWritableFavoriteId());
+                openBvModal();
 
                 notifications.update({
                     id: toastId,
@@ -269,14 +276,14 @@ export const useSearchAndBV = ({
                     });
                     setBvSongName(sortedResults[0]?.name || "未命名视频");
                     setBvSinger((sortedResults[0]?.singer || "").replace(/\s+/g, " ").trim());
-                    setBvTargetFavId(selectedFavId || favorites[0]?.id || null);
-                    setBvModalOpen(true);
+					setBvTargetFavId(defaultWritableFavoriteId());
+                    openBvModal();
                 }
 
                 notifications.update({
                     id: toastId,
                     title: "解析失败",
-                    message: err instanceof Error ? err.message : "未知错误",
+                    message: parseDomainError(err).message,
                     color: "red",
                     loading: false,
                     autoClose: 4000,
@@ -285,7 +292,7 @@ export const useSearchAndBV = ({
                 setResolvingBV(false);
             }
         }, 100);
-    }, [themeColor, selectedFavId, favorites, setGlobalSearchTerm, setBvPreview, setBvSongName, setBvSinger, setBvTargetFavId, setBvModalOpen, setResolvingBV, setIsLoggedIn, openModal, closeModal]);
+	}, [themeColor, defaultWritableFavoriteId, setGlobalSearchTerm, setBvPreview, setBvSongName, setBvSinger, setBvTargetFavId, openBvModal, setResolvingBV, closeModal]);
 
     const addSingleRemotePage = useCallback((page: Song) => {
         const bvid = page.bvid || "";
@@ -306,10 +313,10 @@ export const useSearchAndBV = ({
         });
         setBvSongName(page.name || page.videoTitle || "未命名分P");
         setBvSinger((page.singer || "").replace(/\s+/g, " ").trim());
-        setBvTargetFavId(selectedFavId || favorites[0]?.id || null);
-        setBvModalOpen(true);
+		setBvTargetFavId(defaultWritableFavoriteId());
+        openBvModal();
         closeModal("globalSearchModal");
-    }, [selectedFavId, favorites, setGlobalSearchTerm, setBvPreview, setBvSongName, setBvSinger, setBvTargetFavId, setBvModalOpen, closeModal]);
+	}, [defaultWritableFavoriteId, setGlobalSearchTerm, setBvPreview, setBvSongName, setBvSinger, setBvTargetFavId, openBvModal, closeModal]);
 
     const resolveBVAndAdd = useCallback(async () => {
         const term = globalSearchTerm.trim();
@@ -336,25 +343,9 @@ export const useSearchAndBV = ({
 
         let bvid = "";
         let sortedResults: Song[] = [];
-        let audioInfo: any = null;
+        let audioInfo: AudioPreviewInfo | null = null;
 
         try {
-            const loggedIn = await Services.IsLoggedIn();
-            setIsLoggedIn(loggedIn);
-            if (!loggedIn) {
-                notifications.update({
-                    id: toastId,
-                    title: "需要登录",
-                    message: "请先通过扫码登录",
-                    color: "blue",
-                    loading: false,
-                    autoClose: 3000,
-                });
-                openModal("loginModal");
-                setGlobalSearchTerm("");
-                return;
-            }
-
             bvid = term.match(bvPattern)?.[0] || "";
 
             // 尝试获取搜索结果
@@ -406,13 +397,13 @@ export const useSearchAndBV = ({
                 title: audioInfo?.title || "未命名视频",
                 cover: audioInfo?.cover || "",
                 url: audioInfo?.url || "",
-                expiresAt: (audioInfo?.expiresAt as any) || "",
-                duration: (audioInfo?.duration as any) || 0,
+                expiresAt: getExpiryString(audioInfo?.expiresAt),
+                duration: audioInfo?.duration || 0,
             });
             setBvSongName(audioInfo?.title || "未命名视频");
-            setBvSinger(((audioInfo?.author as any) || "").replace(/\s+/g, " ").trim());
-            setBvTargetFavId(selectedFavId || favorites[0]?.id || null);
-            setBvModalOpen(true);
+            setBvSinger((audioInfo?.author || "").replace(/\s+/g, " ").trim());
+			setBvTargetFavId(defaultWritableFavoriteId());
+            openBvModal();
 
             notifications.update({
                 id: toastId,
@@ -433,13 +424,13 @@ export const useSearchAndBV = ({
                     title: audioInfo?.title || sortedResults[0]?.name || "未命名视频",
                     cover: audioInfo?.cover || sortedResults[0]?.cover || "",
                     url: audioInfo?.url || "",
-                    expiresAt: (audioInfo?.expiresAt as any) || "",
-                    duration: (audioInfo?.duration as any) || 0,
+                    expiresAt: getExpiryString(audioInfo?.expiresAt),
+                    duration: audioInfo?.duration || 0,
                 });
                 setBvSongName(audioInfo?.title || sortedResults[0]?.name || "未命名视频");
-                setBvSinger(((audioInfo?.author as any) || sortedResults[0]?.singer || "").replace(/\s+/g, " ").trim());
-                setBvTargetFavId(selectedFavId || favorites[0]?.id || null);
-                setBvModalOpen(true);
+                setBvSinger((audioInfo?.author || sortedResults[0]?.singer || "").replace(/\s+/g, " ").trim());
+				setBvTargetFavId(defaultWritableFavoriteId());
+                openBvModal();
 
                 notifications.update({
                     id: toastId,
@@ -453,7 +444,7 @@ export const useSearchAndBV = ({
                 notifications.update({
                     id: toastId,
                     title: "解析失败",
-                    message: err instanceof Error ? err.message : "未知错误",
+                    message: parseDomainError(err).message,
                     color: "red",
                     loading: false,
                     autoClose: 4000,
@@ -462,7 +453,7 @@ export const useSearchAndBV = ({
         } finally {
             setResolvingBV(false);
         }
-    }, [globalSearchTerm, themeColor, selectedFavId, favorites, setGlobalSearchTerm, setBvPreview, setBvSongName, setBvSinger, setBvTargetFavId, setBvModalOpen, setResolvingBV, setIsLoggedIn, openModal, closeModal]);
+	}, [globalSearchTerm, themeColor, defaultWritableFavoriteId, setBvPreview, setBvSongName, setBvSinger, setBvTargetFavId, openBvModal, setResolvingBV, closeModal]);
 
     return {
         searchResultClick,

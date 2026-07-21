@@ -2,72 +2,56 @@ import { useEffect } from "react";
 import type { MutableRefObject } from "react";
 import * as Services from "../../../wailsjs/go/services/Service";
 import { DEFAULT_THEMES } from "../../utils/constants";
-import type { Theme, Favorite, Song } from "../../types";
-import { convertSongs, convertFavorites, convertThemes } from "../../types";
-import type { ModalStates } from './useModalManager';
+import type { Theme, Favorite, Song, UserInfo, PlayerSetting } from "../../types";
+import { convertSongs, convertFavoriteSummaries, convertThemes, convertPlayerSetting, convertUserInfo } from "../../types";
+import type { PlayMode } from "../../context/types/contexts";
 import { waitForWailsRuntime } from "../../utils/wails";
 
 interface UseAppLifecycleParams {
-    userInfo: any;
-    setUserInfo: (u: any) => void;
-    setIsLoggedIn: (v: boolean) => void;
+    setUserInfo: (u: UserInfo | null) => void;
     saveCachedCustomThemes: (themes: Theme[]) => void;
-    setSetting: (s: any) => void;
+    setSetting: (s: PlayerSetting | null) => void;
     setVolume: (v: number) => void;
-    setPlayMode: (v: any) => void;
+    setPlayMode: (v: PlayMode) => void;
+    setShuffleEnabled?: (v: boolean) => void;
+    setRepeatMode?: (v: 'all' | 'one') => void;
     setThemes: (t: Theme[]) => void;
-    setCurrentThemeId: (id: string) => void;
     applyThemeToUi: (theme: Theme) => void;
-    setThemeColor: (v: string) => void;
-    setBackgroundColor: (v: string) => void;
-    setBackgroundOpacity: (v: number) => void;
-    setBackgroundImageUrlSafe: (v: string) => void;
-    setPanelColor: (v: string) => void;
-    setPanelOpacity: (v: number) => void;
     settingsLoadedRef: MutableRefObject<boolean>;
     modalsSettingsModal: boolean;
     setCacheSize: (v: number) => void;
-    openModal: (name: keyof ModalStates) => void;
     setStatus: (v: string) => void;
     setSongs: (list: Song[]) => void;
     setFavorites: (list: Favorite[]) => void;
     setQueue: (list: Song[]) => void;
     setCurrentIndex: (idx: number) => void;
+    setPlaylistHydrated: (hydrated: boolean) => void;
     setCurrentSong: (song: Song | null) => void;
     setSelectedFavId: (id: string | null) => void;
-    setting: any;
     skipPersistRef: MutableRefObject<boolean>;
 }
 
 export const useAppLifecycle = ({
-    userInfo,
     setUserInfo,
-    setIsLoggedIn,
     saveCachedCustomThemes,
     setSetting,
     setVolume,
     setPlayMode,
+    setShuffleEnabled,
+    setRepeatMode,
     setThemes,
-    setCurrentThemeId,
     applyThemeToUi,
-    setThemeColor,
-    setBackgroundColor,
-    setBackgroundOpacity,
-    setBackgroundImageUrlSafe,
-    setPanelColor,
-    setPanelOpacity,
     settingsLoadedRef,
     modalsSettingsModal,
     setCacheSize,
-    openModal,
     setStatus,
     setSongs,
     setFavorites,
     setQueue,
     setCurrentIndex,
+    setPlaylistHydrated,
     setCurrentSong,
     setSelectedFavId,
-    setting,
     skipPersistRef,
 }: UseAppLifecycleParams) => {
     // 初始设置和主题加载
@@ -100,7 +84,7 @@ export const useAppLifecycle = ({
             }
 
             // 先加载本地主题缓存，避免后端主题加载慢/失败导致自定义主题丢失
-            const cachedCustomThemes = loadCachedCustomThemes();
+            const cachedCustomThemes = await Promise.all(loadCachedCustomThemes().map(refreshThemeProxyUrl));
             if (cachedCustomThemes.length > 0) {
                 const cachedAllThemes = [...DEFAULT_THEMES, ...cachedCustomThemes];
                 setThemes(cachedAllThemes);
@@ -113,15 +97,7 @@ export const useAppLifecycle = ({
                 }
             }
 
-            if (typeof Services.GetProxyBaseURL === "function") {
-                Services.GetProxyBaseURL()
-                    .then((baseUrl) => {
-                        if (baseUrl && baseUrl.startsWith("http://127.0.0.1:")) {
-                            localStorage.setItem("half-beat.proxyBaseUrl", baseUrl.replace(/\/$/, ""));
-                        }
-                    })
-                    .catch(() => { });
-            }
+            localStorage.removeItem("half-beat.proxyBaseUrl");
 
             try {
                 const cachedUserInfo = localStorage.getItem("half-beat.userInfo");
@@ -132,49 +108,42 @@ export const useAppLifecycle = ({
                 console.warn("恢复用户信息失败:", e);
             }
 
-            Services.IsLoggedIn()
-                .then((loggedIn) => {
-                    setIsLoggedIn(loggedIn);
-                    if (loggedIn && !userInfo) {
-                        Services.GetUserInfo()
-                            .then((info) => {
-                                setUserInfo(info);
-                                localStorage.setItem("half-beat.userInfo", JSON.stringify(info));
-                            })
-                            .catch((err) => console.warn("自动获取用户信息失败:", err));
-                    }
-                })
-                .catch((err) => {
-                    setIsLoggedIn(false);
-                    console.warn("检查登录状态失败:", err);
-                });
-
             const themesPromise = Services.GetThemes();
 
             Promise.all([Services.GetPlayerSetting(), themesPromise])
-                .then(([s, customThemesList]) => {
-                    const backendCustomThemes = convertThemes(customThemesList || []);
+                .then(async ([s, customThemesList]) => {
+                    const backendCustomThemes = await Promise.all(convertThemes(customThemesList || []).map(refreshThemeProxyUrl));
 
-                    // 仅在后端返回非空列表时更新缓存，避免覆盖掉本地已有的自定义主题
-                    if (backendCustomThemes.length > 0) {
-                        saveCachedCustomThemes(backendCustomThemes);
-                    }
-
-                    const effectiveCustomThemes = backendCustomThemes.length > 0 ? backendCustomThemes : cachedCustomThemes;
-                    setSetting(s as any);
-                    setVolume(s.config?.defaultVolume ?? 0.5);
+                    // GetThemes 成功后后端是权威数据源；空列表也代表用户已删除全部自定义主题。
+                    saveCachedCustomThemes(backendCustomThemes);
+                    const effectiveCustomThemes = backendCustomThemes;
+                    const playerSetting = convertPlayerSetting(s);
+                    setSetting(playerSetting);
+                    const defaultVolume = playerSetting.config.defaultVolume;
+                    setVolume(typeof defaultVolume === 'number' ? defaultVolume : 0.5);
 
                     // 验证并设置播放模式，移除旧的 "order" 模式
                     const validModes = ['loop', 'random', 'single'];
-                    const savedMode = s.config?.playMode as string;
-                    const mode = validModes.includes(savedMode) ? savedMode : 'loop';
-                    setPlayMode(mode as any);
+                    const savedMode = playerSetting.config.playMode;
+                    const mode: PlayMode = typeof savedMode === 'string' && validModes.includes(savedMode)
+                        ? savedMode as PlayMode
+                        : 'loop';
+                    setPlayMode(mode);
+                    const savedShuffle = playerSetting.config.shuffleEnabled;
+                    const savedRepeat = playerSetting.config.repeatMode;
+                    setShuffleEnabled?.(typeof savedShuffle === 'boolean' ? savedShuffle : mode === 'random');
+                    setRepeatMode?.(savedRepeat === 'one' || savedRepeat === 'all'
+                        ? savedRepeat
+                        : mode === 'single' ? 'one' : 'all');
 
                     const allThemes = [...DEFAULT_THEMES, ...effectiveCustomThemes];
                     setThemes(allThemes);
 
                     // 优先从后端配置获取当前主题 ID，如果没有则尝试从 localStorage 获取
-                    const preferredThemeId = s.config?.currentThemeId || localStorage.getItem('half-beat.currentThemeId') || "light";
+                    const configuredThemeId = playerSetting.config.currentThemeId;
+                    const preferredThemeId = typeof configuredThemeId === 'string'
+                        ? configuredThemeId
+                        : localStorage.getItem('half-beat.currentThemeId') || "light";
                     const targetTheme = allThemes.find((t: Theme) => t.id === preferredThemeId) || allThemes[0] || DEFAULT_THEMES[0];
 
                     // 如果后端记录的主题不存在（例如旧的自定义主题被删除），回退到默认主题并更新后端设置
@@ -226,14 +195,14 @@ export const useAppLifecycle = ({
                 setStatus("正在加载...");
 
                 const loggedIn = await Services.IsLoggedIn();
-                setIsLoggedIn(loggedIn);
                 // 仅记录登陆状态，不自动弹出登陆模态框
                 // 需要登陆时由具体功能模块在操作时主动弹出
                 if (loggedIn) {
                     try {
                         const info = await Services.GetUserInfo();
-                        setUserInfo(info);
-                        localStorage.setItem("half-beat.userInfo", JSON.stringify(info));
+                        const user = convertUserInfo(info);
+                        setUserInfo(user);
+                        localStorage.setItem("half-beat.userInfo", JSON.stringify(user));
                     } catch (e) {
                         console.warn("获取用户信息失败:", e);
                     }
@@ -245,12 +214,9 @@ export const useAppLifecycle = ({
                     console.warn("Seed 失败", seedErr);
                 }
 
-                const [songList, favList] = await Promise.all([
-                    Services.ListSongs(),
-                    Services.ListFavorites(),
-                ]);
-
-                const songsWithCache = convertSongs(songList).map((song) => {
+				const favList = convertFavoriteSummaries(await Services.ListFavoriteSummaries());
+				setFavorites(favList);
+				const applyCachedIntervals = (song: Song): Song => {
                     try {
                         const cacheKey = `half-beat.song.${song.id}`;
                         const cached = localStorage.getItem(cacheKey);
@@ -266,21 +232,17 @@ export const useAppLifecycle = ({
                         console.warn(`恢复歌曲 ${song.id} 缓存失败:`, err);
                     }
                     return song;
-                });
-
-                setSongs(convertSongs(songsWithCache));
-                setFavorites(convertFavorites(favList));
+				};
 
                 try {
                     const savedPlaylist = await Services.GetPlaylist();
                     if (savedPlaylist && savedPlaylist.queue) {
                         const queueIds = JSON.parse(savedPlaylist.queue || "[]");
                         if (queueIds.length > 0) {
-                            const restoredQueue = queueIds
-                                .map((id: string) => songsWithCache.find((s) => s.id === id))
-                                .filter(Boolean) as Song[];
+							const restoredQueue = convertSongs(await Services.GetSongsByIDs(queueIds)).map(applyCachedIntervals);
 
                             if (restoredQueue.length > 0) {
+								setSongs(restoredQueue);
                                 setQueue(restoredQueue);
                                 const validIndex = Math.min(savedPlaylist.currentIndex || 0, restoredQueue.length - 1);
                                 setCurrentIndex(validIndex);
@@ -297,7 +259,7 @@ export const useAppLifecycle = ({
                 try {
                     const history = await Services.GetPlayHistory();
                     if (history && history.songId) {
-                        const lastSong = songsWithCache.find((s) => s.id === history.songId);
+						const [lastSong] = convertSongs(await Services.GetSongsByIDs([history.songId])).map(applyCachedIntervals);
                         if (lastSong) {
                             if (history.favoriteId) {
                                 const favIdx = favList.findIndex((f) => f.id === history.favoriteId);
@@ -305,30 +267,59 @@ export const useAppLifecycle = ({
                                     setSelectedFavId(history.favoriteId);
                                 }
                             }
-                            const songIdx = songsWithCache.findIndex((s) => s.id === history.songId);
-                            if (songIdx >= 0) {
-                                setQueue(songsWithCache);
-                                setCurrentIndex(songIdx);
+							setSongs([lastSong]);
+								setQueue([lastSong]);
+								setCurrentIndex(0);
                                 setCurrentSong(lastSong);
                                 return;
-                            }
                         }
                     }
                 } catch (historyErr) {
                     console.warn("恢复播放历史失败", historyErr);
                 }
 
-                if (songsWithCache.length) {
-                    setQueue(songsWithCache);
-                    setCurrentIndex(0);
-                    setCurrentSong(songsWithCache[0]);
-                }
-                setStatus(songsWithCache.length ? "就绪" : "请添加歌曲");
-            } catch (e: any) {
+				setStatus("请添加歌曲");
+            } catch (e: unknown) {
                 console.error(e);
-                setStatus(`错误: ${e?.message ?? String(e)}`);
+                setStatus(`错误: ${e instanceof Error ? e.message : String(e)}`);
+            } finally {
+                setPlaylistHydrated(true);
             }
         })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+};
+
+export const refreshThemeProxyUrl = async (theme: Theme): Promise<Theme> => {
+    const current = theme.backgroundImage || '';
+    if (!isLoopbackProxyUrl(current)) return theme;
+
+    try {
+        const refreshed = await Services.RefreshProxyURL(current);
+        if (!refreshed) return { ...theme, backgroundImage: '' };
+
+        let data = theme.data;
+        if (data) {
+            try {
+                const parsed = JSON.parse(data) as Record<string, unknown>;
+                parsed.backgroundImage = refreshed;
+                data = JSON.stringify(parsed);
+            } catch {
+                // Keep malformed legacy data unchanged; the expanded field is still usable.
+            }
+        }
+        return { ...theme, data, backgroundImage: refreshed };
+    } catch {
+        return { ...theme, backgroundImage: '' };
+    }
+};
+
+const isLoopbackProxyUrl = (value: string): boolean => {
+    try {
+        const url = new URL(value);
+        return url.protocol === 'http:' && url.hostname === '127.0.0.1' &&
+            ['/image', '/theme-image', '/audio', '/local'].includes(url.pathname);
+    } catch {
+        return false;
+    }
 };

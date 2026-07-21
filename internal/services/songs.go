@@ -39,7 +39,17 @@ func (s *Service) ListSongs() ([]models.Song, error) {
 // Supports backward compatibility by accepting streamUrl in Song object.
 // Uses INSERT OR REPLACE to handle duplicate IDs gracefully.
 func (s *Service) UpsertSongs(songs []models.Song) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	_, err := s.upsertSongs(songs)
+	return err
+}
+
+// UpsertSongsAndReturn stores songs and returns the generated IDs and normalized records.
+func (s *Service) UpsertSongsAndReturn(songs []models.Song) ([]models.Song, error) {
+	return s.upsertSongs(songs)
+}
+
+func (s *Service) upsertSongs(songs []models.Song) ([]models.Song, error) {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		for i := range songs {
 			// 每个新的歌曲实例都需要独立的 ID
 			if songs[i].ID == "" {
@@ -76,6 +86,10 @@ func (s *Service) UpsertSongs(songs []models.Song) error {
 
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	return songs, nil
 }
 
 // CreateStreamSource creates a new stream source and returns its ID.
@@ -106,14 +120,16 @@ func (s *Service) DeleteSong(id string) error {
 			return fmt.Errorf("歌曲仍被歌单引用，无法删除")
 		}
 
-		// 删除歌曲
-		if err := tx.Delete(&models.Song{}, "id = ?", id).Error; err != nil {
+		// Load before deletion so SourceID remains available for orphan cleanup.
+		var song models.Song
+		if err := tx.First(&song, "id = ?", id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
 			return err
 		}
 
-		// 检查是否有其他歌曲引用此流源
-		var song models.Song
-		if err := tx.First(&song, "id = ?", id).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := tx.Delete(&song).Error; err != nil {
 			return err
 		}
 

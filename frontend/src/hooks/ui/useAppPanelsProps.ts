@@ -1,27 +1,24 @@
-import { useMemo } from "react";
-import type { Favorite, Song } from "../../types";
-import type { ModalStates } from './useModalManager';
-import { useImageProxy } from "./useImageProxy";
+import { useCallback, useMemo } from "react";
+import type { DerivedStyles, Favorite, FavoriteSyncTask, PlaylistSyncStatus, Song, UserInfo } from "../../types";
+import type { ModalName, PlayMode, QueueItem, RepeatMode } from '../../context/types/contexts';
+import type { useLyrics } from "../features/useLyrics";
+
+const NOOP = () => undefined;
+const NOOP_INDEX = (_index: number) => undefined;
+const NOOP_ID = (_id: string) => undefined;
+const NOOP_REORDER = (_from: string, _to: string) => undefined;
+const NOOP_SONG = (_song: Song) => undefined;
+const NOOP_RANGE = (_start: number, _end: number) => undefined;
+const EMPTY_SYNC_TASKS: Record<string, FavoriteSyncTask> = {};
 
 interface UseAppPanelsPropsParams {
     // TopBar deps
-    userInfo: any;
+    userInfo: UserInfo | null;
     hitokoto: string;
     setGlobalSearchTerm: (val: string) => void;
-    openModal: (name: keyof ModalStates) => void;
-    setThemeColorDraft: (val: string) => void;
-    setBackgroundColorDraft: (val: string) => void;
-    setBackgroundOpacityDraft: (val: number) => void;
-    setBackgroundImageUrlDraftSafe: (val: string) => void;
-    setPanelColorDraft: (val: string) => void;
-    setPanelOpacityDraft: (val: number) => void;
+    openModal: (name: ModalName) => void;
     themeColor: string;
-    backgroundColor: string;
-    backgroundOpacity: number;
-    backgroundImageUrl: string;
-    panelColor: string;
-    panelOpacity: number;
-    setUserInfo: (val: any) => void;
+    setUserInfo: (val: UserInfo | null) => void;
     setStatus: (val: string) => void;
     windowControlsPos?: string;
 
@@ -34,26 +31,27 @@ interface UseAppPanelsPropsParams {
     maxSkipLimit: number;
     formatTime: (v: number) => string;
     formatTimeWithMs: (v: number) => string;
-    formatTimeLabel: (v: number) => string;
-    parseTimeLabel: (v: string) => number;
     handleIntervalChange: (start: number, end: number) => void;
     handleSkipStartChange: (val: number) => void;
     handleSkipEndChange: (val: number) => void;
-    handleStreamUrlChange: (val: string) => void;
     handleSongInfoUpdate: (songId: string, updates: { name?: string; singer?: string; cover?: string }) => void;
     globalVolumeCompensationDb: number;
     songVolumeOffsetDb: number | null;
     onSongVolumeOffsetChange: (songId: string, offsetDb: number | null) => void;
     currentFav: Favorite | null;
-    currentFavSongs: Song[];
+	currentFavSongs?: Song[];
+	currentFavSongTotal?: number;
+	getCurrentFavSong?: (index: number) => Song | undefined;
+	onCurrentFavVisibleRangeChange?: (startIndex: number, endIndex: number) => void;
+	currentFavSongsLoading?: boolean;
+	currentFavSongsError?: string;
+	retryCurrentFavSongs?: () => void;
     searchQuery: string;
     setSearchQuery: (val: string) => void;
-    playSong: (song: Song, list?: Song[]) => void;
-    addSong: (song: Song, targetFavId?: string | null) => Promise<void>;
     downloadedSongIds: Set<string>;
     handleDownloadSong: (song: Song) => Promise<void>;
-    handleAddSongToFavorite: (song: Song, favId: string | null) => Promise<void>;
-    handleRemoveSongFromPlaylist: (songId: string) => void;
+    handleAddSongToFavorite: (song: Song) => void;
+    handleRemoveSongFromPlaylist: (song: Song) => void;
     confirmRemoveSongId: string | null;
     setConfirmRemoveSongId: (id: string | null) => void;
     playFavorite: (fav: Favorite) => void;
@@ -62,11 +60,10 @@ interface UseAppPanelsPropsParams {
     selectedFavId: string | null;
     setSelectedFavId: (id: string | null) => void;
     setConfirmDeleteFavId: (id: string | null) => void;
-    playSingleSong: (song: Song, songFavorite?: Favorite) => Promise<void>;
-    addCurrentToFavorite: (favId: string) => Promise<void>;
+	playSingleSong: (song: Song) => Promise<void>;
     createFavorite: () => void;
     handleEditFavorite: (fav: Favorite) => void;
-    handleDeleteFavorite: (id: string) => void;
+    handleDeleteFavorite: (id: string) => Promise<void>;
     confirmDeleteFavId: string | null;
 
     // ControlsPanel deps
@@ -79,13 +76,28 @@ interface UseAppPanelsPropsParams {
     togglePlay: () => void;
     playNext: () => void;
     isPlaying: boolean;
-    playMode: string;
+    playMode: PlayMode;
     handlePlayModeToggle: () => void;
+    handleAddCurrentSongToFavorite: () => void;
     handleDownloadCurrentSong: () => void;
     handleManageDownload: () => void;
     volume: number;
     changeVolume: (val: number) => void;
     songsCount: number;
+    queueItems?: QueueItem[];
+    playOrder?: string[];
+    currentQueueItemId?: string | null;
+    priorityNext?: string[];
+    shuffleEnabled?: boolean;
+    repeatMode?: RepeatMode;
+    onPlayQueueItem?: (index: number) => void;
+    onRemoveQueueItem?: (queueItemId: string) => void;
+    onReorderQueueItems?: (fromQueueItemId: string, toQueueItemId: string) => void;
+    onClearUpcoming?: () => void;
+    onToggleShuffle?: () => void;
+    onToggleRepeatMode?: () => void;
+    onPlayNextSong?: (song: Song) => void;
+    onEnqueueLastSong?: (song: Song) => void;
     componentRadius?: number;
     coverRadius?: number;
     controlBackground?: string;
@@ -93,97 +105,124 @@ interface UseAppPanelsPropsParams {
     favoriteCardBackground?: string;
     textColorPrimary?: string;
     textColorSecondary?: string;
+	lyricsState: ReturnType<typeof useLyrics>;
+	getLyricProgress: () => number;
+	onLyricSeek: (value: number) => void;
+	onSyncFavorite: (id: string) => Promise<void>;
+	onLoadFavoriteSyncStatus: (id: string) => Promise<void>;
+	onDetachFavorite: (id: string) => Promise<void>;
+	onDuplicateFavorite: (favorite: Favorite) => Promise<void>;
+	syncingFavoriteIds: Set<string>;
+	syncStatusByFavorite: Record<string, PlaylistSyncStatus>;
+	syncTaskByFavorite?: Record<string, FavoriteSyncTask>;
+	derived: DerivedStyles;
 }
 
 export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
-    const { getProxiedImageUrlSync } = useImageProxy();
+	const {
+		userInfo,
+		hitokoto,
+		setGlobalSearchTerm,
+		openModal,
+		themeColor,
+		setUserInfo,
+		setStatus,
+		windowControlsPos,
+		currentSong,
+		panelBackground,
+		panelStyles,
+		computedColorScheme,
+		placeholderCover,
+		maxSkipLimit,
+		formatTime,
+		formatTimeWithMs,
+		handleIntervalChange,
+		handleSkipStartChange,
+		handleSkipEndChange,
+		handleSongInfoUpdate,
+		globalVolumeCompensationDb,
+		songVolumeOffsetDb,
+		onSongVolumeOffsetChange,
+		currentFav,
+		currentFavSongs = [],
+		currentFavSongTotal = currentFavSongs.length,
+		getCurrentFavSong: getCurrentFavSongParam,
+		onCurrentFavVisibleRangeChange = NOOP_RANGE,
+		currentFavSongsLoading = false,
+		currentFavSongsError,
+		retryCurrentFavSongs = NOOP,
+		searchQuery,
+		setSearchQuery,
+		downloadedSongIds,
+		handleDownloadSong,
+		handleAddSongToFavorite,
+		handleRemoveSongFromPlaylist,
+		confirmRemoveSongId,
+		setConfirmRemoveSongId,
+		playFavorite,
+		handleDownloadAllFavorite,
+		favorites,
+		selectedFavId,
+		setSelectedFavId,
+		setConfirmDeleteFavId,
+		playSingleSong,
+		createFavorite,
+		handleEditFavorite,
+		handleDeleteFavorite,
+		confirmDeleteFavId,
+		progressInInterval,
+		intervalStart,
+		intervalLength,
+		duration,
+		seek,
+		playPrev,
+		togglePlay,
+		playNext,
+		isPlaying,
+		playMode,
+		handlePlayModeToggle,
+		handleAddCurrentSongToFavorite,
+		handleDownloadCurrentSong,
+		handleManageDownload,
+		volume,
+		changeVolume,
+		songsCount,
+		queueItems = [],
+		playOrder = [],
+		currentQueueItemId = null,
+		priorityNext = [],
+		shuffleEnabled = playMode === 'random',
+		repeatMode = playMode === 'single' ? 'one' : 'all',
+		onPlayQueueItem = NOOP_INDEX,
+		onRemoveQueueItem = NOOP_ID,
+		onReorderQueueItems = NOOP_REORDER,
+		onClearUpcoming = NOOP,
+		onToggleShuffle = NOOP,
+		onToggleRepeatMode = NOOP,
+		onPlayNextSong = NOOP_SONG,
+		onEnqueueLastSong = NOOP_SONG,
+		componentRadius,
+		coverRadius,
+		controlBackground,
+		controlStyles,
+		favoriteCardBackground,
+		textColorPrimary,
+		textColorSecondary,
+		lyricsState,
+		getLyricProgress,
+		onLyricSeek,
+		onSyncFavorite,
+		onLoadFavoriteSyncStatus,
+		onDetachFavorite,
+		onDuplicateFavorite,
+		syncingFavoriteIds,
+		syncStatusByFavorite,
+		syncTaskByFavorite = EMPTY_SYNC_TASKS,
+		derived,
+	} = params;
+	const getCurrentFavSong = useCallback((index: number) => getCurrentFavSongParam?.(index) ?? currentFavSongs[index], [currentFavSongs, getCurrentFavSongParam]);
 
-    return useMemo(() => {
-        const {
-            userInfo,
-            hitokoto,
-            setGlobalSearchTerm,
-            openModal,
-            setThemeColorDraft,
-            setBackgroundColorDraft,
-            setBackgroundOpacityDraft,
-            setBackgroundImageUrlDraftSafe,
-            setPanelColorDraft,
-            setPanelOpacityDraft,
-            themeColor,
-            backgroundColor,
-            backgroundOpacity,
-            backgroundImageUrl,
-            panelColor,
-            panelOpacity,
-            setUserInfo,
-            setStatus,
-            windowControlsPos,
-            currentSong,
-            panelBackground,
-            panelStyles,
-            computedColorScheme,
-            placeholderCover,
-            maxSkipLimit,
-            formatTime,
-            formatTimeWithMs,
-            formatTimeLabel,
-            parseTimeLabel,
-            handleIntervalChange,
-            handleSkipStartChange,
-            handleSkipEndChange,
-            handleStreamUrlChange,
-            handleSongInfoUpdate,
-            globalVolumeCompensationDb,
-            songVolumeOffsetDb,
-            onSongVolumeOffsetChange,
-            currentFav,
-            currentFavSongs,
-            searchQuery,
-            setSearchQuery,
-            playSong,
-            addSong,
-            downloadedSongIds,
-            handleDownloadSong,
-            handleAddSongToFavorite,
-            handleRemoveSongFromPlaylist,
-            confirmRemoveSongId,
-            setConfirmRemoveSongId,
-            playFavorite,
-            handleDownloadAllFavorite,
-            favorites,
-            selectedFavId,
-            setSelectedFavId,
-            setConfirmDeleteFavId,
-            playSingleSong,
-            addCurrentToFavorite,
-            createFavorite,
-            handleEditFavorite,
-            handleDeleteFavorite,
-            confirmDeleteFavId,
-            progressInInterval,
-            intervalStart,
-            intervalLength,
-            duration,
-            seek,
-            playPrev,
-            togglePlay,
-            playNext,
-            isPlaying,
-            playMode,
-            handlePlayModeToggle,
-            handleDownloadCurrentSong,
-            handleManageDownload,
-            volume,
-            changeVolume,
-            songsCount,
-            controlBackground,
-            favoriteCardBackground,
-            textColorPrimary,
-            textColorSecondary,
-        } = params;
-
-        const topBarProps = {
+	const topBarProps = useMemo(() => ({
             userInfo,
             hitokoto,
             panelBackground,
@@ -194,12 +233,6 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
                 openModal("globalSearchModal");
             },
             onThemeClick: () => {
-                setThemeColorDraft(themeColor);
-                setBackgroundColorDraft(backgroundColor);
-                setBackgroundOpacityDraft(backgroundOpacity);
-                setBackgroundImageUrlDraftSafe(backgroundImageUrl);
-                setPanelColorDraft(panelColor);
-                setPanelOpacityDraft(panelOpacity);
                 openModal("themeManagerModal");
             },
             onSettingsClick: () => openModal("settingsModal"),
@@ -210,13 +243,13 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             },
             themeColor,
             controlBackground,
-            controlStyles: params.controlStyles,
+			controlStyles,
             textColorPrimary,
             textColorSecondary,
-            componentRadius: params.componentRadius,
-        } as const;
+			componentRadius,
+		} as const), [userInfo, hitokoto, panelBackground, panelStyles, windowControlsPos, setGlobalSearchTerm, openModal, setUserInfo, setStatus, themeColor, controlBackground, controlStyles, textColorPrimary, textColorSecondary, componentRadius]);
 
-        const mainLayoutProps = {
+	const mainLayoutProps = useMemo(() => ({
             currentSong,
             panelBackground,
             panelStyles,
@@ -226,26 +259,46 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             maxSkipLimit,
             formatTime,
             formatTimeWithMs,
-            formatTimeLabel,
-            parseTimeLabel,
             onIntervalChange: handleIntervalChange,
             onSkipStartChange: handleSkipStartChange,
             onSkipEndChange: handleSkipEndChange,
-            onStreamUrlChange: handleStreamUrlChange,
             onSongInfoUpdate: handleSongInfoUpdate,
             volumeCompensationDb: globalVolumeCompensationDb,
             songVolumeOffsetDb,
             onSongVolumeOffsetChange,
+			lyrics: {
+				song: currentSong,
+				view: lyricsState.view,
+				state: lyricsState.state,
+				error: lyricsState.error,
+				message: lyricsState.message,
+				getProgressSeconds: getLyricProgress,
+				seek: onLyricSeek,
+				actions: lyricsState.actions,
+				themeColor,
+					controlBackground,
+					textColorPrimary,
+					textColorSecondary,
+					componentRadius,
+					modalBackground: derived.modalBackground,
+				modalBlur: derived.modalBlur,
+				modalRadius: derived.modalRadius,
+			},
             currentFav,
-            currentFavSongs,
+			currentFavSongTotal,
+			getCurrentFavSong,
+			onCurrentFavVisibleRangeChange,
+			currentFavSongsLoading,
+			currentFavSongsError,
+			retryCurrentFavSongs,
             searchQuery,
             onSearchChange: setSearchQuery,
             onPlaySong: (song: Song) => {
                 // 从歌单点击歌曲时，使用 playSingleSong 避免替换当前播放队列
-                const fav = currentFav || favorites.find(f => f.songIds.some(ref => ref.songId === song.id));
-                playSingleSong(song, fav);
+				void playSingleSong(song);
             },
-            onAddSong: addSong,
+            onPlayNext: onPlayNextSong,
+            onEnqueueLast: onEnqueueLastSong,
             downloadedSongIds,
             onDownloadSong: handleDownloadSong,
             onAddSongToFavorite: handleAddSongToFavorite,
@@ -254,7 +307,7 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             onToggleConfirmRemove: setConfirmRemoveSongId,
             onPlayAll: () => {
                 if (currentFav) {
-                    playFavorite(currentFav);
+					void playFavorite(currentFav);
                 }
             },
             onDownloadAll: () => {
@@ -269,30 +322,32 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
                 setConfirmDeleteFavId(null);
             },
             onPlayFavorite: playFavorite,
-            onPlaySongInFavorite: (song: Song) => {
-                const fav = currentFav || favorites.find(f => f.songIds.some(ref => ref.songId === song.id));
-                playSingleSong(song, fav);
-            },
-            onAddCurrentToFavorite: addCurrentToFavorite,
             onCreateFavorite: createFavorite,
             onEditFavorite: handleEditFavorite,
             onDeleteFavorite: handleDeleteFavorite,
             onToggleConfirmDelete: setConfirmDeleteFavId,
             confirmDeleteFavId,
-            componentRadius: params.componentRadius,
-            coverRadius: params.coverRadius,
-            controlBackground,
-            controlStyles: params.controlStyles,
-            favoriteCardBackground,
-            textColorPrimary,
-            textColorSecondary,
-        } as const;
+				onSyncFavorite,
+				onLoadFavoriteSyncStatus,
+				onDetachFavorite,
+			onDuplicateFavorite,
+				onLoginRequired: () => openModal("loginModal"),
+				syncingFavoriteIds,
+				syncStatusByFavorite,
+				syncTaskByFavorite,
+				derived,
+			componentRadius,
+			coverRadius,
+			controlBackground,
+			controlStyles,
+			favoriteCardBackground,
+			textColorPrimary,
+			textColorSecondary,
+		} as const), [currentSong, panelBackground, panelStyles, themeColor, computedColorScheme, placeholderCover, maxSkipLimit, formatTime, formatTimeWithMs, handleIntervalChange, handleSkipStartChange, handleSkipEndChange, handleSongInfoUpdate, globalVolumeCompensationDb, songVolumeOffsetDb, onSongVolumeOffsetChange, lyricsState.view, lyricsState.state, lyricsState.error, lyricsState.message, lyricsState.actions, getLyricProgress, onLyricSeek, controlBackground, textColorPrimary, textColorSecondary, componentRadius, derived, currentFav, currentFavSongTotal, getCurrentFavSong, onCurrentFavVisibleRangeChange, currentFavSongsLoading, currentFavSongsError, retryCurrentFavSongs, searchQuery, setSearchQuery, playSingleSong, onPlayNextSong, onEnqueueLastSong, favorites, downloadedSongIds, handleDownloadSong, handleAddSongToFavorite, handleRemoveSongFromPlaylist, confirmRemoveSongId, setConfirmRemoveSongId, playFavorite, handleDownloadAllFavorite, selectedFavId, setSelectedFavId, setConfirmDeleteFavId, createFavorite, handleEditFavorite, handleDeleteFavorite, confirmDeleteFavId, onSyncFavorite, onLoadFavoriteSyncStatus, onDetachFavorite, onDuplicateFavorite, openModal, syncingFavoriteIds, syncStatusByFavorite, syncTaskByFavorite, coverRadius, controlStyles, favoriteCardBackground]);
 
-        const controlsPanelProps = {
+	const controlsPanelProps = useMemo(() => ({
             themeColor,
-            computedColorScheme,
             currentSong,
-            cover: currentSong?.cover ? getProxiedImageUrlSync(currentSong.cover) : undefined,
             progressInInterval,
             intervalStart,
             intervalLength,
@@ -306,24 +361,32 @@ export const useAppPanelsProps = (params: UseAppPanelsPropsParams) => {
             isPlaying,
             playMode,
             onTogglePlayMode: handlePlayModeToggle,
-            // onAddToFavorite: () => openModal("addFavoriteModal"), // 移除，使用 PlayerBar 内部实现
-            onShowPlaylist: () => openModal("playlistModal"),
+            onAddToFavorite: handleAddCurrentSongToFavorite,
             onDownloadSong: handleDownloadCurrentSong,
             onManageDownload: handleManageDownload,
             downloadedSongIds,
             volume,
             changeVolume,
-            songsCount,
-            panelBackground,
-            panelStyles,
-            componentRadius: params.componentRadius,
-            coverRadius: params.coverRadius,
-            controlBackground,
-            controlStyles: params.controlStyles,
-            textColorPrimary,
-            textColorSecondary,
-        } as const;
+			songsCount,
+			queueItems,
+			playOrder,
+			currentQueueItemId,
+			priorityNext,
+			shuffleEnabled,
+			repeatMode,
+			onPlayQueueItem,
+			onRemoveQueueItem,
+			onReorderQueueItems,
+			onClearUpcoming,
+			onToggleShuffle,
+			onToggleRepeatMode,
+			panelBackground,
+			panelStyles,
+			componentRadius,
+			controlStyles,
+			textColorPrimary,
+			textColorSecondary,
+		} as const), [themeColor, currentSong, progressInInterval, intervalStart, intervalLength, duration, formatTime, formatTimeWithMs, seek, playPrev, togglePlay, playNext, isPlaying, playMode, handlePlayModeToggle, handleAddCurrentSongToFavorite, handleDownloadCurrentSong, handleManageDownload, downloadedSongIds, volume, changeVolume, songsCount, queueItems, playOrder, currentQueueItemId, priorityNext, shuffleEnabled, repeatMode, onPlayQueueItem, onRemoveQueueItem, onReorderQueueItems, onClearUpcoming, onToggleShuffle, onToggleRepeatMode, panelBackground, panelStyles, componentRadius, controlStyles, textColorPrimary, textColorSecondary]);
 
-        return { topBarProps, mainLayoutProps, controlsPanelProps } as const;
-    }, [params, getProxiedImageUrlSync]);
+	return { topBarProps, mainLayoutProps, controlsPanelProps } as const;
 };

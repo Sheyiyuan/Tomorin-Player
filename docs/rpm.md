@@ -6,30 +6,25 @@
 ## 前置依赖
 ```bash
 sudo dnf install -y ruby ruby-devel rubygems rpm-build gcc-c++ make
-sudo gem install --no-document fpm
-sudo dnf install -y ImageMagick jq
+sudo gem install --no-document fpm -v 1.17.0
+sudo dnf install -y jq
 # Wails CLI
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
 ```
 
 ## 构建与打包
 ```bash
-# 构建前端
-cd frontend
-pnpm install
-pnpm build
-cd ..
-
 # 构建并打包 RPM
-export APP_VERSION=1.2.3
-scripts/build-rpm.sh
+make package-rpm VERSION=1.2.0
 ```
 
 脚本行为：
 - 优先使用 `APP_VERSION`，否则读取 `frontend/package.json`
-- 注入 `VITE_APP_VERSION`，调用 `wails build -platform linux/amd64`
+- 注入 `VITE_APP_VERSION`，由统一 Wails 包装器按锁文件安装依赖、构建前端并选择 WebKitGTK 构建标签
 - 使用 fpm 生成 RPM：输出目录 `build/rpm`
 - 安装路径：`/usr/bin/half-beat`，图标放入 hicolor 与 pixmaps
+
+需要同时生成 DEB 和 RPM 时执行 `make package-linux VERSION=1.2.0`，应用二进制只编译一次。
 
 ## 依赖声明
 - `gtk3`
@@ -44,4 +39,3 @@ rpm -qlp build/rpm/half-beat-*.rpm
 ```bash
 sudo rpm -ivh build/rpm/half-beat-*.rpm
 ```
-

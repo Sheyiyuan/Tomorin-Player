@@ -1,71 +1,104 @@
 import { useCallback, useEffect, useState } from 'react';
-import { GetImageProxyURL, GetProxyBaseURL } from '../../api';
+import { GetImageProxyURL, RefreshProxyURL } from '../../../wailsjs/go/services/Service';
 
-/**
- * Hook for handling image proxy URLs to bypass CORS restrictions
- */
+const proxiedImageUrls = new Map<string, string>();
+const pendingImageUrls = new Map<string, Promise<string>>();
+const cacheSubscribers = new Set<() => void>();
+let cacheGeneration = 0;
+
+export const clearImageProxyCache = (): void => {
+    cacheGeneration += 1;
+    proxiedImageUrls.clear();
+    pendingImageUrls.clear();
+    cacheSubscribers.forEach((notify) => notify());
+};
+
+const isLoopbackImageProxyUrl = (value: string): boolean => {
+    try {
+        const url = new URL(value);
+        return url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.pathname === '/image';
+    } catch {
+        return false;
+    }
+};
+
+const requiresImageGateway = (value: string): boolean => {
+    if (isLoopbackImageProxyUrl(value)) return true;
+    try {
+        const url = new URL(value);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
+    }
+};
+
+const requestProxyUrl = (originalUrl: string): Promise<string> => {
+    const cached = proxiedImageUrls.get(originalUrl);
+    if (cached) return Promise.resolve(cached);
+
+    const pending = pendingImageUrls.get(originalUrl);
+    if (pending) return pending;
+
+    const generation = cacheGeneration;
+    const request = (isLoopbackImageProxyUrl(originalUrl)
+        ? RefreshProxyURL(originalUrl)
+        : GetImageProxyURL(originalUrl))
+        .then((proxyUrl) => {
+            if (proxyUrl && generation === cacheGeneration) {
+                proxiedImageUrls.set(originalUrl, proxyUrl);
+            }
+            return proxyUrl || '';
+        })
+        .finally(() => {
+            if (pendingImageUrls.get(originalUrl) === request) {
+                pendingImageUrls.delete(originalUrl);
+            }
+        });
+
+    pendingImageUrls.set(originalUrl, request);
+    return request;
+};
+
+/** Uses complete backend-generated URLs because proxy ports and tokens are process scoped. */
 export const useImageProxy = () => {
     const [isProxyEnabled, setIsProxyEnabled] = useState(true);
+    const [, rerender] = useState(0);
 
-    // Check if we need to use proxy (mainly for Windows)
     useEffect(() => {
-        // Enable proxy by default, can be disabled if needed
-        setIsProxyEnabled(true);
+        const notify = () => rerender((value) => value + 1);
+        cacheSubscribers.add(notify);
+        return () => {
+            cacheSubscribers.delete(notify);
+        };
     }, []);
 
     const getProxiedImageUrl = useCallback(async (originalUrl: string): Promise<string> => {
-        if (!originalUrl || !isProxyEnabled) {
+        if (!originalUrl || originalUrl.startsWith('data:') || originalUrl.startsWith('blob:') || !requiresImageGateway(originalUrl)) {
             return originalUrl;
         }
-
-        // Skip proxy for data URLs and local URLs
-        if (originalUrl.startsWith('data:') || originalUrl.startsWith('blob:') || originalUrl.startsWith('http://127.0.0.1:')) {
-            return originalUrl;
-        }
-
+        if (!isProxyEnabled) return '';
         try {
-            const proxiedUrl = await GetImageProxyURL(originalUrl);
-            cacheProxyBaseUrl(proxiedUrl);
-            return proxiedUrl || originalUrl;
+            return await requestProxyUrl(originalUrl);
         } catch (error) {
             console.warn('Failed to get proxied image URL:', error);
-            return originalUrl;
+            return '';
         }
     }, [isProxyEnabled]);
 
     const getProxiedImageUrlSync = useCallback((originalUrl: string): string => {
-        if (!originalUrl || !isProxyEnabled) {
+        if (!originalUrl || originalUrl.startsWith('data:') || originalUrl.startsWith('blob:') || !requiresImageGateway(originalUrl)) {
             return originalUrl;
         }
+        if (!isProxyEnabled) return '';
 
-        // Skip proxy for data URLs and local URLs
-        if (originalUrl.startsWith('data:') || originalUrl.startsWith('blob:') || originalUrl.startsWith('http://127.0.0.1')) {
-            return originalUrl;
-        }
+        const cached = proxiedImageUrls.get(originalUrl);
+        if (cached) return cached;
 
-        // For synchronous usage, construct the proxy URL from cached base
-        try {
-            const encodedUrl = encodeURIComponent(originalUrl);
-            const baseUrl = getCachedProxyBaseUrl();
-            return `${baseUrl}/image?u=${encodedUrl}`;
-        } catch (error) {
-            console.warn('Failed to construct proxied image URL:', error);
-            return originalUrl;
-        }
+        void requestProxyUrl(originalUrl)
+            .then(() => rerender((value) => value + 1))
+            .catch((error) => console.warn('Failed to get proxied image URL:', error));
+        return '';
     }, [isProxyEnabled]);
-
-    useEffect(() => {
-        if (typeof GetProxyBaseURL !== 'function') {
-            return;
-        }
-        GetProxyBaseURL()
-            .then((baseUrl) => {
-                if (baseUrl && baseUrl.startsWith('http://127.0.0.1:')) {
-                    localStorage.setItem('half-beat.proxyBaseUrl', baseUrl.replace(/\/$/, ''));
-                }
-            })
-            .catch(() => { });
-    }, []);
 
     return {
         getProxiedImageUrl,
@@ -73,23 +106,4 @@ export const useImageProxy = () => {
         isProxyEnabled,
         setIsProxyEnabled,
     };
-};
-
-const getCachedProxyBaseUrl = (): string => {
-    const cached = localStorage.getItem('half-beat.proxyBaseUrl');
-    if (cached && cached.startsWith('http://127.0.0.1:')) {
-        return cached.replace(/\/$/, '');
-    }
-    return 'http://127.0.0.1:9999';
-};
-
-const cacheProxyBaseUrl = (proxiedUrl: string) => {
-    try {
-        const url = new URL(proxiedUrl);
-        if (url.hostname === '127.0.0.1' && url.port) {
-            localStorage.setItem('half-beat.proxyBaseUrl', `${url.protocol}//${url.hostname}:${url.port}`);
-        }
-    } catch {
-        // ignore
-    }
 };

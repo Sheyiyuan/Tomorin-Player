@@ -1,8 +1,8 @@
 package services
 
 import (
-	"errors"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -147,7 +147,7 @@ func (s *Service) PollLogin(qrcodeKey string) (LoginPollResponse, error) {
 
 func (s *Service) IsLoggedIn() bool {
 	// Check if we have SESSDATA cookie
-	cookies := s.cookieJar.Cookies(&url.URL{Scheme: "https", Host: "www.bilibili.com"})
+	cookies := s.session.currentCookies(&url.URL{Scheme: "https", Host: "www.bilibili.com"})
 	for _, c := range cookies {
 		if c.Name == "SESSDATA" && c.Value != "" {
 			return true
@@ -158,7 +158,10 @@ func (s *Service) IsLoggedIn() bool {
 
 // saveCookies 将 SESSDATA cookie 保存到文件
 func (s *Service) saveCookies() error {
-	cookies := s.cookieJar.Cookies(&url.URL{Scheme: "https", Host: "www.bilibili.com"})
+	s.sessionPersistMu.Lock()
+	defer s.sessionPersistMu.Unlock()
+
+	cookies := s.session.currentCookies(&url.URL{Scheme: "https", Host: "www.bilibili.com"})
 
 	var sessdataValue string
 	for _, c := range cookies {
@@ -166,6 +169,9 @@ func (s *Service) saveCookies() error {
 			sessdataValue = c.Value
 			break
 		}
+	}
+	if sessdataValue == "" {
+		return fmt.Errorf("login session is no longer active")
 	}
 
 	data := map[string]string{
@@ -212,7 +218,7 @@ func (s *Service) restoreLogin() error {
 					Secure:   true,
 				},
 			}
-			s.cookieJar.SetCookies(biliURL, cookies)
+			s.session.restoreCookies(biliURL, cookies)
 		}
 		return nil
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -250,7 +256,7 @@ func (s *Service) restoreLogin() error {
 			Secure:   true,
 		},
 	}
-	s.cookieJar.SetCookies(biliURL, cookies)
+	s.session.restoreCookies(biliURL, cookies)
 
 	// Migrate to DB and remove legacy file best-effort.
 	migrated := models.LoginSession{ID: 1, Sessdata: sessdata, SavedAt: time.Now()}
@@ -332,8 +338,12 @@ func (s *Service) GetUserInfo() (*UserInfo, error) {
 }
 
 func (s *Service) Logout() error {
-	// Clear all cookies
-	s.cookieJar.SetCookies(&url.URL{Scheme: "https", Host: "www.bilibili.com"}, []*http.Cookie{})
+	s.sessionPersistMu.Lock()
+	defer s.sessionPersistMu.Unlock()
+
+	// Immediately invalidate the in-memory session. Responses from requests
+	// started before this point cannot repopulate the replacement jar.
+	s.session.reset()
 
 	// Clear persisted session in DB
 	if err := s.db.Delete(&models.LoginSession{}, 1).Error; err != nil {
@@ -341,7 +351,9 @@ func (s *Service) Logout() error {
 	}
 
 	// Best-effort cleanup of legacy file
-	_ = os.Remove(filepath.Join(s.dataDir, cookieCacheFile))
+	if err := os.Remove(filepath.Join(s.dataDir, cookieCacheFile)); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove legacy login session: %w", err)
+	}
 
 	return nil
 }

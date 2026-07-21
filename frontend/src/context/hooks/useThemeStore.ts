@@ -1,12 +1,12 @@
 /**
- * 主题状态选择器 Hook
- * 提供细粒度的主题状态订阅，减少不必要的重新渲染
+ * 主题 Context 读取 Hook。
+ * selector 只简化返回值，不会阻止 Provider 更新触发组件重渲染。
  */
 
 import { useThemeContext } from '../contexts/ThemeContext';
 import { ThemeContextValue } from '../types/contexts';
 
-// ========== 基础选择器 Hook ==========
+// ========== 基础读取 Hook ==========
 export const useThemeStore = <T = ThemeContextValue>(
     selector?: (state: ThemeContextValue) => T
 ): T => {

@@ -12,7 +12,14 @@ interface AppPanelsProps {
 
 const AppPanels: React.FC<AppPanelsProps> = ({ topBarProps, mainLayoutProps, controlsPanelProps }) => {
     return (
-        <Flex direction="column" h="100%" gap="sm" p="sm" style={{ position: "relative", zIndex: 1, overflow: "hidden", backgroundColor: "transparent" }}>
+        <Flex
+            className="app-panels"
+            direction="column"
+            h="100dvh"
+            gap="sm"
+            p="sm"
+            style={{ position: "relative", zIndex: 1, backgroundColor: "transparent", overflow: "hidden" }}
+        >
             <TopBar {...topBarProps} />
             <MainLayout {...mainLayoutProps} />
             <ControlsPanel {...controlsPanelProps} />

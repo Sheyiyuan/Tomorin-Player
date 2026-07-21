@@ -53,22 +53,33 @@ git push origin v1.0.0
 
 ## 本地构建
 
-如果需要本地构建特定平台：
+统一入口位于根目录 Makefile：
 
 ```bash
-# Windows
-wails build -platform windows/amd64
+# 安装依赖与质量检查
+make install
+make check
 
-# macOS (Intel)
-wails build -platform darwin/amd64
+# 当前平台开发与构建
+make dev
+make build
 
-# macOS (Apple Silicon)
-wails build -platform darwin/arm64
-
-# Linux
-wails build -platform linux/amd64
-wails build -platform linux/arm64
+# 平台安装包
+make package-linux VERSION=1.2.0
+make package-windows VERSION=1.2.0
+make package-macos VERSION=1.2.0
 ```
+
+`make check` 会验证 `build/appicon.png` 是 512x512 RGBA，并与设计源逐像素一致。Windows 打包还会读取最终 EXE 的图标资源；macOS 打包会检查 `CFBundleIconFile` 和应用包中的 `iconfile.icns`。
+
+只生成一种 Linux 包时可以使用：
+
+```bash
+make package-deb VERSION=1.2.0
+make package-rpm VERSION=1.2.0
+```
+
+Makefile 调用 `scripts/` 中的平台实现；Linux 上的 Wails 包装器会自动选择 WebKitGTK 4.0/4.1 构建标签。
 
 ## 注意事项
 
@@ -83,12 +94,12 @@ wails build -platform linux/arm64
    - 需要在 GitHub Secrets 中配置证书
 3. **依赖要求**：
 
-   - 所有构建需要 Go 1.22+
-   - 前端构建需要 Node.js 18+ 和 pnpm
+   - 常规构建需要 Go 1.22+；macOS 打包需要 Go 1.24+ 以生成 Mach-O `LC_UUID`
+   - 前端构建需要 Node.js 22.13+ 和 pnpm 11.4.0
 
 ## 自定义配置
 
-修改 `.github/workflows/build.yml` 可以：
+修改 `.github/workflows/release.yml` 可以：
 
 - 调整触发条件
 - 添加更多架构支持

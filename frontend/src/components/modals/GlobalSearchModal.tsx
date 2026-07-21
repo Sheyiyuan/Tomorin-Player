@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActionIcon, AspectRatio, Badge, Button, Group, Image, Modal, Paper, ScrollArea, SegmentedControl, Stack, Tabs, Text, TextInput } from "@mantine/core";
+import { ActionIcon, AspectRatio, Badge, Button, Group, Image, Paper, ScrollArea, SegmentedControl, Stack, Tabs, Text, TextInput } from "@mantine/core";
 import { Search } from "lucide-react";
-import type { Song, Favorite } from "../../types";
+import { favoriteSongCount, type Song, type Favorite, type DerivedStyles } from "../../types";
 import { useImageProxy } from "../../hooks/ui/useImageProxy";
+import { PLACEHOLDER_COVER } from "../../utils/constants";
+import ThemedModal from "./ThemedModal";
 
 type GlobalSearchResult = { kind: "song"; song: Song } | { kind: "favorite"; favorite: Favorite };
 
@@ -22,8 +24,7 @@ interface GlobalSearchModalProps {
     onAddFromRemote: (song: Song) => void;
     onAddSingleRemotePage: (song: Song) => void;
     onLoadRemotePages: (bvid: string) => Promise<Song[]>;
-    panelStyles?: any;
-    derived?: any;
+    derived?: DerivedStyles;
 }
 
 const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
@@ -42,7 +43,6 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
     onAddFromRemote,
     onAddSingleRemotePage,
     onLoadRemotePages,
-    panelStyles,
     derived,
 }) => {
     const { getProxiedImageUrlSync } = useImageProxy();
@@ -59,14 +59,21 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
         }
     };
 
+    const handleResultKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, result: GlobalSearchResult) => {
+        if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onResultClick(result);
+        }
+    };
+
     const trimmedTerm = globalSearchTerm.trim();
-    const bvPattern = /BV[0-9A-Za-z]{10}/;
-    const isBVSearch = bvPattern.test(trimmedTerm) || trimmedTerm.includes("bilibili.com");
+    const bvCode = trimmedTerm.match(/BV[0-9A-Za-z]{10}/)?.[0] ?? null;
+    const isBVSearch = bvCode !== null || trimmedTerm.includes("bilibili.com");
 
     // 当输入 BV 号时自动触发搜索（仅搜索一次）
     useEffect(() => {
         if (opened && isBVSearch && trimmedTerm) {
-            const extractedBV = trimmedTerm.match(bvPattern)?.[0] || trimmedTerm;
+            const extractedBV = bvCode || trimmedTerm;
 
             // 只在BV号改变时触发搜索，避免重复搜索
             if (extractedBV !== lastSearchedBVRef.current) {
@@ -80,7 +87,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
             // 如果不再是BV搜索，重置记录
             lastSearchedBVRef.current = "";
         }
-    }, [trimmedTerm, isBVSearch, opened, onRemoteSearch, biliOrder]);
+    }, [trimmedTerm, isBVSearch, bvCode, opened, onRemoteSearch, biliOrder]);
 
     useEffect(() => {
         setExpandedMap({});
@@ -150,7 +157,8 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
     const remotePreview = remoteResults.slice(0, 5);
 
     return (
-        <Modal
+        <ThemedModal
+            derived={derived}
             opened={opened}
             onClose={handleClose}
             size="lg"
@@ -158,21 +166,6 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
             padding="lg"
             title="搜索视频 (BV 号或链接)"
             overlayProps={{ blur: 10, opacity: 0.35 }}
-            radius={derived?.componentRadius}
-            styles={{
-                content: {
-                    backgroundColor: derived?.modalBackground,
-                    color: derived?.textColorPrimary,
-                },
-                header: {
-                    backgroundColor: "transparent",
-                    color: derived?.textColorPrimary,
-                },
-                title: {
-                    fontWeight: 600,
-                }
-            }}
-            className="normal-panel"
         >
             <Stack gap="md">
                 <TextInput
@@ -197,7 +190,9 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                         }
                     }}
                 />
-                <Tabs value={activeTab} onChange={(val) => setActiveTab((val as any) || "all")}
+                <Tabs value={activeTab} onChange={(val) => {
+                    if (val === "all" || val === "local" || val === "remote") setActiveTab(val);
+                }}
                     styles={{
                         tab: { fontSize: 12 },
                     }}
@@ -209,7 +204,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                     </Tabs.List>
                 </Tabs>
 
-                <ScrollArea h={380} type="auto">
+                <ScrollArea h="clamp(240px, 50dvh, 380px)" type="auto">
                     <Stack gap="xs">
                         {/* BV号搜索时：显示解析按钮 */}
                         {trimmedTerm && isBVSearch && (
@@ -227,6 +222,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                                         onClick={onResolveBVAndAdd}
                                         loading={resolvingBV}
                                         disabled={resolvingBV}
+                                        aria-label="解析 BV 号并添加到歌单"
                                     >
                                         <Search size={16} />
                                     </ActionIcon>
@@ -261,7 +257,10 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                                                 p="sm"
                                                 shadow="xs"
                                                 style={{ cursor: "pointer" }}
+                                                role="button"
+                                                tabIndex={0}
                                                 onClick={() => onResultClick(item)}
+                                                onKeyDown={(event) => handleResultKeyDown(event, item)}
                                             >
                                                 <Group justify="space-between" align="flex-start">
                                                     <Stack gap={4} style={{ flex: 1 }}>
@@ -271,7 +270,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                                                         <Text size="xs" c="dimmed" lineClamp={1}>
                                                             {item.kind === "song"
                                                                 ? item.song.singer || item.song.singerId || "未知 UP"
-                                                                : `fid: ${item.favorite.id} · 曲目数: ${item.favorite.songIds.length}`}
+                                                                : `fid: ${item.favorite.id} · 曲目数: ${favoriteSongCount(item.favorite)}`}
                                                         </Text>
                                                         {item.kind === "song" && item.song.bvid ? (
                                                             <Text size="xs" c="dimmed">BV: {item.song.bvid}</Text>
@@ -313,7 +312,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                                                                     alt={s.name}
                                                                     fit="cover"
                                                                     radius="sm"
-                                                                    fallbackSrc="https://via.placeholder.com/160x90?text=No+Cover"
+                                                                    fallbackSrc={PLACEHOLDER_COVER}
                                                                 />
                                                             </AspectRatio>
                                                             <Stack gap={4} style={{ flex: 1 }}>
@@ -383,7 +382,10 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                                                 p="sm"
                                                 shadow="xs"
                                                 style={{ cursor: "pointer" }}
+                                                role="button"
+                                                tabIndex={0}
                                                 onClick={() => onResultClick(item)}
+                                                onKeyDown={(event) => handleResultKeyDown(event, item)}
                                             >
                                                 <Group justify="space-between" align="flex-start">
                                                     <Stack gap={4} style={{ flex: 1 }}>
@@ -393,7 +395,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                                                         <Text size="xs" c="dimmed" lineClamp={1}>
                                                             {item.kind === "song"
                                                                 ? item.song.singer || item.song.singerId || "未知 UP"
-                                                                : `fid: ${item.favorite.id} · 曲目数: ${item.favorite.songIds.length}`}
+                                                                : `fid: ${item.favorite.id} · 曲目数: ${favoriteSongCount(item.favorite)}`}
                                                         </Text>
                                                         {item.kind === "song" && item.song.bvid ? (
                                                             <Text size="xs" c="dimmed">BV: {item.song.bvid}</Text>
@@ -446,7 +448,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                                                                     alt={s.name}
                                                                     fit="cover"
                                                                     radius="sm"
-                                                                    fallbackSrc="https://via.placeholder.com/160x90?text=No+Cover"
+                                                                    fallbackSrc={PLACEHOLDER_COVER}
                                                                 />
                                                             </AspectRatio>
                                                             <Stack gap={4} style={{ flex: 1 }}>
@@ -522,7 +524,7 @@ const GlobalSearchModal: React.FC<GlobalSearchModalProps> = React.memo(({
                     </Stack>
                 </ScrollArea>
             </Stack>
-        </Modal>
+        </ThemedModal>
     );
 });
 

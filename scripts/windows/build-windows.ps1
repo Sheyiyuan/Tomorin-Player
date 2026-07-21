@@ -7,7 +7,7 @@ param(
 )
 
 if ($Help) {
-    Write-Host "Tomorin Player - Windows 构建脚本"
+    Write-Host "Half Beat Player - Windows 构建脚本"
     Write-Host ""
     Write-Host "用法: .\build-windows.ps1 [-Clean] [-NSIS]"
     Write-Host ""
@@ -19,12 +19,12 @@ if ($Help) {
 }
 
 Write-Host "==================================" -ForegroundColor Green
-Write-Host "Tomorin Player - Windows 构建" -ForegroundColor Green
+Write-Host "Half Beat Player - Windows 构建" -ForegroundColor Green
 Write-Host "==================================" -ForegroundColor Green
 Write-Host ""
 
 # 检查 Wails
-Write-Host "[1/4] 检查 Wails..." -ForegroundColor Yellow
+Write-Host "[1/5] 检查 Wails..." -ForegroundColor Yellow
 $wails = Get-Command wails -ErrorAction SilentlyContinue
 if (-not $wails) {
     Write-Host "错误: 未找到 wails 命令" -ForegroundColor Red
@@ -34,25 +34,35 @@ if (-not $wails) {
 Write-Host "Wails: $($wails.Source)" -ForegroundColor Green
 Write-Host ""
 
-# 检查 MinGW 工具链（编译 go-sqlite3 需要 CGO）
-Write-Host "[2/4] 检查 MinGW-w64 交叉编译工具链..." -ForegroundColor Yellow
-$mingw = Get-Command x86_64-w64-mingw32-gcc -ErrorAction SilentlyContinue
-if (-not $mingw) {
-    Write-Host "错误: 未找到 x86_64-w64-mingw32-gcc" -ForegroundColor Red
-    Write-Host "请安装: sudo apt install gcc-mingw-w64-x86-64" -ForegroundColor Yellow
+# 检查 Windows 原生 MinGW 工具链（编译 go-sqlite3 需要 CGO）
+Write-Host "[2/5] 检查 MinGW-w64 原生工具链..." -ForegroundColor Yellow
+$mingwGcc = Get-Command gcc -ErrorAction SilentlyContinue
+$mingwGxx = Get-Command g++ -ErrorAction SilentlyContinue
+if (-not $mingwGcc -or -not $mingwGxx) {
+    Write-Host "错误: 未找到 gcc/g++" -ForegroundColor Red
+    Write-Host "请安装 MinGW-w64（例如 MSYS2 UCRT64），并将其 bin 目录加入 PATH" -ForegroundColor Yellow
     exit 1
 }
-Write-Host "MinGW GCC: $($mingw.Source)" -ForegroundColor Green
+Write-Host "MinGW GCC: $($mingwGcc.Source)" -ForegroundColor Green
+Write-Host "MinGW G++: $($mingwGxx.Source)" -ForegroundColor Green
 Write-Host ""
 
 # 配置 CGO 环境（必须启用，否则 go-sqlite3 会报 CGO_DISABLED=0 错误）
-Write-Host "[3/4] 配置 CGO 环境变量..." -ForegroundColor Yellow
+Write-Host "[3/5] 配置 CGO 环境变量..." -ForegroundColor Yellow
 $env:CGO_ENABLED = "1"
-$env:CC = "x86_64-w64-mingw32-gcc"
-$env:CXX = "x86_64-w64-mingw32-g++"
+$env:CC = $mingwGcc.Source
+$env:CXX = $mingwGxx.Source
 Write-Host "CGO_ENABLED=$($env:CGO_ENABLED)" -ForegroundColor Green
 Write-Host "CC=$($env:CC)" -ForegroundColor Green
 Write-Host "CXX=$($env:CXX)" -ForegroundColor Green
+Write-Host ""
+
+Write-Host "[4/5] 检查 Wails 标准图标源..." -ForegroundColor Yellow
+& go run ./scripts/verify-app-icon
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "错误: 应用图标检查失败" -ForegroundColor Red
+    exit 1
+}
 Write-Host ""
 
 # 版本注入：优先使用环境变量 APP_VERSION；否则从 frontend/package.json 读取
@@ -71,26 +81,46 @@ if (-not $version) {
 # 注入到前端（Vite 仅暴露 VITE_ 前缀的环境变量）
 $env:VITE_APP_VERSION = $version
 
+$versionBase = ($version -split '-')[0]
+if ($versionBase -notmatch '^\d+\.\d+\.\d+$') {
+    Write-Host "错误: Windows 产品版本必须以 x.y.z 开头: $version" -ForegroundColor Red
+    exit 1
+}
+# Wails 的 NSIS 模板会自行追加第四段 .0。
+$fileVersion = $versionBase
+
 # 临时更新 wails.json 的 productVersion
 $backup = "wails.json.bak"
 Copy-Item -Path "wails.json" -Destination $backup -Force
 $wails = Get-Content "wails.json" -Raw | ConvertFrom-Json
-$wails.windows.info.productVersion = $version
-$wails.info.productVersion = $version
+$wails.info.productVersion = $fileVersion
 $wails | ConvertTo-Json -Depth 10 | Set-Content "wails.json" -Encoding UTF8
 
 try {
+    # Wails only regenerates icon.ico when the previous derivative is absent.
+    $derivedIcon = "build/windows/icon.ico"
+    if (Test-Path -LiteralPath $derivedIcon) {
+        Remove-Item -LiteralPath $derivedIcon -Force
+    }
+
     # 构建参数
     $buildArgs = @("build", "-platform", "windows/amd64")
     if ($Clean) { $buildArgs += "-clean" }
     if ($NSIS) { $buildArgs += "-nsis" }
 
     # 构建应用
-    Write-Host "[4/4] 构建应用... (版本 $version)" -ForegroundColor Yellow
+    Write-Host "[5/5] 构建应用... (版本 $version)" -ForegroundColor Yellow
     & wails @buildArgs
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "错误: 构建失败" -ForegroundColor Red
+        exit 1
+    }
+
+    $env:CGO_ENABLED = "0"
+    & go run ./scripts/verify-windows-icon "build/bin/half-beat.exe"
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "错误: Windows EXE 图标检查失败" -ForegroundColor Red
         exit 1
     }
 }
@@ -101,18 +131,8 @@ finally {
     }
 }
 
-# 构建应用
-Write-Host "[4/4] 构建应用..." -ForegroundColor Yellow
-& wails @buildArgs
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "错误: 构建失败" -ForegroundColor Red
-    exit 1
-}
-Write-Host ""
-
 # 显示结果
-Write-Host "[3/3] 构建完成!" -ForegroundColor Green
+Write-Host "[5/5] 构建完成!" -ForegroundColor Green
 Write-Host ""
 Get-ChildItem -Path "build\bin\*.exe" | ForEach-Object {
     Write-Host "  $($_.Name) - $([math]::Round($_.Length/1MB, 2)) MB"

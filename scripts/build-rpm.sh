@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 022
 
-# Tomorin Player - RPM packaging script
-# Usage: APP_VERSION=1.2.3 scripts/build-rpm.sh
-# Requirements: fpm, rpm, jq, wails, ImageMagick (for icon resize), gtk/webkit dev packages
+# Half Beat Player - RPM packaging script
+# Usage: APP_VERSION=1.2.0 scripts/build-rpm.sh
+# Requirements: fpm, rpm, jq, wails, gtk/webkit dev packages
 
 APP_NAME="half-beat"
 APP_VERSION=${APP_VERSION:-}
@@ -19,32 +20,25 @@ fi
 
 # Ensure tools
 command -v fpm >/dev/null || { echo "fpm is required (sudo gem install fpm)" >&2; exit 1; }
-command -v convert >/dev/null || { echo "ImageMagick 'convert' is required" >&2; exit 1; }
 
-# Build binary
-export APP_VERSION
-export VITE_APP_VERSION="$APP_VERSION"
-WAILS_CMD="${WAILS_CMD:-wails}"
-if ! command -v "$WAILS_CMD" >/dev/null; then
-  if [[ -x "$HOME/go/bin/wails" ]]; then WAILS_CMD="$HOME/go/bin/wails"; else echo "wails not found" >&2; exit 1; fi
+if [[ "${SKIP_APP_BUILD:-0}" != "1" ]]; then
+  export APP_VERSION
+  export VITE_APP_VERSION="$APP_VERSION"
+
+  echo "Building app (version $APP_VERSION) for linux/amd64..."
+
+  # Temporarily patch wails.json productVersion
+  BACKUP_WAILS_JSON="wails.json.bak"
+  cp wails.json "$BACKUP_WAILS_JSON"
+  jq --arg ver "$APP_VERSION" '.info.productVersion = $ver' wails.json > wails.json.tmp && mv wails.json.tmp wails.json
+  trap 'mv -f "$BACKUP_WAILS_JSON" wails.json 2>/dev/null || true' EXIT
+
+  bash scripts/wails.sh build -clean -platform linux/amd64
+else
+  echo "Reusing build/bin/${APP_NAME} for RPM packaging..."
 fi
 
-echo "Building app (version $APP_VERSION) for linux/amd64..."
-
-# Build frontend first to ensure assets are available
-echo "Building frontend..."
-cd frontend
-pnpm install
-pnpm build
-cd ..
-
-# Temporarily patch wails.json productVersion
-BACKUP_WAILS_JSON="wails.json.bak"
-cp wails.json "$BACKUP_WAILS_JSON"
-jq --arg ver "$APP_VERSION" '.windows.info.productVersion = $ver | .info.productVersion = $ver' wails.json > wails.json.tmp && mv wails.json.tmp wails.json
-trap 'mv -f "$BACKUP_WAILS_JSON" wails.json 2>/dev/null || true' EXIT
-
-"$WAILS_CMD" build -clean -platform linux/amd64
+[[ -f build/bin/${APP_NAME} ]] || { echo "Executable missing" >&2; exit 1; }
 
 # Stage files
 ROOT="build/rpm/${APP_NAME}_${APP_VERSION}"

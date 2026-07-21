@@ -7,11 +7,15 @@ const EXIT_BEHAVIOR_KEY = "half-beat.exitBehavior";
 interface SettingsExitBehaviorProps {
     label?: string;
     description?: string;
+    textColorPrimary?: string;
+    textColorSecondary?: string;
 }
 
 export const SettingsExitBehavior: React.FC<SettingsExitBehaviorProps> = ({
     label = "关闭按钮行为",
     description = "选择点击关闭按钮时应该执行的操作",
+    textColorPrimary,
+    textColorSecondary,
 }) => {
     const [choice, setChoice] = useState<ExitBehavior>("minimize");
 
@@ -32,21 +36,26 @@ export const SettingsExitBehavior: React.FC<SettingsExitBehaviorProps> = ({
 
     return (
         <Stack gap="sm">
-            {description && <Text size="sm" c="dimmed">{description}</Text>}
+            {description && <Text size="sm" style={{ color: textColorSecondary }}>{description}</Text>}
             <Radio.Group
                 value={choice}
                 onChange={handleChange}
                 label={label}
                 size="sm"
+                styles={{
+                    label: { color: textColorPrimary },
+                }}
             >
                 <Radio
                     value="minimize"
                     label="最小化到托盘（保持应用运行）"
                     style={{ marginBottom: "8px" }}
+                    styles={{ label: { color: textColorPrimary } }}
                 />
                 <Radio
                     value="quit"
                     label="直接退出应用（完全关闭）"
+                    styles={{ label: { color: textColorPrimary } }}
                 />
             </Radio.Group>
         </Stack>

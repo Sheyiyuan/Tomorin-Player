@@ -1,7 +1,9 @@
 import React from "react";
-import { AspectRatio, Button, Group, Image, Modal, NumberInput, RangeSlider, Select, Stack, Text, TextInput, ScrollArea } from "@mantine/core";
-import type { Favorite } from "../../types";
+import { AspectRatio, Button, Group, Image, NumberInput, RangeSlider, Select, Stack, Text, TextInput, ScrollArea } from "@mantine/core";
+import type { Favorite, DerivedStyles } from "../../types";
 import { useImageProxy } from "../../hooks/ui/useImageProxy";
+import { PLACEHOLDER_COVER } from "../../utils/constants";
+import ThemedModal from "./ThemedModal";
 
 interface BVPreview {
     bvid?: string;
@@ -37,8 +39,7 @@ interface BVAddModalProps {
     onConfirmAdd: () => void;
     formatTime: (value: number) => string;
     formatTimeWithMs: (value: number) => string;
-    panelStyles?: any;
-    derived?: any;
+    derived?: DerivedStyles;
 }
 
 const BVAddModal: React.FC<BVAddModalProps> = ({
@@ -64,25 +65,9 @@ const BVAddModal: React.FC<BVAddModalProps> = ({
     onConfirmAdd,
     formatTime,
     formatTimeWithMs,
-    panelStyles,
     derived,
 }) => {
     const { getProxiedImageUrlSync } = useImageProxy();
-    const modalStyles = derived ? {
-        content: {
-            backgroundColor: derived.modalBackground,
-            color: derived.textColorPrimary,
-        },
-        header: {
-            backgroundColor: "transparent",
-            color: derived.textColorPrimary,
-        },
-        title: {
-            color: derived.textColorPrimary,
-            fontWeight: 600,
-        }
-    } : undefined;
-
     const inputStyles = derived ? {
         input: {
             backgroundColor: derived.controlBackground,
@@ -96,7 +81,8 @@ const BVAddModal: React.FC<BVAddModalProps> = ({
     } : undefined;
 
     return (
-        <Modal
+        <ThemedModal
+            derived={derived}
             opened={opened}
             onClose={onClose}
             size="lg"
@@ -104,10 +90,8 @@ const BVAddModal: React.FC<BVAddModalProps> = ({
             title="添加到歌单"
             overlayProps={{ blur: 10, opacity: 0.35 }}
             radius={derived?.componentRadius}
-            styles={modalStyles}
-            className="normal-panel"
         >
-            <ScrollArea type="auto" style={{ maxHeight: "70vh", height: "70vh" }}>
+            <ScrollArea type="auto" style={{ maxHeight: "calc(100dvh - 180px)" }}>
                 {bvPreview ? (
                     <div style={{ paddingRight: 16 }}>
                         <Stack gap="md">
@@ -127,7 +111,7 @@ const BVAddModal: React.FC<BVAddModalProps> = ({
                                         fit="cover"
                                         w="100%"
                                         radius={derived?.componentRadius}
-                                        fallbackSrc="https://via.placeholder.com/640x360?text=No+Cover"
+                                        fallbackSrc={PLACEHOLDER_COVER}
                                     />
                                 )}
                             </AspectRatio>
@@ -180,7 +164,7 @@ const BVAddModal: React.FC<BVAddModalProps> = ({
                                 <Select
                                     label="加入歌单"
                                     placeholder={favorites.length === 0 ? '暂无歌单' : '选择歌单'}
-                                    data={favorites.map((f) => ({ value: f.id, label: f.title }))}
+									data={favorites.map((f) => ({ value: f.id, label: f.source?.locked ? `${f.title}（同步歌单）` : f.title, disabled: f.source?.locked === true }))}
                                     value={bvTargetFavId}
                                     onChange={(val) => onSelectFavorite(val)}
                                     clearable={favorites.length === 0}
@@ -229,7 +213,7 @@ const BVAddModal: React.FC<BVAddModalProps> = ({
                     <Text c={derived?.textColorSecondary}>暂无预览数据</Text>
                 )}
             </ScrollArea>
-        </Modal>
+        </ThemedModal>
     );
 };
 

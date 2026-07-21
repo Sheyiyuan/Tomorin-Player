@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"embed"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"half-beat-player/internal/db"
 	"half-beat-player/internal/models"
@@ -33,16 +35,20 @@ func main() {
 func resolveDataDir() string {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		// Fallback to relative directory if unavailable
-		return filepath.Join("app_data")
+		return secureDataDir(filepath.Join("app_data"))
 	}
 
 	dir := filepath.Join(configDir, "half-beat", "app_data")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		// Fallback to relative directory if creation fails
-		return filepath.Join("app_data")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return secureDataDir(filepath.Join("app_data"))
 	}
+	_ = os.Chmod(dir, 0o700)
+	return dir
+}
 
+func secureDataDir(dir string) string {
+	_ = os.MkdirAll(dir, 0o700)
+	_ = os.Chmod(dir, 0o700)
 	return dir
 }
 
@@ -59,6 +65,11 @@ func run() error {
 			&models.SongRef{},
 			&models.PlayerSetting{},
 			&models.LyricMapping{},
+			&models.LyricDocument{},
+			&models.LyricPreference{},
+			&models.PlaylistSource{},
+			&models.PlaylistSourceItem{},
+			&models.PlaylistSyncRun{},
 			&models.Playlist{},
 			&models.LoginSession{},
 			&models.PlayHistory{},
@@ -76,20 +87,45 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	sqlDB, err := gormDB.DB()
+	if err != nil {
+		return fmt.Errorf("get sql database: %w", err)
+	}
+	var cleanupOnce sync.Once
+	cleanup := func() {
+		cleanupOnce.Do(func() {
+			if audioProxy != nil {
+				_ = audioProxy.Stop()
+			}
+			_ = sqlDB.Close()
+		})
+	}
+	defer cleanup()
 
 	backend := services.NewService(gormDB, dataDir)
 	if err := backend.Seed(); err != nil {
 		return err
 	}
+	if err := backend.MigrateLegacyLyrics(); err != nil {
+		return fmt.Errorf("migrate legacy lyrics: %w", err)
+	}
+	if err := backend.RecoverInterruptedPlaylistSyncs(); err != nil {
+		return fmt.Errorf("recover interrupted playlist syncs: %w", err)
+	}
 
-	// Initialize audio proxy
-	audioProxy = proxy.NewAudioProxy(9999, backend.GetHTTPClient(), dataDir)
-	backend.SetAudioProxy(audioProxy)
+	// Bind an available loopback port before showing the application.
+	audioProxy = proxy.NewAudioProxy(0, nil, dataDir)
+	if err := audioProxy.Start(); err != nil {
+		return fmt.Errorf("start audio proxy: %w", err)
+	}
+	services.SetAudioProxy(backend, audioProxy)
 
 	return wails.Run(&options.App{
 		Title:     "half-beat",
 		Width:     1280,
 		Height:    800,
+		MinWidth:  900,
+		MinHeight: 640,
 		Frameless: true,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
@@ -97,16 +133,11 @@ func run() error {
 		Logger:           logger.NewDefaultLogger(),
 		BackgroundColour: &options.RGBA{R: 30, G: 30, B: 30, A: 1},
 		OnStartup: func(ctx context.Context) {
-			backend.SetAppContext(ctx)
-			// Start audio proxy on app startup
-			if err := audioProxy.Start(); err != nil {
-				log.Printf("Failed to start audio proxy: %v", err)
-			}
+			services.SetAppContext(backend, ctx)
 		},
 		OnShutdown: func(ctx context.Context) {
 			log.Println("OnShutdown called")
-			// Stop audio proxy on app shutdown
-			_ = audioProxy.Stop()
+			cleanup()
 		},
 		Bind: []interface{}{backend},
 	})

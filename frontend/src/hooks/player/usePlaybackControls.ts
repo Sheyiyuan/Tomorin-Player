@@ -1,5 +1,9 @@
 import { useCallback } from 'react';
 import type { Song } from '../../types';
+import { getNextIndex } from '../../utils/player';
+import { getNextQueueItem, getPreviousQueueItemId } from '../../utils/player';
+import type { QueueItem, RepeatMode } from '../../context/types/contexts';
+import { shouldRefreshStream } from '../../utils/stream';
 
 interface UsePlaybackControlsProps {
     audioRef: React.MutableRefObject<HTMLAudioElement | null>;
@@ -17,6 +21,17 @@ interface UsePlaybackControlsProps {
     playbackRetryRef: React.MutableRefObject<Map<string, number>>;
     isHandlingErrorRef?: React.MutableRefObject<Set<string>>;
     onBeforePlay?: () => void;
+    queueItems?: QueueItem[];
+    playOrder?: string[];
+    currentQueueItemId?: string | null;
+    priorityNext?: string[];
+    history?: string[];
+    shuffleEnabled?: boolean;
+    repeatMode?: RepeatMode;
+    setCurrentQueueItemId?: (queueItemId: string | null, recordHistory?: boolean) => void;
+    consumePriorityNext?: () => string | null;
+    setPlayOrder?: (playOrder: string[]) => void;
+    setHistory?: (history: string[]) => void;
 }
 
 export const usePlaybackControls = ({
@@ -35,6 +50,16 @@ export const usePlaybackControls = ({
     playbackRetryRef,
     isHandlingErrorRef,
     onBeforePlay,
+    queueItems = [],
+    playOrder = [],
+    currentQueueItemId = null,
+    priorityNext = [],
+    history = [],
+    shuffleEnabled = playMode === 'random',
+    setCurrentQueueItemId,
+    consumePriorityNext,
+    setPlayOrder,
+    setHistory,
 }: UsePlaybackControlsProps) => {
     /**
      * 播放下一首
@@ -65,20 +90,20 @@ export const usePlaybackControls = ({
             return;
         }
 
-        let nextIdx: number;
-
-        if (playMode === "random") {
-            // 随机播放：随机选择下一首（可能重复）
-            nextIdx = Math.floor(Math.random() * queue.length);
-            console.log('[playNext] 随机模式，选择索引:', nextIdx);
-        } else {
-            // 列表循环/单曲循环：手动切歌按列表顺序
-            nextIdx = currentIndex + 1;
-            if (nextIdx >= queue.length) {
-                nextIdx = 0;
+        let nextIdx: number | null = null;
+        if (queueItems.length > 0 && playOrder.length > 0) {
+            const navigation = getNextQueueItem(queueItems, playOrder, currentQueueItemId, priorityNext, shuffleEnabled, 'all');
+            const nextId = navigation.nextQueueItemId;
+            if (nextId) {
+                nextIdx = queueItems.findIndex((item) => item.queueItemId === nextId);
+                if (priorityNext.length > 0) consumePriorityNext?.();
+                if (navigation.playOrder.join('\u0000') !== playOrder.join('\u0000')) setPlayOrder?.(navigation.playOrder);
+                setCurrentQueueItemId?.(nextId);
             }
-            console.log('[playNext] 顺序切歌，当前索引:', currentIndex, '下一个索引:', nextIdx, '模式:', playMode);
+        } else {
+            nextIdx = getNextIndex(queue.length, currentIndex, playMode, false);
         }
+        if (nextIdx === null || nextIdx < 0) return;
 
         setCurrentIndex(nextIdx);
         const nextSong = queue[nextIdx];
@@ -93,7 +118,7 @@ export const usePlaybackControls = ({
         // 自动播放下一首
         setIsPlaying(true);
         playSong(nextSong, queue);
-    }, [currentIndex, playMode, queue, setCurrentIndex, setCurrentSong, setIsPlaying, playSong, playbackRetryRef, isHandlingErrorRef]);
+    }, [currentIndex, playMode, queue, queueItems, playOrder, currentQueueItemId, priorityNext, shuffleEnabled, consumePriorityNext, setPlayOrder, setCurrentQueueItemId, setCurrentIndex, setCurrentSong, setIsPlaying, playSong, playbackRetryRef, isHandlingErrorRef]);
 
     /**
      * 播放上一首
@@ -119,6 +144,16 @@ export const usePlaybackControls = ({
         }
 
         let prevIdx = currentIndex - 1;
+        if (queueItems.length > 0 && playOrder.length > 0) {
+            const previousId = getPreviousQueueItemId(history, queueItems, playOrder, currentQueueItemId);
+            const historyIndex = previousId ? queueItems.findIndex((item) => item.queueItemId === previousId) : -1;
+            if (previousId && historyIndex >= 0) {
+                prevIdx = historyIndex;
+                setCurrentQueueItemId?.(previousId, false);
+                const previousHistoryIndex = history.lastIndexOf(previousId);
+                if (previousHistoryIndex >= 0) setHistory?.(history.slice(0, previousHistoryIndex));
+            }
+        }
         if (prevIdx < 0) prevIdx = queue.length - 1;
         setCurrentIndex(prevIdx);
         const prevSong = queue[prevIdx];
@@ -131,14 +166,18 @@ export const usePlaybackControls = ({
         // 自动播放上一首
         setIsPlaying(true);
         playSong(prevSong, queue);
-    }, [currentIndex, queue, setCurrentIndex, setCurrentSong, setIsPlaying, playSong, playbackRetryRef, isHandlingErrorRef]);
+    }, [currentIndex, queue, playMode, queueItems, playOrder, history, currentQueueItemId, setCurrentIndex, setCurrentSong, setIsPlaying, playSong, playbackRetryRef, isHandlingErrorRef, setCurrentQueueItemId, setHistory]);
 
     /**
      * 切换播放/暂停
      */
     const togglePlay = useCallback(async () => {
         const audio = audioRef.current;
-        if (!audio || !currentSong?.streamUrl) return;
+        if (!audio || !currentSong) return;
+        if (shouldRefreshStream(currentSong)) {
+            await playSong({ ...currentSong, streamUrl: '' }, queue);
+            return;
+        }
         const target = Math.max(intervalStart, Math.min(audio.currentTime || 0, intervalEnd));
         audio.currentTime = target;
         if (audio.paused) {

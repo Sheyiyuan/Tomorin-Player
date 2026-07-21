@@ -8,6 +8,7 @@ import { PlayerProvider } from './contexts/PlayerContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { UIProvider } from './contexts/UIContext';
 import { DataProvider } from './contexts/DataContext';
+import { ThemedMantineProvider } from './ThemedMantineProvider';
 
 interface AppProviderProps {
     children: ReactNode;
@@ -18,9 +19,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         <DataProvider>
             <PlayerProvider>
                 <ThemeProvider>
-                    <UIProvider>
-                        {children}
-                    </UIProvider>
+                    <ThemedMantineProvider>
+                        <UIProvider>
+                            {children}
+                        </UIProvider>
+                    </ThemedMantineProvider>
                 </ThemeProvider>
             </PlayerProvider>
         </DataProvider>

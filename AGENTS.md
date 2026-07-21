@@ -4,7 +4,7 @@
 
 Half Beat Player 是一个基于 **Wails v2**（Go 后端 + TypeScript/React 前端）的 Bilibili 音频播放器。核心功能包括二维码登录、BV 号解析、音频代理流播放、歌单管理、多 P 视频支持以及音量补偿（全局 + 单曲）。
 
-**版本：** 1.1.0  
+**版本：** 1.2.0
 **主要语言：** TypeScript（19,404 行代码，分布于 110 个文件）  
 **架构：** Wails v2 混合应用（Go 1.22+ 后端，React 18 前端）
 
@@ -34,7 +34,7 @@ Half Beat Player 是一个基于 **Wails v2**（Go 后端 + TypeScript/React 前
 ### 开发
 ```bash
 # 安装前端依赖
-cd frontend && pnpm install
+cd frontend && pnpm install --frozen-lockfile
 
 # 启动开发模式（从项目根目录）
 cd .. && wails dev

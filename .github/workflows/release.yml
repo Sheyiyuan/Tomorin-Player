@@ -7,9 +7,41 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
 jobs:
-  build-linux-windows:
+  quality:
     runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.13'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+      - name: Install frontend dependencies
+        run: make install
+      - name: Quality checks
+        run: make check
+
+  build-linux-windows:
+    needs: quality
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,27 +57,23 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22.13'
 
-      - name: Install pnpm
-        run: npm i -g pnpm
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
 
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq dpkg-dev libgtk-3-dev libwebkit2gtk-4.1-dev icoutils imagemagick nsis gcc-mingw-w64-x86-64 ruby ruby-dev rubygems rpm
-          # Wails 仍查找 4.0 名称，手动创建兼容软链接（若已存在则忽略）
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc || true
-          sudo gem install --no-document fpm
+          sudo apt-get install -y jq dpkg-dev libgtk-3-dev libwebkit2gtk-4.1-dev nsis gcc-mingw-w64-x86-64 ruby ruby-dev rubygems rpm
+          sudo gem install --no-document fpm -v 1.17.0
 
       - name: Install Wails CLI
         run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@latest
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
           echo "$HOME/go/bin" >> $GITHUB_PATH
-      - name: Make scripts executable
-        run: |
-          chmod +x scripts/build-deb.sh scripts/build-rpm.sh scripts/windows/build-windows.sh scripts/derive-version.sh scripts/generate-icons.sh
-
       - name: Derive version (tag -> release, main -> x.y.(z+1)-dev.date.hash)
         id: version
         run: |
@@ -53,48 +81,11 @@ jobs:
           echo "Final version: ${VERSION}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
       
-      - name: Frontend build (inject version)
-        env:
-          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          cd frontend
-          pnpm install
-          pnpm build
-
-      - name: Build Linux binary (inject version)
-        env:
-          APP_VERSION: ${{ steps.version.outputs.version }}
-          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          wails build -clean -platform linux/amd64
-
-      - name: Package Debian .deb
-        env:
-          APP_VERSION: ${{ steps.version.outputs.version }}
-          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          bash scripts/build-deb.sh
-        shell: bash
-
-      - name: Package RPM
-        env:
-          APP_VERSION: ${{ steps.version.outputs.version }}
-          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          bash scripts/build-rpm.sh
-        shell: bash
+      - name: Package Linux
+        run: make package-linux VERSION='${{ steps.version.outputs.version }}'
 
       - name: Build Windows (cross-compile + NSIS)
-        env:
-          CGO_ENABLED: '1'
-          CC: x86_64-w64-mingw32-gcc
-          CXX: x86_64-w64-mingw32-g++
-          APP_VERSION: ${{ steps.version.outputs.version }}
-          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          # Ensure frontend is fresh before Windows build
-          cd frontend && pnpm install && pnpm build && cd ..
-          bash scripts/windows/build-windows.sh -c
+        run: make package-windows VERSION='${{ steps.version.outputs.version }}' CLEAN=1
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -105,7 +96,44 @@ jobs:
             build/rpm/*.rpm
             build/bin/*.exe
 
+  verify-linux-packages:
+    needs: build-linux-windows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Linux packages
+        uses: actions/download-artifact@v4
+        with:
+          name: half-beat-${{ needs.build-linux-windows.outputs.version }}
+          path: artifacts
+
+      - name: Install packages on Debian and Fedora
+        run: make verify-linux-packages ARTIFACT_ROOT=artifacts
+
+  verify-windows-installer:
+    needs: build-linux-windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: half-beat-${{ needs.build-linux-windows.outputs.version }}
+          path: artifacts
+
+      - name: Install, verify version, and uninstall
+        shell: pwsh
+        run: >-
+          ./scripts/windows/smoke-test-installer.ps1
+          -ArtifactRoot artifacts
+          -ExpectedVersion '${{ needs.build-linux-windows.outputs.version }}'
+
   build-macos:
+    needs: quality
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -113,9 +141,6 @@ jobs:
 
       - name: Fetch tags
         run: git fetch --tags --force --prune
-
-      - name: Make scripts executable
-        run: chmod +x scripts/build-macos.sh scripts/derive-version.sh
 
       - name: Derive version (tag -> release, main -> x.y.(z+1)-dev.date.hash)
         id: version
@@ -127,42 +152,39 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22.x'
+          # Go 1.24+ emits LC_UUID for internally linked Mach-O binaries.
+          go-version: '1.24.x'
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22.13'
 
-      - name: Install pnpm
-        run: npm i -g pnpm
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
 
       - name: Install tooling
         run: |
-          brew install jq create-dmg || true
+          brew install jq create-dmg
 
       - name: Install Wails CLI
         run: |
-          go install github.com/wailsapp/wails/v2/cmd/wails@latest
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.11.0
           echo "$HOME/go/bin" >> $GITHUB_PATH
 
-      - name: Make scripts executable
-        run: chmod +x scripts/build-macos.sh
-
-      - name: Frontend build (inject version)
-        env:
-          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
+      - name: Verify Wails CLI Mach-O metadata
         run: |
-          cd frontend
-          pnpm install
-          pnpm build
+          WAILS_BIN="$(go env GOPATH)/bin/wails"
+          "$WAILS_BIN" version
+          dwarfdump --uuid "$WAILS_BIN" | grep -q '^UUID:'
 
       - name: Build macOS (universal)
-        env:
-          APP_VERSION: ${{ steps.version.outputs.version }}
-          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          scripts/build-macos.sh -c
+        run: make package-macos VERSION='${{ steps.version.outputs.version }}' CLEAN=1
+
+      - name: Smoke test macOS GUI launch
+        run: bash scripts/smoke-test-macos.sh build/bin/half-beat.app
 
       - name: Upload Artifacts (macOS)
         uses: actions/upload-artifact@v4
@@ -170,10 +192,9 @@ jobs:
           name: half-beat-macos-${{ steps.version.outputs.version }}
           path: |
             build/bin/*.dmg
-            build/bin/*.app
 
   release:
-    needs: [build-linux-windows, build-macos]
+    needs: [verify-linux-packages, verify-windows-installer, build-macos]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

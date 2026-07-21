@@ -1,117 +1,47 @@
-# 图标生成系统
+# 应用图标构建
 
-## 概述
+## 唯一设计源
 
-Half Beat Player 使用动态图标生成系统，在构建时从PNG源文件生成平台特定的图标格式。
+应用图标的设计源是 `assets/icons/appicon.png`，格式为 512x512 RGBA PNG。Wails v2 固定从 `build/appicon.png` 读取应用图标，因此仓库同时保留一份像素完全一致的副本：
 
-## 源文件
-
-- **主图标**: `assets/icons/appicon-256.png` (256x256 PNG)
-- **备用图标**: `assets/icons/appicon.png`
-
-## 平台支持
-
-### Windows (.ico)
-- **生成位置**: `build/windows/icon.ico`
-- **包含分辨率**: 16x16, 32x32, 48x48, 256x256
-- **工具**: ImageMagick (首选) 或 icoutils (备用)
-
-### Linux (.png)
-- **使用文件**: `assets/icons/appicon.png` (直接使用)
-- **安装位置**: 
-  - `/usr/share/icons/hicolor/256x256/apps/`
-  - `/usr/share/pixmaps/`
-
-### macOS (.icns)
-- **处理方式**: Wails 自动处理
-- **源文件**: `assets/icons/appicon-256.png`
-
-## 构建集成
-
-### 自动生成
-图标在以下情况下自动生成：
-
-1. **Windows构建**: `scripts/windows/build-windows.sh`
-2. **CI/CD流程**: GitHub Actions 自动调用
-
-### 手动生成
-```bash
-# 生成Windows图标
-./scripts/generate-icons.sh windows
-
-# 生成所有平台图标
-./scripts/generate-icons.sh all
+```text
+assets/icons/appicon.png  ->  build/appicon.png  ->  Wails 平台派生资源
 ```
 
-## 工具依赖
+`assets/icons/appicon-256.png` 只用于 README 和 Linux 软件包中的 256px 图标，不参与 Wails 的 Windows 或 macOS 图标生成。
 
-### ImageMagick (推荐)
-```bash
-# Ubuntu/Debian
-sudo apt install imagemagick
-
-# macOS
-brew install imagemagick
-```
-
-### icoutils (备用)
-```bash
-# Ubuntu/Debian
-sudo apt install icoutils
-```
-
-## 图标质量验证
-
-生成后可以验证图标质量：
+更新图标时必须同步替换 `assets/icons/appicon.png` 和 `build/appicon.png`，然后运行：
 
 ```bash
-# 查看ICO文件信息
-identify build/windows/icon.ico
-
-# 查看文件类型
-file build/windows/icon.ico
+make verify-app-icon
 ```
 
-## 故障排除
+该检查确认两份文件均为 512x512 RGBA PNG，并逐像素比较内容。`make check`、`make build`、`make dev` 以及 Windows/macOS 打包脚本都会执行此检查。
 
-### 常见问题
+## Wails 派生资源
 
-1. **ImageMagick策略限制**
-   ```bash
-   # 如果遇到策略错误，编辑 /etc/ImageMagick-6/policy.xml
-   # 注释掉或修改相关限制策略
-   ```
+不要在 `wails.json` 中配置 `darwin.icon`、`windows.icon` 或 `linux.icon`。这些不是 Wails v2 项目配置字段，会被 JSON 解析器忽略。
 
-2. **权限问题**
-   ```bash
-   # 确保脚本可执行
-   chmod +x scripts/generate-icons.sh
-   ```
+### Windows
 
-3. **工具缺失**
-   - 脚本会自动检测可用工具
-   - 如果都不可用，会复制PNG作为备用（可能不完全兼容）
+Wails 从 `build/appicon.png` 生成 `build/windows/icon.ico`，其中包含 256、128、64、48、32 和 16px 六档图标，然后写入 EXE 的 `RT_GROUP_ICON` 和 `RT_ICON` 资源。
 
-### 验证生成结果
+Wails 只在 `build/windows/icon.ico` 不存在时生成它。两个 Windows 打包脚本都会先删除旧的派生 ICO，避免复用由旧源图或 Wails 默认图标生成的文件。构建结束后，`scripts/verify-windows-icon` 会直接读取 PE 资源并检查尺寸和像素。
 
-```bash
-# 检查ICO文件是否包含多个分辨率
-identify build/windows/icon.ico
+### macOS
 
-# 预期输出应显示4个不同分辨率的图标
+Wails 从 `build/appicon.png` 直接编码 `half-beat.app/Contents/Resources/iconfile.icns`。应用包的 `Info.plist` 必须包含：
+
+```text
+CFBundleIconFile = iconfile
 ```
 
-## 更新图标
+`scripts/build-macos.sh` 会检查该键和生成的 ICNS 文件。`build/darwin/icon.icns` 不会被 Wails 使用，也不应手动生成。
 
-1. 替换 `assets/icons/appicon-256.png`
-2. 可选：同时更新 `assets/icons/appicon.png`
-3. 重新构建或手动运行图标生成脚本
+### Linux
 
-## CI/CD集成
+DEB 和 RPM 继续安装 `assets/icons/appicon-256.png` 到 hicolor 与 pixmaps 目录。桌面文件通过图标名 `half-beat` 引用它。
 
-GitHub Actions 工作流自动：
-1. 安装必要工具 (imagemagick, icoutils)
-2. 在Windows构建前生成ICO文件
-3. 验证生成结果
+## 清理
 
-构建日志中会显示图标生成的详细信息和验证结果。
+`make clean` 会删除 `build/bin`、`build/windows`、`build/darwin`、DEB/RPM 暂存目录和前端产物，但保留受版本控制的 `build/appicon.png`。

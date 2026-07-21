@@ -3,21 +3,20 @@
  * 管理音频元素和基础播放状态
  */
 
-import { useRef, useState, useEffect, useCallback } from 'react';
-import type { Song } from '../../types';
+import { useRef, useEffect, useCallback } from 'react';
 import { acquireSharedAudioEngine, releaseSharedAudioEngine, resetSharedAudioEngineToNativeOutput } from '../../utils/sharedAudioEngine';
+import { dbToGain, getNativeVolume } from '../../utils/audio';
 
 const getDefaultWebAudioDisableReason = (): string | null => {
     // Wails on Linux uses WebKitGTK. MediaElementSource routing can intermittently produce silence.
     // Prefer native <audio> output for reliability.
-    const w = window as unknown as { wails?: unknown; go?: unknown };
+    const w = window as Window;
     let isWails = false;
     try {
         // Avoid touching window.wails.Callback directly — Wails runtime is injected asynchronously.
-        const wailsAny = (w as any).wails;
-        isWails = Boolean((w as any).go || (wailsAny && typeof wailsAny === 'object' && 'Callback' in wailsAny));
+        isWails = Boolean(w.go || w.wails?.Callback);
     } catch {
-        isWails = Boolean((w as any).go);
+        isWails = Boolean(w.go);
     }
 
     const ua = navigator.userAgent ?? '';
@@ -48,13 +47,34 @@ export interface UseAudioPlayerReturn {
     ensureWebAudioReady?: () => void;
 }
 
-export const useAudioPlayer = (currentSong: Song | null, initialVolume?: number, volumeCompensationDb: number = 0) => {
+interface AudioPlayerController extends AudioPlayerState {
+    setIsPlaying: (playing: boolean) => void;
+    setProgress: (progress: number) => void;
+    setDuration: (duration: number) => void;
+    setVolume: (volume: number) => void;
+}
+
+export const useAudioPlayer = (
+    controller: AudioPlayerController,
+    volumeCompensationDb: number = 0,
+) => {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const engineRef = useRef<ReturnType<typeof acquireSharedAudioEngine> | null>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [duration, setDuration] = useState(0);
-    const [volume, setVolume] = useState(initialVolume ?? 0.5);
+    const {
+        isPlaying,
+        progress,
+        duration,
+        volume,
+        setIsPlaying,
+        setProgress,
+        setDuration,
+        setVolume,
+    } = controller;
+    const compensationDbRef = useRef(volumeCompensationDb);
+
+    useEffect(() => {
+        compensationDbRef.current = volumeCompensationDb;
+    }, [volumeCompensationDb]);
 
     // 初始化音频元素（注意：在 Wails/Linux WebKit 下，new Audio() + WebAudio 路由可能导致无声；
     // 挂到 DOM 的 <audio> 更稳）
@@ -104,7 +124,7 @@ export const useAudioPlayer = (currentSong: Song | null, initialVolume?: number,
 
         if (!engine.gainNode) {
             engine.gainNode = ctx.createGain();
-            engine.gainNode.gain.value = 1;
+            engine.gainNode.gain.value = dbToGain(compensationDbRef.current);
         }
 
         if (!engine.sourceNode) {
@@ -143,10 +163,7 @@ export const useAudioPlayer = (currentSong: Song | null, initialVolume?: number,
             audioRef.current.volume = volume;
             return;
         }
-        const db = Number.isFinite(volumeCompensationDb) ? volumeCompensationDb : 0;
-        const gain = Math.pow(10, db / 20);
-        const effectiveVolume = Math.min(1, Math.max(0, volume * gain));
-        audioRef.current.volume = effectiveVolume;
+        audioRef.current.volume = getNativeVolume(volume, volumeCompensationDb);
     }, [volume, volumeCompensationDb]);
 
     // 应用音量补偿（dB）到 GainNode
@@ -154,10 +171,7 @@ export const useAudioPlayer = (currentSong: Song | null, initialVolume?: number,
         const gainNode = engineRef.current?.gainNode;
         if (!gainNode) return;
         if (engineRef.current?.webAudioDisabled) return;
-        const db = Number.isFinite(volumeCompensationDb) ? volumeCompensationDb : 0;
-        const gain = Math.pow(10, db / 20);
-        const clamped = Math.min(4, Math.max(0.25, gain));
-        gainNode.gain.value = clamped;
+        gainNode.gain.value = dbToGain(volumeCompensationDb);
     }, [volumeCompensationDb]);
 
     const play = useCallback(async () => {
@@ -171,7 +185,7 @@ export const useAudioPlayer = (currentSong: Song | null, initialVolume?: number,
             console.error('播放失败:', error);
             setIsPlaying(false);
         }
-    }, [ensureWebAudioReady]);
+    }, [ensureWebAudioReady, setIsPlaying]);
 
     // 清理逻辑由 sharedAudioEngine 的 refCount 控制
 
@@ -179,17 +193,13 @@ export const useAudioPlayer = (currentSong: Song | null, initialVolume?: number,
         if (!audioRef.current) return;
         audioRef.current.pause();
         setIsPlaying(false);
-    }, []);
+    }, [setIsPlaying]);
 
     const seek = useCallback((time: number) => {
         if (!audioRef.current) return;
         audioRef.current.currentTime = time;
         setProgress(time);
-    }, []);
-
-    const handleVolumeChange = useCallback((newVolume: number) => {
-        setVolume(newVolume);
-    }, []);
+    }, [setProgress]);
 
     return {
         audioRef,
@@ -203,7 +213,7 @@ export const useAudioPlayer = (currentSong: Song | null, initialVolume?: number,
             play,
             pause,
             seek,
-            setVolume: handleVolumeChange,
+            setVolume,
         },
         ensureWebAudioReady,
         // 内部状态设置器（供其他 hooks 使用）

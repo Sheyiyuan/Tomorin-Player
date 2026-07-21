@@ -1,6 +1,8 @@
 import React from "react";
-import { Button, Group, Modal, NumberInput, Slider, Stack, Text } from "@mantine/core";
+import { Button, Group, NumberInput, Slider, Stack, Text } from "@mantine/core";
 import { SettingsExitBehavior } from "../cards";
+import type { DerivedStyles } from "../../types";
+import ThemedModal from "./ThemedModal";
 
 interface SettingsModalProps {
     opened: boolean;
@@ -13,8 +15,7 @@ interface SettingsModalProps {
     onOpenDownloadsFolder: () => void;
     onOpenDatabaseFile: () => void;
     onClearMusicCache: () => void;
-    panelStyles?: React.CSSProperties;
-    derived?: any;
+    derived?: DerivedStyles;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -28,32 +29,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     onOpenDownloadsFolder,
     onOpenDatabaseFile,
     onClearMusicCache,
-    panelStyles,
     derived,
 }) => {
     return (
-        <Modal
+        <ThemedModal
+            derived={derived}
             opened={opened}
             onClose={onClose}
             size="md"
             centered
             title="设置"
             overlayProps={{ blur: 10, opacity: 0.35 }}
-            radius={derived?.componentRadius}
-            styles={{
-                content: {
-                    backgroundColor: derived?.modalBackground,
-                    color: derived?.textColorPrimary,
-                },
-                header: {
-                    backgroundColor: "transparent",
-                    color: derived?.textColorPrimary,
-                },
-                title: {
-                    fontWeight: 600,
-                }
-            }}
-            className="glass-panel"
         >
             <Stack gap="md">
                 <Text fw={600} c={derived?.textColorPrimary}>软件信息</Text>
@@ -70,7 +56,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         max={12}
                         step={0.5}
                         label={(value) => `${value} dB`}
-                        style={{ '--slider-color': themeColor } as any}
+                        style={{ '--slider-color': themeColor } as React.CSSProperties}
                         w="100%"
                     />
                     <NumberInput
@@ -109,9 +95,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </Group>
 
                 <Text fw={600} mt="sm" c={derived?.textColorPrimary}>窗口设置</Text>
-                <SettingsExitBehavior />
+                <SettingsExitBehavior
+                    textColorPrimary={derived?.textColorPrimary}
+                    textColorSecondary={derived?.textColorSecondary}
+                />
             </Stack>
-        </Modal>
+        </ThemedModal>
     );
 };
 

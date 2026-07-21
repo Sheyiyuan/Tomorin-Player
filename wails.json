@@ -8,51 +8,11 @@
     },
     "version": "2",
     "outputfilename": "half-beat",
-    "build": {
-        "frontend": {
-            "dir": "frontend",
-            "install": "pnpm install",
-            "build": "pnpm run build",
-            "dev": "pnpm run dev"
-        },
-        "devServerURL": "http://localhost:5173",
-        "watcher": {
-            "paths": [
-                ".",
-                "frontend"
-            ],
-            "ignore": [
-                "node_modules",
-                "build",
-                "frontend/node_modules",
-                "frontend/dist",
-                "frontend/.vite"
-            ]
-        }
-    },
+    "frontend:install": "pnpm install --frozen-lockfile",
+    "frontend:build": "pnpm run build",
+    "frontend:dev:watcher": "pnpm run dev",
+    "frontend:dev:serverUrl": "auto",
     "platform": "linux",
-    "linux": {
-        "icon": "assets/icons/appicon.png",
-        "windowIsTranslucent": false
-    },
-    "darwin": {
-        "icon": "build/darwin/icon.icns",
-        "bundleId": "com.sheyiyuan.half-beat",
-        "category": "public.app-category.music"
-    },
-    "windows": {
-        "icon": "build/windows/icon.ico",
-        "webviewIsTransparent": false,
-        "windowIsTranslucent": false,
-        "dropShadow": false,
-        "info": {
-            "productVersion": "${APP_VERSION}",
-            "productName": "half-beat",
-            "companyName": "Sheyiyuan",
-            "copyright": "Copyright © 2025 Sheyiyuan",
-            "comments": "基于 B站 API 的音乐播放器"
-        }
-    },
     "info": {
         "productVersion": "${APP_VERSION}",
         "productName": "half-beat",

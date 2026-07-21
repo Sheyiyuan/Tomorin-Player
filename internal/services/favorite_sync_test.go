@@ -145,6 +145,266 @@ func TestDeclaredCountMismatchPreservesMembership(t *testing.T) {
 	}
 }
 
+func TestSyncSkipsUnsupportedFavoriteResources(t *testing.T) {
+	service := syncTestService(t)
+	seedLockedFavorite(t, service)
+	service.httpClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if strings.Contains(request.URL.Path, "/resource/list") {
+			return jsonResponse(map[string]any{"code": 0, "data": map[string]any{"info": map[string]any{"id": 1, "title": "remote", "media_count": 2}}}, http.StatusOK), nil
+		}
+		return jsonResponse(map[string]any{"code": 0, "data": []any{
+			map[string]any{"id": 101, "type": 2, "bvid": "BVold"},
+			map[string]any{"id": 102, "type": 12, "bvid": "BVunsupported"},
+		}}, http.StatusOK), nil
+	})}
+	resolvedBVIDs := make([]string, 0, 1)
+	service.videoInfoResolver = func(bvid string) (models.CompleteVideoInfo, error) {
+		resolvedBVIDs = append(resolvedBVIDs, bvid)
+		return models.CompleteVideoInfo{BVID: bvid, Title: "old", Pages: []models.PageInfo{{Page: 1, Part: "old", Duration: 60}}}, nil
+	}
+
+	status, err := service.syncFavorite("fav", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Source == nil || status.Source.SyncState != "synced" || status.Source.RemoteCount != 2 {
+		t.Fatalf("source = %#v", status.Source)
+	}
+	if status.Run == nil || status.Run.RemoteCount != 2 || status.Run.SkippedCount != 1 || status.Run.PendingCount != 0 {
+		t.Fatalf("run = %#v", status.Run)
+	}
+	if len(resolvedBVIDs) != 1 || resolvedBVIDs[0] != "BVold" {
+		t.Fatalf("resolved BVIDs = %#v", resolvedBVIDs)
+	}
+	var items []models.PlaylistSourceItem
+	if err := service.db.Where("source_id = ?", "source").Find(&items).Error; err != nil || len(items) != 1 || items[0].State != "ready" {
+		t.Fatalf("source items = %#v, %v", items, err)
+	}
+}
+
+func TestSyncSkipsMissingBVIDAndKeepsResolutionFailuresPending(t *testing.T) {
+	service := syncTestService(t)
+	seedLockedFavorite(t, service)
+	service.httpClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if strings.Contains(request.URL.Path, "/resource/list") {
+			return jsonResponse(map[string]any{"code": 0, "data": map[string]any{"info": map[string]any{"id": 1, "title": "remote", "media_count": 3}}}, http.StatusOK), nil
+		}
+		return jsonResponse(map[string]any{"code": 0, "data": []any{
+			map[string]any{"id": 201, "type": 2},
+			map[string]any{"id": 202, "type": 12, "bvid": "BVunsupported"},
+			map[string]any{"id": 203, "type": 2, "bvid": "BVfailed"},
+		}}, http.StatusOK), nil
+	})}
+	resolvedBVIDs := make([]string, 0, 1)
+	service.videoInfoResolver = func(bvid string) (models.CompleteVideoInfo, error) {
+		resolvedBVIDs = append(resolvedBVIDs, bvid)
+		return models.CompleteVideoInfo{}, assertError("offline")
+	}
+
+	status, err := service.syncFavorite("fav", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Source == nil || status.Source.SyncState != "stale" || status.Source.RemoteCount != 3 {
+		t.Fatalf("source = %#v", status.Source)
+	}
+	if status.Run == nil || status.Run.RemoteCount != 3 || status.Run.SkippedCount != 2 || status.Run.PendingCount != 1 {
+		t.Fatalf("run = %#v", status.Run)
+	}
+	if len(resolvedBVIDs) != 1 || resolvedBVIDs[0] != "BVfailed" {
+		t.Fatalf("resolved BVIDs = %#v", resolvedBVIDs)
+	}
+	var items []models.PlaylistSourceItem
+	if err := service.db.Where("source_id = ?", "source").Find(&items).Error; err != nil || len(items) != 1 || items[0].BVID != "BVfailed" || items[0].State != "pending" {
+		t.Fatalf("source items = %#v, %v", items, err)
+	}
+}
+
+func TestGetFavoriteCollectionBVIDsKeepsSupportedVideoSemantics(t *testing.T) {
+	service := syncTestService(t)
+	service.httpClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return jsonResponse(map[string]any{"code": 0, "data": []any{
+			map[string]any{"id": 1, "type": 2, "bv_id": "BVvideo"},
+			map[string]any{"id": 2, "type": 12, "bvid": "BVunsupported"},
+			map[string]any{"id": 3, "type": 2},
+		}}, http.StatusOK), nil
+	})}
+
+	result, err := service.GetFavoriteCollectionBVIDs(1)
+	if err != nil || len(result) != 1 || result[0].BVID != "BVvideo" {
+		t.Fatalf("BVID result = %#v, %v", result, err)
+	}
+}
+
+func TestFavoriteSnapshotHashIncludesEveryRawResourceFieldAndOrder(t *testing.T) {
+	base := []biliFavoriteResource{{ID: 1, Type: 2, BVID: "BVvideo"}, {ID: 2, Type: 12, BVID: "BVskipped"}}
+	baseHash := snapshotHash(base)
+	variants := [][]biliFavoriteResource{
+		{{ID: 9, Type: 2, BVID: "BVvideo"}, {ID: 2, Type: 12, BVID: "BVskipped"}},
+		{{ID: 1, Type: 12, BVID: "BVvideo"}, {ID: 2, Type: 12, BVID: "BVskipped"}},
+		{{ID: 1, Type: 2, BVID: "BVchanged"}, {ID: 2, Type: 12, BVID: "BVskipped"}},
+		{{ID: 2, Type: 12, BVID: "BVskipped"}, {ID: 1, Type: 2, BVID: "BVvideo"}},
+	}
+	for index, variant := range variants {
+		if snapshotHash(variant) == baseHash {
+			t.Fatalf("variant %d did not change snapshot hash", index)
+		}
+	}
+}
+
+func TestPreparePlaylistSyncReportsUniqueVideoProgress(t *testing.T) {
+	service := syncTestService(t)
+	seedLockedFavorite(t, service)
+	service.videoInfoResolver = func(bvid string) (models.CompleteVideoInfo, error) {
+		if bvid == "BVfailed" {
+			return models.CompleteVideoInfo{}, assertError("offline")
+		}
+		return models.CompleteVideoInfo{BVID: bvid, Title: bvid, Pages: []models.PageInfo{{Page: 1, Part: bvid, Duration: 60}}}, nil
+	}
+	progress := make([]models.PlaylistSyncProgress, 0, 3)
+	draft, err := service.preparePlaylistSyncWithProgress(
+		models.PlaylistSource{ID: "source", FavoriteID: "fav"},
+		[]models.BiliFavoriteInfo{{BVID: "BVready"}, {BVID: "BVfailed"}, {BVID: "BVready"}},
+		1,
+		func(update models.PlaylistSyncProgress) { progress = append(progress, update) },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if draft.videoCount != 2 || draft.pendingCount != 1 {
+		t.Fatalf("draft videoCount=%d pendingCount=%d", draft.videoCount, draft.pendingCount)
+	}
+	if len(progress) != 3 || progress[0].CompletedVideoCount != 0 || progress[0].TotalVideoCount != 2 {
+		t.Fatalf("progress = %#v", progress)
+	}
+	for index, update := range progress {
+		if update.Stage != "resolving" || update.TotalVideoCount != 2 || update.SkippedCount != 1 || update.CompletedVideoCount != index {
+			t.Fatalf("progress[%d] = %#v", index, update)
+		}
+	}
+}
+
+func TestPlaylistSyncProgressNeverRegresses(t *testing.T) {
+	current := models.PlaylistSyncProgress{Stage: "resolving", FavoriteID: "fav", CompletedVideoCount: 2, TotalVideoCount: 4}
+	merged := mergePlaylistSyncProgress(current, models.PlaylistSyncProgress{Stage: "resolving", FavoriteID: "fav", CompletedVideoCount: 1, TotalVideoCount: 4})
+	if merged.CompletedVideoCount != 2 {
+		t.Fatalf("completed progress regressed: %#v", merged)
+	}
+	committing := models.PlaylistSyncProgress{Stage: "committing", FavoriteID: "fav", CompletedVideoCount: 4, TotalVideoCount: 4}
+	merged = mergePlaylistSyncProgress(committing, current)
+	if merged.Stage != "committing" {
+		t.Fatalf("progress stage regressed: %#v", merged)
+	}
+}
+
+func TestAsyncBiliFavoriteImportReportsRealProgress(t *testing.T) {
+	service := syncTestService(t)
+	service.httpClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if strings.Contains(request.URL.Path, "/resource/list") {
+			return jsonResponse(map[string]any{"code": 0, "data": map[string]any{"info": map[string]any{"id": 1, "title": "remote", "media_count": 3}}}, http.StatusOK), nil
+		}
+		return jsonResponse(map[string]any{"code": 0, "data": []any{
+			map[string]any{"id": 1, "type": 2, "bvid": "BVone"},
+			map[string]any{"id": 2, "type": 12},
+			map[string]any{"id": 3, "type": 2, "bvid": "BVtwo"},
+		}}, http.StatusOK), nil
+	})}
+	entered := make(chan struct{}, 2)
+	release := make(chan struct{})
+	service.videoInfoResolver = func(bvid string) (models.CompleteVideoInfo, error) {
+		entered <- struct{}{}
+		<-release
+		return models.CompleteVideoInfo{BVID: bvid, Title: bvid, Pages: []models.PageInfo{{Page: 1, Part: bvid, Duration: 60}}}, nil
+	}
+
+	task, err := service.StartBiliFavoriteImport(models.BiliFavoriteImportRequest{RemoteID: 1, Locked: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-entered
+	<-entered
+	running, err := service.GetBiliFavoriteImportTask(task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if running.Status != "running" || running.Progress.Stage != "resolving" || running.Progress.CompletedVideoCount != 0 || running.Progress.TotalVideoCount != 2 || running.Progress.SkippedCount != 1 {
+		t.Fatalf("running task = %#v", running)
+	}
+	close(release)
+	completed := waitForBiliFavoriteImportTask(t, service, task.ID)
+	if completed.Status != "succeeded" || completed.Progress.Stage != "completed" || completed.Progress.CompletedVideoCount != 2 || completed.Result == nil || len(completed.Result.Favorite.SongIDs) != 2 {
+		t.Fatalf("completed task = %#v", completed)
+	}
+}
+
+func TestFavoriteSyncTaskReportsRealProgress(t *testing.T) {
+	service := syncTestService(t)
+	seedLockedFavorite(t, service)
+	service.httpClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if strings.Contains(request.URL.Path, "/resource/list") {
+			return jsonResponse(map[string]any{"code": 0, "data": map[string]any{"info": map[string]any{"id": 1, "title": "remote", "media_count": 2}}}, http.StatusOK), nil
+		}
+		return jsonResponse(map[string]any{"code": 0, "data": []any{
+			map[string]any{"id": 1, "type": 2, "bvid": "BVone"},
+			map[string]any{"id": 2, "type": 2, "bvid": "BVtwo"},
+		}}, http.StatusOK), nil
+	})}
+	entered := make(chan struct{}, 2)
+	release := make(chan struct{})
+	service.videoInfoResolver = func(bvid string) (models.CompleteVideoInfo, error) {
+		entered <- struct{}{}
+		<-release
+		return models.CompleteVideoInfo{BVID: bvid, Title: bvid, Pages: []models.PageInfo{{Page: 1, Part: bvid, Duration: 60}}}, nil
+	}
+
+	task, err := service.SyncFavorite("fav", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-entered
+	<-entered
+	running, err := service.GetFavoriteSyncTask(task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if running.Progress.Stage != "resolving" || running.Progress.FavoriteID != "fav" || running.Progress.CompletedVideoCount != 0 || running.Progress.TotalVideoCount != 2 {
+		t.Fatalf("running task = %#v", running)
+	}
+	close(release)
+	completed := waitForFavoriteSyncTask(t, service, task.ID)
+	if completed.Status != "succeeded" || completed.Progress.Stage != "completed" || completed.Progress.CompletedVideoCount != 2 {
+		t.Fatalf("completed task = %#v", completed)
+	}
+}
+
+func TestFailedAsyncBiliFavoriteImportCleansUpProvisionalFavorite(t *testing.T) {
+	service := syncTestService(t)
+	var infoCalls atomic.Int32
+	service.httpClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		if strings.Contains(request.URL.Path, "/resource/list") {
+			count := 1
+			if infoCalls.Add(1) > 1 {
+				count = 2
+			}
+			return jsonResponse(map[string]any{"code": 0, "data": map[string]any{"info": map[string]any{"id": 1, "title": "remote", "media_count": count}}}, http.StatusOK), nil
+		}
+		return jsonResponse(map[string]any{"code": 0, "data": []any{map[string]any{"id": 1, "type": 2, "bvid": "BVone"}}}, http.StatusOK), nil
+	})}
+
+	task, err := service.StartBiliFavoriteImport(models.BiliFavoriteImportRequest{RemoteID: 1, Locked: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	failed := waitForBiliFavoriteImportTask(t, service, task.ID)
+	if failed.Status != "failed" || failed.ErrorCode != ErrorCodeSyncIncomplete {
+		t.Fatalf("failed task = %#v", failed)
+	}
+	var favoriteCount int64
+	if err := service.db.Model(&models.Favorite{}).Count(&favoriteCount).Error; err != nil || favoriteCount != 0 {
+		t.Fatalf("provisional favorites=%d err=%v", favoriteCount, err)
+	}
+}
+
 func TestAuthFailureUsesAuthRequiredState(t *testing.T) {
 	service := syncTestService(t)
 	seedLockedFavorite(t, service)
@@ -326,7 +586,7 @@ func TestLargePlaylistResolutionUsesAtMostFourWorkersAndOneCommit(t *testing.T) 
 		t.Fatalf("workers=%d refs=%d", maximum.Load(), len(draft.refs))
 	}
 	draft.remoteCount = len(remote)
-	draft.snapshotHash = snapshotHash(remote)
+	draft.snapshotHash = "large-snapshot"
 	run := models.PlaylistSyncRun{ID: "large-run", SourceID: "source", Status: "running", StartedAt: time.Now()}
 	if err := service.db.Create(&run).Error; err != nil {
 		t.Fatal(err)
@@ -599,6 +859,42 @@ func jsonResponse(value any, status int) *http.Response {
 		_ = writer.Close()
 	}()
 	return &http.Response{StatusCode: status, Body: reader, Header: http.Header{"Content-Type": []string{"application/json"}}}
+}
+
+func waitForBiliFavoriteImportTask(t *testing.T, service *Service, taskID string) models.BiliFavoriteImportTask {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		task, err := service.GetBiliFavoriteImportTask(taskID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if task.Status == "succeeded" || task.Status == "failed" {
+			return task
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("import task timed out: %#v", task)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func waitForFavoriteSyncTask(t *testing.T, service *Service, taskID string) models.FavoriteSyncTask {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		task, err := service.GetFavoriteSyncTask(taskID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if task.Status == "succeeded" || task.Status == "failed" {
+			return task
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("sync task timed out: %#v", task)
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 func seedLockedFavorite(t *testing.T, service *Service) {

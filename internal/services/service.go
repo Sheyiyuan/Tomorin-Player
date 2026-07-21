@@ -48,6 +48,8 @@ type Service struct {
 	favoriteTaskMu        sync.Mutex
 	favoriteTasks         map[string]*favoriteSyncTaskState
 	favoriteTaskBySource  map[string]string
+	favoriteImportTaskMu  sync.Mutex
+	favoriteImportTasks   map[string]*biliFavoriteImportTaskState
 }
 
 func NewService(db *gorm.DB, dataDir string) *Service {
@@ -106,6 +108,7 @@ func NewService(db *gorm.DB, dataDir string) *Service {
 		lyricTaskBySong:       make(map[string]string),
 		favoriteTasks:         make(map[string]*favoriteSyncTaskState),
 		favoriteTaskBySource:  make(map[string]string),
+		favoriteImportTasks:   make(map[string]*biliFavoriteImportTaskState),
 	}
 
 	// 在启动时尝试恢复之前的登录状态

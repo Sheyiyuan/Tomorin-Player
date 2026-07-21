@@ -51,9 +51,47 @@ type Favorite struct {
 
 type SongRef struct {
 	ID         uint   `gorm:"primaryKey" json:"id"`
-	FavoriteID string `json:"favoriteId"`
+	FavoriteID string `gorm:"index:idx_song_refs_favorite_position,priority:1" json:"favoriteId"`
 	SongID     string `json:"songId"`
-	Position   int    `gorm:"index" json:"position"`
+	Position   int    `gorm:"index;index:idx_song_refs_favorite_position,priority:2" json:"position"`
+}
+
+// FavoriteSummary is the lightweight playlist representation used by the UI.
+type FavoriteSummary struct {
+	ID        string          `json:"id"`
+	Title     string          `json:"title"`
+	SongCount int             `json:"songCount"`
+	Source    *PlaylistSource `json:"source,omitempty"`
+	CreatedAt time.Time       `json:"createdAt"`
+	UpdatedAt time.Time       `json:"updatedAt"`
+}
+
+type FavoriteSongPageRequest struct {
+	FavoriteID string `json:"favoriteId"`
+	Query      string `json:"query"`
+	Offset     int    `json:"offset"`
+	Limit      int    `json:"limit"`
+}
+
+type FavoriteSongPage struct {
+	Items    []Song `json:"items"`
+	Total    int    `json:"total"`
+	Offset   int    `json:"offset"`
+	Limit    int    `json:"limit"`
+	Revision string `json:"revision"`
+}
+
+type LocalSongSearchRequest struct {
+	Query  string `json:"query"`
+	Offset int    `json:"offset"`
+	Limit  int    `json:"limit"`
+}
+
+type LocalSongSearchPage struct {
+	Items  []Song `json:"items"`
+	Total  int    `json:"total"`
+	Offset int    `json:"offset"`
+	Limit  int    `json:"limit"`
 }
 
 // Theme represents a theme configuration
@@ -252,6 +290,7 @@ type PlaylistSyncRun struct {
 	ResolvedCount    int        `json:"resolvedCount"`
 	AddedCount       int        `json:"addedCount"`
 	RemovedCount     int        `json:"removedCount"`
+	SkippedCount     int        `json:"skippedCount"`
 	PendingCount     int        `json:"pendingCount"`
 	ErrorCode        string     `json:"errorCode"`
 	ErrorMessage     string     `json:"errorMessage"`
@@ -265,21 +304,31 @@ type PlaylistSyncStatus struct {
 	Run    *PlaylistSyncRun `json:"run,omitempty"`
 }
 
+// PlaylistSyncProgress is process-local progress for imports and synchronizations.
+type PlaylistSyncProgress struct {
+	Stage               string `json:"stage"`
+	FavoriteID          string `json:"favoriteId,omitempty"`
+	CompletedVideoCount int    `json:"completedVideoCount"`
+	TotalVideoCount     int    `json:"totalVideoCount"`
+	SkippedCount        int    `json:"skippedCount"`
+}
+
 // FavoriteSyncTask represents one process-level task. A task can contain more
 // than one local favorite when they mirror the same remote source.
 type FavoriteSyncTask struct {
-	ID                 string              `json:"id"`
-	FavoriteIDs        []string            `json:"favoriteIds"`
-	Status             string              `json:"status"`
-	CompletedFavorites int                 `json:"completedFavorites"`
-	TotalFavorites     int                 `json:"totalFavorites"`
-	Result             *PlaylistSyncStatus `json:"result,omitempty"`
-	ErrorCode          string              `json:"errorCode"`
-	ErrorMessage       string              `json:"errorMessage"`
-	Retryable          bool                `json:"retryable"`
-	ErrorDetails       map[string]string   `json:"errorDetails,omitempty"`
-	StartedAt          time.Time           `json:"startedAt"`
-	FinishedAt         *time.Time          `json:"finishedAt,omitempty"`
+	ID                 string               `json:"id"`
+	FavoriteIDs        []string             `json:"favoriteIds"`
+	Status             string               `json:"status"`
+	CompletedFavorites int                  `json:"completedFavorites"`
+	TotalFavorites     int                  `json:"totalFavorites"`
+	Progress           PlaylistSyncProgress `json:"progress"`
+	Result             *PlaylistSyncStatus  `json:"result,omitempty"`
+	ErrorCode          string               `json:"errorCode"`
+	ErrorMessage       string               `json:"errorMessage"`
+	Retryable          bool                 `json:"retryable"`
+	ErrorDetails       map[string]string    `json:"errorDetails,omitempty"`
+	StartedAt          time.Time            `json:"startedAt"`
+	FinishedAt         *time.Time           `json:"finishedAt,omitempty"`
 }
 
 type BiliFavoriteImportRequest struct {
@@ -291,6 +340,20 @@ type BiliFavoriteImportRequest struct {
 type BiliFavoriteImportResult struct {
 	Favorite   Favorite           `json:"favorite"`
 	SyncStatus PlaylistSyncStatus `json:"syncStatus"`
+}
+
+// BiliFavoriteImportTask represents one process-local asynchronous import.
+type BiliFavoriteImportTask struct {
+	ID           string                    `json:"id"`
+	Status       string                    `json:"status"`
+	Progress     PlaylistSyncProgress      `json:"progress"`
+	Result       *BiliFavoriteImportResult `json:"result,omitempty"`
+	ErrorCode    string                    `json:"errorCode"`
+	ErrorMessage string                    `json:"errorMessage"`
+	Retryable    bool                      `json:"retryable"`
+	ErrorDetails map[string]string         `json:"errorDetails,omitempty"`
+	StartedAt    time.Time                 `json:"startedAt"`
+	FinishedAt   *time.Time                `json:"finishedAt,omitempty"`
 }
 
 // BiliFavoriteCollection represents a Bilibili favorite folder

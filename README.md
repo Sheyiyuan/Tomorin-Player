@@ -6,7 +6,7 @@
 
 **基于 B站 API 的音乐播放器，实现电脑上的「听视频」自由**
 
-当前版本：v1.2.0（2026-02-05）
+当前版本：v1.3.0（2026-03-10）
 
 _使用 Wails v2 构建的跨平台桌面应用_
 
@@ -15,6 +15,7 @@ _使用 Wails v2 构建的跨平台桌面应用_
 [![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://golang.org)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Node](https://img.shields.io/badge/Node-22-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![Mantine](https://img.shields.io/badge/Mantine-v8-339AF0?logo=mantine&logoColor=white)](https://mantine.dev)
 
 [功能特性](#功能特性) • [开发环境](#开发环境) • [构建与发布](#构建与发布) • [项目结构](#项目结构) • [更新日志](#更新日志)
@@ -70,6 +71,15 @@ _使用 Wails v2 构建的跨平台桌面应用_
 - **灵活组织**: 创建、编辑、删除自定义歌单。
 - **BV 号解析**: 支持通过 BV 号快速添加歌曲，支持分 P 选择。
 - **歌曲编辑**: 自定义歌曲名、歌手、封面及播放参数。
+- **收藏同步**: 双向同步本地收藏与 Bilibili 收藏夹，同步进度可视追踪。
+- **分页加载**: 大收藏库分页虚拟滚动，流畅浏览。
+
+### 歌词体验
+
+- **同步歌词**: 播放时逐行高亮滚动，支持 LRC 时间轴歌词。
+- **多源搜索**: 自动从 LRCLIB、Bilibili 等源搜索匹配歌词。
+- **手动导入**: 支持 LRC/TXT 文件导入，预览与格式校验。
+- **偏移调节**: 微调时间轴偏移，手动锁定防止覆盖。
 
 ### 搜索与发现
 
@@ -97,6 +107,8 @@ _使用 Wails v2 构建的跨平台桌面应用_
 - **本地数据库**：歌单、歌曲元数据及应用设置存储在 `half-beat.db` (SQLite) 中。
 - **网络说明**：应用启动时会在本地动态选择端口运行代理服务器（仅监听 `127.0.0.1`），用于转发经过目标检查的音频和图片请求。旧版代理 URL 会在启动后刷新为当前端口和进程令牌。
 - **可靠性说明**：若播放过程中出现本地代理不可达，前端会触发后端进行最佳努力的代理自恢复，然后再重试刷新播放地址。
+- **安全加固**：后端流媒体与歌词请求使用 netguard 公网网关，拒绝私有地址访问；数据目录权限收紧为 0700；存储路径校验防目录穿越。
+- **错误应对**：全局错误边界在异常时展示友好回退界面，歌词加载错误独立隔离，不影响主播放功能。
 - **主题图片**：用户设置的主题背景图会保存为本地缓存文件，仅保存引用路径；远程 URL 仅在用户保存主题时刷新，展示时统一走本地代理。
 
 本项目**不会**上传任何个人数据到第三方服务器（Bilibili 官方服务器除外）。
@@ -140,8 +152,8 @@ paru -S half-beat-bin
 ### 前置要求
 
 - **Go**: 1.22+
-- **Node.js**: 20+
-- **pnpm**: 11.4.0
+- **Node.js**: 22+
+- **pnpm**: 11+
 - **Wails**: v2.11.0
 - **GNU Make**: 4+
 - **CGO 编译器**: (Windows 需要 gcc, Linux 需要 build-essential)
@@ -187,7 +199,7 @@ Makefile 统一调用现有平台脚本，支持版本注入和多平台打包�
 可以通过 Make 变量注入版本号，否则将从 `frontend/package.json` 读取：
 
 ```bash
-make package VERSION=1.2.0
+make package VERSION=1.3.0
 ```
 
 #### 2. Linux 打包 (DEB/RPM)
@@ -236,24 +248,39 @@ make package-macos
 .
 ├── internal/               # Go 后端逻辑
 │   ├── db/                 # 数据库初始化与 GORM 迁移
+│   ├── lyrics/             # 歌词搜索、解析与匹配引擎
 │   ├── models/             # GORM 数据模型定义
+│   ├── netguard/           # 公网网关 HTTP 客户端 (SSRF 防护)
 │   ├── proxy/              # 音频代理服务器 (处理 B站 Referer 限制)
 │   └── services/           # 核心业务服务
 │       ├── login.go        # B站扫码登录逻辑
 │       ├── bili_play.go    # B站音频流解析
+│       ├── favorite_sync.go # 收藏夹双向同步
+│       ├── lyric_search.go # 歌词搜索与聚合
+│       ├── lyrics.go       # 歌词存储与偏好管理
 │       ├── playlist.go     # 歌单管理
-│       └── ...             # 搜索、下载、歌词等服务
+│       ├── storage.go      # 存储路径校验服务
+│       └── ...             # 搜索、下载等服务
 ├── frontend/               # React 前端 (Vite + TS)
 │   ├── src/
 │   │   ├── components/     # UI 组件 (Mantine v8)
+│   │   │   ├── lyrics/     # 歌词面板与错误边界
+│   │   │   ├── errors/     # 全局错误边界
+│   │   │   ├── player/     # 队列工具栏与弹出框
+│   │   │   └── ...
 │   │   ├── hooks/          # 业务逻辑封装 (播放器控制、数据获取)
+│   │   │   ├── features/   # 歌词、收藏同步、主题编辑器等
+│   │   │   ├── player/     # 播放控制与跳过区间
+│   │   │   ├── data/       # 设置持久化、收藏分页
+│   │   │   └── ui/         # 应用生命周期、面板属性
 │   │   ├── context/        # Player/Data/Theme/UI 四个领域 Context
-│   │   ├── api.ts          # Wails 自动生成的 Go 方法绑定调用
-│   │   └── utils/          # 工具函数 (图片处理、时间格式化)
+│   │   ├── utils/          # 工具函数 (图片、音频、可访问性、错误域)
+│   │   └── store/          # 类型定义 (types.ts 已提升至 src/)
 │   └── wailsjs/            # Wails 自动生成的 JS 绑定
 ├── scripts/                # 跨平台构建与打包脚本
 ├── build/                  # Wails 标准图标源与生成的构建产物
 ├── assets/                 # 静态资源
+├── Makefile                # 统一构建入口 (开发/测试/检查/打包)
 ├── main.go                 # 应用入口，初始化服务与 Wails 运行时
 └── wails.json              # Wails 项目配置文件
 ```

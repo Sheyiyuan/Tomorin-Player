@@ -41,6 +41,14 @@ var blockedPrefixes = mustPrefixes(
 	"2001::/23", "2001:db8::/32", "2002::/16", "5f00::/16", "fc00::/7", "fe80::/10", "ff00::/8",
 )
 
+// cdnPrefixes lists technically-reserved ranges that are widely used by
+// CDN providers for edge routing (e.g. Bilibili MCDN uses 198.18.0.0/15
+// inside carrier networks).  We allow them only for proxy policies that
+// already validate the target hostname against an allowlist.
+var cdnPrefixes = mustPrefixes(
+	"198.18.0.0/15",
+)
+
 type resolver interface {
 	LookupIPAddr(context.Context, string) ([]net.IPAddr, error)
 }
@@ -298,7 +306,7 @@ func resolvePublic(ctx context.Context, r resolver, host string, policy urlPolic
 		return nil, errors.New("audio host is not allowed")
 	}
 	if ip := net.ParseIP(host); ip != nil {
-		if !isPublicIP(ip) {
+		if !isPublicIP(ip, policy) {
 			return nil, errors.New("non-public IP is not allowed")
 		}
 		return []net.IP{ip}, nil
@@ -312,7 +320,7 @@ func resolvePublic(ctx context.Context, r resolver, host string, policy urlPolic
 	}
 	ips := make([]net.IP, 0, len(addresses))
 	for _, address := range addresses {
-		if !isPublicIP(address.IP) {
+		if !isPublicIP(address.IP, policy) {
 			return nil, errors.New("host resolves to a non-public IP")
 		}
 		ips = append(ips, address.IP)
@@ -329,7 +337,7 @@ func allowedAudioHost(host string) bool {
 	return false
 }
 
-func isPublicIP(ip net.IP) bool {
+func isPublicIP(ip net.IP, policy urlPolicy) bool {
 	addr, ok := netip.AddrFromSlice(ip)
 	if !ok {
 		return false
@@ -340,6 +348,15 @@ func isPublicIP(ip net.IP) bool {
 	}
 	for _, prefix := range blockedPrefixes {
 		if prefix.Contains(addr) {
+			// Allow CDN-reserved ranges for proxied Bilibili traffic
+			// whose hostnames have already been validated.
+			if policy == audioURL {
+				for _, cdn := range cdnPrefixes {
+					if cdn.Contains(addr) {
+						return true
+					}
+				}
+			}
 			return false
 		}
 	}

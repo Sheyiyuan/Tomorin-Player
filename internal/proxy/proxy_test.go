@@ -69,14 +69,30 @@ func TestIPClassification(t *testing.T) {
 		"172.16.0.1", "192.0.2.1", "192.168.1.1", "198.18.0.1", "224.0.0.1",
 		"::1", "::ffff:127.0.0.1", "2001:db8::1", "fd00::1", "fe80::1",
 	} {
-		if isPublicIP(net.ParseIP(value)) {
+		if isPublicIP(net.ParseIP(value), publicURL) {
 			t.Errorf("isPublicIP(%q) = true", value)
 		}
 	}
 	for _, value := range []string{"8.8.8.8", "1.1.1.1", "2606:4700:4700::1111"} {
-		if !isPublicIP(net.ParseIP(value)) {
+		if !isPublicIP(net.ParseIP(value), publicURL) {
 			t.Errorf("isPublicIP(%q) = false", value)
 		}
+	}
+}
+
+func TestCDNPrefixAllowedForAudio(t *testing.T) {
+	// 198.18.0.0/15 is benchmark-reserved but used by CDNs (e.g. Bilibili
+	// MCDN).  It must be allowed for audioURL traffic whose hostname has
+	// already been validated against the Bilibili allowlist.
+	if !isPublicIP(net.ParseIP("198.18.0.1"), audioURL) {
+		t.Error("isPublicIP(198.18.0.1, audioURL) = false, want true")
+	}
+	if !isPublicIP(net.ParseIP("198.19.255.254"), audioURL) {
+		t.Error("isPublicIP(198.19.255.254, audioURL) = false, want true")
+	}
+	// Still blocked for publicURL (no host allowlist).
+	if isPublicIP(net.ParseIP("198.18.0.1"), publicURL) {
+		t.Error("isPublicIP(198.18.0.1, publicURL) = true, want false")
 	}
 }
 

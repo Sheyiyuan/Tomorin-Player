@@ -7,12 +7,13 @@ export default defineConfig({
     plugins: [react()],
     server: {
 		port: developmentPort,
-        strictPort: true,
+		// Wails discovers the URL from Vite's startup output. Allow Vite to
+		// move to the next free port when the preferred port is occupied.
+        strictPort: false,
         host: "localhost",
         hmr: {
             protocol: "ws",
             host: "localhost",
-			port: developmentPort,
         },
         watch: {
             usePolling: true,

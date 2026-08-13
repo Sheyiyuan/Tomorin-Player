@@ -22,7 +22,7 @@ interface UseAudioEventsProps {
     setStatus: (status: string) => void;
     playbackRetryRef: React.MutableRefObject<Map<string, number>>;
     isHandlingErrorRef: React.MutableRefObject<Set<string>>;
-    playSong: (song: Song, list?: Song[]) => Promise<void>;
+    playSong: (song: Song) => Promise<void>;
     playNext: () => void;
     onBeforePlay?: () => void;
 }
@@ -144,7 +144,7 @@ export const useAudioEvents = ({
                         if (clearedSong && clearedSong.id) {
                             // allow retry handler to run again
                             isHandlingErrorRef.current.delete(clearedSong.id);
-                            playSong(clearedSong, queue).catch(err => {
+                            playSong(clearedSong).catch(err => {
                                 console.error('音频重试播放失败:', err);
                             });
                         }
@@ -198,7 +198,7 @@ export const useAudioEvents = ({
                         if (urlExpiredSong && urlExpiredSong.id) {
                             // allow retry handler to run again
                             isHandlingErrorRef.current.delete(urlExpiredSong.id);
-                            playSong(urlExpiredSong, queue).catch(err => {
+                            playSong(urlExpiredSong).catch(err => {
                                 console.error('[错误恢复] 音频重试播放失败:', err);
                             });
                         }

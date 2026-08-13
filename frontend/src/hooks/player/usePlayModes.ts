@@ -1,18 +1,16 @@
 import { useCallback } from 'react';
 import type { Song, Favorite } from '../../types';
-import type { QueueItem } from '../../context/types/contexts';
+import type { QueueActivationReason, QueueItem } from '../../context/types/contexts';
 
 interface UsePlayModesProps {
-	loadFavoriteSongs: (favoriteId: string) => Promise<Song[]>;
+    loadFavoriteSongs: (favoriteId: string) => Promise<Song[]>;
     queue: Song[];
-    currentIndex: number;
     setQueue: (queue: Song[]) => void;
     setCurrentIndex: (index: number) => void;
-    setCurrentSong: (song: Song | null) => void;
-    setIsPlaying: (playing: boolean) => void;
-    playSong: (song: Song, list?: Song[]) => Promise<void>;
+    playSong: (song: Song) => Promise<void>;
     queueItems?: QueueItem[];
-    setCurrentQueueItemId?: (queueItemId: string | null, recordHistory?: boolean) => void;
+    enqueueLast?: (song: Song) => string;
+    activateQueueItem?: (queueItemId: string, reason?: QueueActivationReason) => void;
 }
 
 /**
@@ -23,14 +21,12 @@ interface UsePlayModesProps {
 export const usePlayModes = ({
 	loadFavoriteSongs,
     queue,
-    currentIndex: _currentIndex,
     setQueue,
     setCurrentIndex,
-    setCurrentSong,
-    setIsPlaying,
     playSong,
     queueItems = [],
-    setCurrentQueueItemId,
+    enqueueLast,
+    activateQueueItem,
 }: UsePlayModesProps) => {
 	/**
 	 * 播放单曲
@@ -42,29 +38,29 @@ export const usePlayModes = ({
 			const songList = [song];
 			setQueue(songList);
 			setCurrentIndex(0);
-			await playSong(song, songList);
+			await playSong(song);
         } else {
             const existingItem = queueItems.find((item) => item.song === song);
             if (existingItem) {
                 const existingIndex = queueItems.findIndex((item) => item.queueItemId === existingItem.queueItemId);
-                setCurrentQueueItemId?.(existingItem.queueItemId);
-                setCurrentIndex(existingIndex);
-                setCurrentSong(existingItem.song);
-                setIsPlaying(true);
-                await playSong(existingItem.song, queue);
+                if (activateQueueItem) activateQueueItem(existingItem.queueItemId, 'manual');
+                else setCurrentIndex(existingIndex);
+                await playSong(existingItem.song);
                 return;
             }
 
             // 队列外歌曲创建新的队列项并立即播放，允许歌曲重复出现。
-            const newQueue = [...queue, song];
-            const insertIdx = newQueue.length - 1;
-            setQueue(newQueue);
-            setCurrentIndex(insertIdx);
-            setCurrentSong(song);
-            setIsPlaying(true);
-            await playSong(song, newQueue);
+            if (enqueueLast && activateQueueItem) {
+                const queueItemId = enqueueLast(song);
+                activateQueueItem(queueItemId, 'manual');
+            } else {
+                const newQueue = [...queue, song];
+                setQueue(newQueue);
+                setCurrentIndex(newQueue.length - 1);
+            }
+            await playSong(song);
         }
-	}, [queue, queueItems, setQueue, setCurrentIndex, setCurrentQueueItemId, setCurrentSong, setIsPlaying, playSong]);
+	}, [queue, queueItems, setQueue, setCurrentIndex, enqueueLast, activateQueueItem, playSong]);
 
     /**
      * 播放歌单
@@ -76,7 +72,7 @@ export const usePlayModes = ({
         // 播放歌单时，替换整个播放列表
         setQueue(list);
         setCurrentIndex(0);
-		await playSong(list[0], list);
+		await playSong(list[0]);
     }, [loadFavoriteSongs, setQueue, setCurrentIndex, playSong]);
 
     return {

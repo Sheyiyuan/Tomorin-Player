@@ -47,7 +47,7 @@ const App: React.FC = () => {
         setQueue,
         setCurrentIndex,
         setPlaylistHydrated,
-        setCurrentQueueItemId,
+        activateQueueItem,
         setSong: setCurrentSong,
         setPlayMode,
         setIsPlaying,
@@ -61,7 +61,6 @@ const App: React.FC = () => {
         removeQueueItem,
         reorderQueueItems,
         clearUpcoming,
-        consumePriorityNext,
     } = playerStore.actions;
 
     // ========== 设置状态（提前，用于音量补偿计算） ==========
@@ -174,7 +173,7 @@ const App: React.FC = () => {
 	const lyricsState = useLyrics(currentSong);
 	const playlistSync = usePlaylistSync({ setFavorites });
 
-	const { playSong } = usePlaySong({ queue, selectedFavId, setQueue, setCurrentIndex, setCurrentSong, setIsPlaying, setStatus, setSongs, onSongUpdated: favoriteSongPages.patchSong });
+	const { playSong } = usePlaySong({ selectedFavId, setCurrentSong, setIsPlaying, setStatus, setSongs, onSongUpdated: favoriteSongPages.patchSong });
 
 	const songOperations = useSongOperations({ currentSong, songs, setSongs, setCurrentSong, onSongUpdated: favoriteSongPages.patchSong });
     const { updateSongInfo } = songOperations;
@@ -189,7 +188,7 @@ const App: React.FC = () => {
 
 	const downloadManager = useDownloadManager({ currentSong, loadFavoriteSongs: favoriteSongPages.loadAll, downloadedSongIds, managingSong, setStatus, setDownloadedSongIds, setManagingSong, setConfirmDeleteDownloaded, openModal, closeModal });
 
-	const { playSingleSong, playFavorite } = usePlayModes({ loadFavoriteSongs: favoriteSongPages.loadAll, queue, currentIndex, setQueue, setCurrentIndex, setCurrentSong, setIsPlaying, playSong, queueItems, setCurrentQueueItemId });
+	const { playSingleSong, playFavorite } = usePlayModes({ loadFavoriteSongs: favoriteSongPages.loadAll, queue, setQueue, setCurrentIndex, playSong, queueItems, enqueueLast, activateQueueItem });
 
     useAudioSourceManager({
         audioRef,
@@ -203,17 +202,15 @@ const App: React.FC = () => {
 
     const searchAndBV = useSearchAndBV({ themeColor, selectedFavId, favorites, globalSearchTerm, setGlobalSearchTerm, setRemoteResults, setRemoteLoading, setBvPreview, setBvSongName, setBvSinger, setBvTargetFavId, openBvModal, setResolvingBV, playSingleSong, playFavorite, setSelectedFavId, closeModal });
 
-    const playbackControls = usePlaybackControls({ audioRef, currentSong, currentIndex, queue, playMode, intervalStart, intervalEnd, setIsPlaying, setCurrentIndex, setCurrentSong, setVolume, playSong, playbackRetryRef, isHandlingErrorRef, onBeforePlay: audioPlayer.ensureWebAudioReady, queueItems, playOrder: playerStore.queue.playOrder, currentQueueItemId: playerStore.queue.currentQueueItemId, priorityNext: playerStore.queue.priorityNext, history: playerStore.queue.history, shuffleEnabled, repeatMode, setCurrentQueueItemId: playerStore.actions.setCurrentQueueItemId, consumePriorityNext, setPlayOrder: playerStore.actions.setPlayOrder, setHistory: playerStore.actions.setHistory });
+    const playbackControls = usePlaybackControls({ audioRef, currentSong, currentIndex, queue, playMode, intervalStart, intervalEnd, setIsPlaying, setCurrentIndex, setVolume, playSong, playbackRetryRef, isHandlingErrorRef, onBeforePlay: audioPlayer.ensureWebAudioReady, queueItems, playOrder: playerStore.queue.playOrder, currentQueueItemId: playerStore.queue.currentQueueItemId, priorityNext: playerStore.queue.priorityNext, history: playerStore.queue.history, shuffleEnabled, repeatMode, activateQueueItem, setPlayOrder: playerStore.actions.setPlayOrder, setHistory: playerStore.actions.setHistory });
     const { playNext, playPrev, togglePlay, changeVolume } = playbackControls;
 
     const handlePlayQueueItem = useCallback((index: number) => {
         const item = queueItems[index];
         if (!item) return;
-        setCurrentQueueItemId(item.queueItemId);
-        setCurrentSong(item.song);
-        setIsPlaying(true);
-        void playSong(item.song, queue);
-    }, [queueItems, setCurrentQueueItemId, setCurrentSong, setIsPlaying, playSong, queue]);
+        activateQueueItem(item.queueItemId, 'manual');
+        void playSong(item.song);
+    }, [queueItems, activateQueueItem, playSong]);
 
     const handleRemoveQueueItem = useCallback((queueItemId: string) => {
         const index = queueItems.findIndex((item) => item.queueItemId === queueItemId);
@@ -224,19 +221,8 @@ const App: React.FC = () => {
         const fallbackId = playerStore.queue.playOrder[orderIndex + 1] ?? playerStore.queue.playOrder[orderIndex - 1] ?? null;
         const fallback = nextQueue.find((item) => item.queueItemId === fallbackId) ?? null;
         removeQueueItem(queueItemId);
-        if (isCurrent) {
-            if (!fallback) {
-                setCurrentSong(null);
-                setIsPlaying(false);
-            } else {
-                const fallbackIndex = nextQueue.findIndex((item) => item.queueItemId === fallback.queueItemId);
-                setCurrentIndex(fallbackIndex);
-                setCurrentSong(fallback.song);
-                setIsPlaying(true);
-                void playSong(fallback.song, nextQueue.map((item) => item.song));
-            }
-        }
-    }, [queueItems, playerStore.queue.currentQueueItemId, playerStore.queue.playOrder, removeQueueItem, setCurrentSong, setIsPlaying, setCurrentIndex, playSong]);
+        if (isCurrent && fallback) void playSong(fallback.song);
+    }, [queueItems, playerStore.queue.currentQueueItemId, playerStore.queue.playOrder, removeQueueItem, playSong]);
 
     const handleClearUpcoming = useCallback(() => clearUpcoming(), [clearUpcoming]);
     const handleToggleShuffle = useCallback(() => setShuffleEnabled(!shuffleEnabled), [setShuffleEnabled, shuffleEnabled]);

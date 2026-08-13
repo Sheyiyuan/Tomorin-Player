@@ -49,7 +49,7 @@ describe('usePlaybackControls', () => {
         ['expired', song('http://127.0.0.1:1234/audio?t=x', '2020-01-01T00:00:00Z')],
     ])('resolves a %s stream again when play is pressed', async (_case, currentSong) => {
         const audioRef = { current: document.createElement('audio') };
-        const playSong = vi.fn<(songToPlay: Song, list?: Song[]) => Promise<void>>().mockResolvedValue(undefined);
+        const playSong = vi.fn<(songToPlay: Song) => Promise<void>>().mockResolvedValue(undefined);
         const queue = [currentSong];
         const { result } = renderHook(() => usePlaybackControls({
             audioRef,
@@ -61,7 +61,6 @@ describe('usePlaybackControls', () => {
             intervalEnd: 60,
             setIsPlaying: vi.fn(),
             setCurrentIndex: vi.fn(),
-            setCurrentSong: vi.fn(),
             setVolume: vi.fn(),
             playSong,
             playbackRetryRef: { current: new Map<string, number>() },
@@ -71,6 +70,46 @@ describe('usePlaybackControls', () => {
             await result.current.togglePlay();
         });
 
-        expect(playSong).toHaveBeenCalledWith({ ...currentSong, streamUrl: '' }, queue);
+        expect(playSong).toHaveBeenCalledWith({ ...currentSong, streamUrl: '' });
+    });
+
+    it('activates the exact priority queue item when duplicate songs exist', async () => {
+        const original = song('http://127.0.0.1:1234/audio?t=x', '2030-01-01T00:00:00Z');
+        const inserted = { ...original, name: 'Inserted duplicate' };
+        const queue = [
+            { ...original, id: 'song-a', name: 'A' },
+            original,
+            inserted,
+            { ...original, id: 'song-c', name: 'C' },
+        ];
+        const queueItems = queue.map((item, index) => ({ queueItemId: `queue-${index}`, song: item }));
+        const activateQueueItem = vi.fn();
+        const setCurrentIndex = vi.fn();
+        const playSong = vi.fn<(songToPlay: Song) => Promise<void>>().mockResolvedValue(undefined);
+        const { result } = renderHook(() => usePlaybackControls({
+            audioRef: { current: document.createElement('audio') },
+            currentSong: original,
+            currentIndex: 1,
+            queue,
+            playMode: 'loop',
+            intervalStart: 0,
+            intervalEnd: 60,
+            setIsPlaying: vi.fn(),
+            setCurrentIndex,
+            setVolume: vi.fn(),
+            playSong,
+            playbackRetryRef: { current: new Map<string, number>() },
+            queueItems,
+            playOrder: queueItems.map((item) => item.queueItemId),
+            currentQueueItemId: 'queue-1',
+            priorityNext: ['queue-2'],
+            activateQueueItem,
+        }));
+
+        await act(async () => result.current.playNext());
+
+        expect(activateQueueItem).toHaveBeenCalledWith('queue-2', 'next');
+        expect(setCurrentIndex).not.toHaveBeenCalled();
+        expect(playSong).toHaveBeenCalledWith(inserted);
     });
 });

@@ -60,10 +60,7 @@ describe('usePlaySong', () => {
     it('refreshes a proxy stream that has no expiration metadata', async () => {
         const setCurrentSong = vi.fn();
         const { result } = renderHook(() => usePlaySong({
-            queue: [song],
             selectedFavId: null,
-            setQueue: vi.fn(),
-            setCurrentIndex: vi.fn(),
             setCurrentSong,
             setIsPlaying: vi.fn(),
             setStatus: vi.fn(),
@@ -91,10 +88,7 @@ describe('usePlaySong', () => {
         const setIsPlaying = vi.fn();
         const setStatus = vi.fn();
         const { result } = renderHook(() => usePlaySong({
-            queue: [directSong],
             selectedFavId: null,
-            setQueue: vi.fn(),
-            setCurrentIndex: vi.fn(),
             setCurrentSong,
             setIsPlaying,
             setStatus,

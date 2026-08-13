@@ -6,10 +6,7 @@ import * as Services from '../../../wailsjs/go/services/Service';
 import { shouldRefreshStream } from '../../utils/stream';
 
 interface UsePlaySongProps {
-    queue: Song[];
     selectedFavId: string | null;
-    setQueue: (queue: Song[]) => void;
-    setCurrentIndex: (index: number) => void;
     setCurrentSong: (song: Song | null) => void;
     setIsPlaying: (playing: boolean) => void;
     setStatus: (status: string) => void;
@@ -22,24 +19,16 @@ interface UsePlaySongProps {
  * 处理歌曲播放的所有逻辑：本地缓存、URL 刷新、播放历史
  */
 export const usePlaySong = ({
-    queue,
     selectedFavId,
-    setQueue,
-    setCurrentIndex,
     setCurrentSong,
     setIsPlaying,
 	setStatus,
 	setSongs,
 	onSongUpdated,
 }: UsePlaySongProps) => {
-    const playSong = useCallback(async (song: Song, list?: Song[]) => {
+    const playSong = useCallback(async (song: Song) => {
         // 注意：不在这里清除重试计数，因为重试时会再次调用这个函数
         // 计数只在成功播放时（canplaythrough事件）或手动切歌时清除
-        const targetList = list ?? queue;
-        const idx = targetList.findIndex((s) => s.id === song.id);
-        setQueue(targetList);
-        setCurrentIndex(idx >= 0 ? idx : 0);
-
         let toPlay = song;
 
         // 优先使用本地缓存：如果存在本地文件且未被标记为失败，直接走本地代理URL
@@ -175,7 +164,7 @@ export const usePlaySong = ({
                 console.warn("保存播放历史失败", e);
             });
         }
-	}, [queue, selectedFavId, setQueue, setCurrentIndex, setCurrentSong, setIsPlaying, setStatus, setSongs, onSongUpdated]);
+	}, [selectedFavId, setCurrentSong, setIsPlaying, setStatus, setSongs, onSongUpdated]);
 
     return { playSong };
 };

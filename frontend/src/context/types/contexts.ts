@@ -8,6 +8,7 @@ import { Song, Favorite, Theme, PlayerSetting, LyricMapping } from '../../types'
 
 export type PlayMode = 'loop' | 'random' | 'single';
 export type RepeatMode = 'all' | 'one';
+export type QueueActivationReason = 'manual' | 'next' | 'previous' | 'fallback';
 
 export interface QueueItem {
     queueItemId: string;
@@ -54,7 +55,7 @@ export interface PlayerActions {
     setQueue: Dispatch<SetStateAction<Song[]>>;
     setCurrentIndex: (index: number) => void;
     setPlaylistHydrated: (hydrated: boolean) => void;
-    setCurrentQueueItemId: (queueItemId: string | null, recordHistory?: boolean) => void;
+    activateQueueItem: (queueItemId: string, reason?: QueueActivationReason) => void;
     setPlayOrder: (playOrder: string[]) => void;
     setHistory: (history: string[]) => void;
     playQueueItemAt: (index: number) => void;
@@ -63,7 +64,6 @@ export interface PlayerActions {
     removeQueueItem: (queueItemId: string) => void;
     reorderQueueItems: (fromQueueItemId: string, toQueueItemId: string) => void;
     clearUpcoming: () => void;
-    consumePriorityNext: () => string | null;
     setShuffleEnabled: (enabled: boolean) => void;
     setRepeatMode: (mode: RepeatMode) => void;
     toggleShuffle: () => void;

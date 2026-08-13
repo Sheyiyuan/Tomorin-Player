@@ -11,6 +11,7 @@ import {
     ControlsState,
     PlayerActions,
     QueueItem,
+    QueueActivationReason,
     RepeatMode,
 } from '../types/contexts';
 import { Song } from '../../types';
@@ -37,11 +38,15 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const [playlistHydrated, setPlaylistHydrated] = useState(false);
     const itemsRef = useRef(items);
     const currentQueueItemIdRef = useRef(currentQueueItemId);
+    const playOrderRef = useRef(playOrder);
+    const historyRef = useRef(history);
     const priorityNextRef = useRef(priorityNext);
     const shuffleEnabledRef = useRef(shuffleEnabled);
     const repeatModeRef = useRef(repeatMode);
     itemsRef.current = items;
     currentQueueItemIdRef.current = currentQueueItemId;
+    playOrderRef.current = playOrder;
+    historyRef.current = history;
     priorityNextRef.current = priorityNext;
     shuffleEnabledRef.current = shuffleEnabled;
     repeatModeRef.current = repeatMode;
@@ -58,165 +63,216 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const [playMode, setPlayMode] = useState<ControlsState['playMode']>('loop');
     // ========== 队列控制操作 ==========
     const setQueue = useCallback<React.Dispatch<React.SetStateAction<Song[]>>>((nextQueue) => {
-        setItems((previous) => {
-            const resolved = typeof nextQueue === 'function' ? nextQueue(previous.map((item) => item.song)) : nextQueue;
-            const used = new Set<string>();
-            const nextItems = resolved.map((song) => {
-                const match = previous.find((item) => !used.has(item.queueItemId) && item.song.id === song.id);
-                if (match) {
-                    used.add(match.queueItemId);
-                    return { ...match, song };
-                }
-                return { queueItemId: createQueueItemId(), song };
-            });
-            itemsRef.current = nextItems;
-            setCurrentQueueItemIdState((current) => {
-                const nextCurrent = current && nextItems.some((item) => item.queueItemId === current)
-                    ? current
-                    : nextItems[0]?.queueItemId ?? null;
-                currentQueueItemIdRef.current = nextCurrent;
-                return nextCurrent;
-            });
-            setPlayOrder((currentOrder) => {
-                const nextIds = nextItems.map((item) => item.queueItemId);
-                const retained = currentOrder.filter((id) => nextIds.includes(id));
-                return retained.length === nextIds.length && retained.length > 0
-                    ? retained
-                    : buildPlayOrder(nextItems, nextItems[0]?.queueItemId ?? null, shuffleEnabledRef.current);
-            });
-            return nextItems;
+        const previous = itemsRef.current;
+        const resolved = typeof nextQueue === 'function' ? nextQueue(previous.map((item) => item.song)) : nextQueue;
+        const used = new Set<string>();
+        const nextItems = resolved.map((song) => {
+            const match = previous.find((item) => !used.has(item.queueItemId) && item.song.id === song.id);
+            if (match) {
+                used.add(match.queueItemId);
+                return { ...match, song };
+            }
+            return { queueItemId: createQueueItemId(), song };
         });
+        const nextIds = nextItems.map((item) => item.queueItemId);
+        const current = currentQueueItemIdRef.current;
+        const nextCurrent = current && nextIds.includes(current) ? current : nextIds[0] ?? null;
+        const retainedOrder = playOrderRef.current.filter((id) => nextIds.includes(id));
+        const nextOrder = retainedOrder.length === nextIds.length && retainedOrder.length > 0
+            ? retainedOrder
+            : buildPlayOrder(nextItems, nextCurrent, shuffleEnabledRef.current);
+        const nextPriority = priorityNextRef.current.filter((id, index, values) =>
+            nextIds.includes(id) && values.indexOf(id) === index,
+        );
+        const nextHistory = historyRef.current.filter((id) => nextIds.includes(id));
+
+        itemsRef.current = nextItems;
+        currentQueueItemIdRef.current = nextCurrent;
+        playOrderRef.current = nextOrder;
+        priorityNextRef.current = nextPriority;
+        historyRef.current = nextHistory;
+        setItems(nextItems);
+        setCurrentQueueItemIdState(nextCurrent);
+        setPlayOrder(nextOrder);
+        setPriorityNext(nextPriority);
+        setHistory(nextHistory);
     }, []);
 
     const setCurrentIndexSafe = useCallback((index: number) => {
-        setItems((currentItems) => {
-            const safeIndex = Math.min(Math.max(0, index), Math.max(0, currentItems.length - 1));
-            const nextId = currentItems[safeIndex]?.queueItemId ?? null;
-            currentQueueItemIdRef.current = nextId;
-            setCurrentQueueItemIdState(nextId);
-            return currentItems;
-        });
+        const currentItems = itemsRef.current;
+        const safeIndex = Math.min(Math.max(0, index), Math.max(0, currentItems.length - 1));
+        const nextId = currentItems[safeIndex]?.queueItemId ?? null;
+        currentQueueItemIdRef.current = nextId;
+        setCurrentQueueItemIdState(nextId);
     }, []);
 
     const setCurrentQueueItemId = useCallback((queueItemId: string | null, recordHistory = true) => {
-        setCurrentQueueItemIdState((current) => {
-            if (queueItemId === current) return current;
-            if (recordHistory && current) {
-                setHistory((previous) => [...previous, current].slice(-500));
-            }
-            currentQueueItemIdRef.current = queueItemId;
-            return queueItemId;
-        });
+        const current = currentQueueItemIdRef.current;
+        if (queueItemId === current) return;
+        if (recordHistory && current) {
+            const nextHistory = [...historyRef.current, current].slice(-500);
+            historyRef.current = nextHistory;
+            setHistory(nextHistory);
+        }
+        currentQueueItemIdRef.current = queueItemId;
+        setCurrentQueueItemIdState(queueItemId);
+    }, []);
+
+    const activateQueueItem = useCallback((queueItemId: string, reason: QueueActivationReason = 'manual') => {
+        const item = itemsRef.current.find((candidate) => candidate.queueItemId === queueItemId);
+        if (!item) return;
+
+        if (reason !== 'previous') {
+            const nextPriority = priorityNextRef.current.filter((id) => id !== queueItemId);
+            priorityNextRef.current = nextPriority;
+            setPriorityNext(nextPriority);
+        }
+
+        setCurrentQueueItemId(queueItemId, reason !== 'previous' && reason !== 'fallback');
+        setCurrentSong(item.song);
+    }, [setCurrentQueueItemId]);
+
+    const setPlayOrderSafe = useCallback((nextOrder: string[]) => {
+        playOrderRef.current = nextOrder;
+        setPlayOrder(nextOrder);
+    }, []);
+
+    const setHistorySafe = useCallback((nextHistory: string[]) => {
+        historyRef.current = nextHistory;
+        setHistory(nextHistory);
     }, []);
 
     const playQueueItemAt = useCallback((index: number) => {
-        const item = items[index];
-        if (item) setCurrentQueueItemId(item.queueItemId);
-    }, [items, setCurrentQueueItemId]);
+        const item = itemsRef.current[index];
+        if (item) activateQueueItem(item.queueItemId, 'manual');
+    }, [activateQueueItem]);
 
     const enqueueNext = useCallback((song: Song) => {
         const item = { queueItemId: createQueueItemId(), song };
-        setPriorityNext((previousPriority) => {
-            const anchorId = previousPriority[previousPriority.length - 1] ?? currentQueueItemId;
-            setItems((previous) => {
-                const anchorIndex = anchorId ? previous.findIndex((candidate) => candidate.queueItemId === anchorId) : -1;
-                const next = [...previous];
-                next.splice(anchorIndex >= 0 ? anchorIndex + 1 : next.length, 0, item);
-                return next;
-            });
-            setPlayOrder((previous) => {
-                const anchorIndex = anchorId ? previous.indexOf(anchorId) : -1;
-                const next = [...previous];
-                next.splice(anchorIndex >= 0 ? anchorIndex + 1 : next.length, 0, item.queueItemId);
-                return next;
-            });
-            return [...previousPriority, item.queueItemId];
-        });
+        const previousPriority = priorityNextRef.current;
+        const anchorId = previousPriority[previousPriority.length - 1] ?? currentQueueItemIdRef.current;
+        const anchorItemIndex = anchorId
+            ? itemsRef.current.findIndex((candidate) => candidate.queueItemId === anchorId)
+            : -1;
+        const nextItems = [...itemsRef.current];
+        nextItems.splice(anchorItemIndex >= 0 ? anchorItemIndex + 1 : nextItems.length, 0, item);
+        const anchorOrderIndex = anchorId ? playOrderRef.current.indexOf(anchorId) : -1;
+        const nextOrder = [...playOrderRef.current];
+        nextOrder.splice(anchorOrderIndex >= 0 ? anchorOrderIndex + 1 : nextOrder.length, 0, item.queueItemId);
+        const nextPriority = [...previousPriority, item.queueItemId];
+
+        itemsRef.current = nextItems;
+        playOrderRef.current = nextOrder;
+        priorityNextRef.current = nextPriority;
+        setItems(nextItems);
+        setPlayOrder(nextOrder);
+        setPriorityNext(nextPriority);
         return item.queueItemId;
-    }, [currentQueueItemId]);
+    }, []);
 
     const enqueueLast = useCallback((song: Song) => {
         const item = { queueItemId: createQueueItemId(), song };
-        setItems((previous) => [...previous, item]);
-        setPlayOrder((previous) => [...previous, item.queueItemId]);
+        const nextItems = [...itemsRef.current, item];
+        const nextOrder = [...playOrderRef.current, item.queueItemId];
+        itemsRef.current = nextItems;
+        playOrderRef.current = nextOrder;
+        setItems(nextItems);
+        setPlayOrder(nextOrder);
         return item.queueItemId;
     }, []);
 
     const removeQueueItem = useCallback((queueItemId: string) => {
-        if (currentQueueItemId === queueItemId) {
-            const currentOrderIndex = playOrder.indexOf(queueItemId);
-            const fallbackId = playOrder[currentOrderIndex + 1] ?? playOrder[currentOrderIndex - 1] ?? null;
-            const fallbackItem = items.find((item) => item.queueItemId === fallbackId);
-            setCurrentQueueItemIdState(fallbackId);
-            setCurrentSong(fallbackItem?.song ?? null);
+        if (!itemsRef.current.some((item) => item.queueItemId === queueItemId)) return;
+        const currentOrderIndex = playOrderRef.current.indexOf(queueItemId);
+        const fallbackId = playOrderRef.current[currentOrderIndex + 1] ?? playOrderRef.current[currentOrderIndex - 1] ?? null;
+        const nextItems = itemsRef.current.filter((item) => item.queueItemId !== queueItemId);
+        const nextOrder = playOrderRef.current.filter((id) => id !== queueItemId);
+        const nextPriority = priorityNextRef.current.filter((id) => id !== queueItemId);
+        const nextHistory = historyRef.current.filter((id) => id !== queueItemId);
+
+        itemsRef.current = nextItems;
+        playOrderRef.current = nextOrder;
+        priorityNextRef.current = nextPriority;
+        historyRef.current = nextHistory;
+        setItems(nextItems);
+        setPlayOrder(nextOrder);
+        setPriorityNext(nextPriority);
+        setHistory(nextHistory);
+
+        if (currentQueueItemIdRef.current === queueItemId) {
+            const fallbackItem = nextItems.find((item) => item.queueItemId === fallbackId);
+            if (fallbackItem) activateQueueItem(fallbackItem.queueItemId, 'fallback');
+            else {
+                setCurrentQueueItemId(null, false);
+                setCurrentSong(null);
+            }
             setIsPlaying(Boolean(fallbackItem));
         }
-        setItems((previous) => previous.filter((item) => item.queueItemId !== queueItemId));
-        setPlayOrder((previous) => previous.filter((id) => id !== queueItemId));
-        setPriorityNext((previous) => previous.filter((id) => id !== queueItemId));
-        setHistory((previous) => previous.filter((id) => id !== queueItemId));
-        setCurrentQueueItemIdState((current) => current === queueItemId ? null : current);
-    }, [currentQueueItemId, items, playOrder]);
+    }, [activateQueueItem, setCurrentQueueItemId]);
 
     const reorderQueueItems = useCallback((fromQueueItemId: string, toQueueItemId: string) => {
         if (!shuffleEnabled) {
-            setItems((previous) => reorderItems(previous, fromQueueItemId, toQueueItemId));
+            const nextItems = reorderItems(itemsRef.current, fromQueueItemId, toQueueItemId);
+            itemsRef.current = nextItems;
+            setItems(nextItems);
         }
-        setPlayOrder((previous) => {
-            const from = previous.indexOf(fromQueueItemId);
-            const to = previous.indexOf(toQueueItemId);
-            if (from < 0 || to < 0 || from === to) return previous;
-            const next = [...previous];
-            const [moved] = next.splice(from, 1);
-            next.splice(to, 0, moved);
-            return next;
-        });
+        const from = playOrderRef.current.indexOf(fromQueueItemId);
+        const to = playOrderRef.current.indexOf(toQueueItemId);
+        if (from >= 0 && to >= 0 && from !== to) {
+            const nextOrder = [...playOrderRef.current];
+            const [moved] = nextOrder.splice(from, 1);
+            nextOrder.splice(to, 0, moved);
+            playOrderRef.current = nextOrder;
+            setPlayOrder(nextOrder);
+        }
+        priorityNextRef.current = [];
         setPriorityNext([]);
     }, [shuffleEnabled]);
 
     const clearUpcoming = useCallback(() => {
+        const currentQueueItemId = currentQueueItemIdRef.current;
         if (!currentQueueItemId) return;
-        const currentOrderIndex = playOrder.indexOf(currentQueueItemId);
+        const currentOrderIndex = playOrderRef.current.indexOf(currentQueueItemId);
         if (currentOrderIndex < 0) return;
-        const upcoming = new Set(playOrder.slice(currentOrderIndex + 1));
-        setItems((previous) => previous.filter((item) => !upcoming.has(item.queueItemId)));
-        setPlayOrder((previous) => previous.filter((id) => !upcoming.has(id)));
-        setPriorityNext((previous) => previous.filter((id) => !upcoming.has(id)));
-    }, [currentQueueItemId, playOrder]);
-
-    const consumePriorityNext = useCallback(() => {
-        let consumed: string | null = null;
-        setPriorityNext((previous) => {
-            consumed = previous[0] ?? null;
-            return previous.slice(1);
-        });
-        return consumed;
+        const upcoming = new Set(playOrderRef.current.slice(currentOrderIndex + 1));
+        const nextItems = itemsRef.current.filter((item) => !upcoming.has(item.queueItemId));
+        const nextOrder = playOrderRef.current.filter((id) => !upcoming.has(id));
+        const nextPriority = priorityNextRef.current.filter((id) => !upcoming.has(id));
+        itemsRef.current = nextItems;
+        playOrderRef.current = nextOrder;
+        priorityNextRef.current = nextPriority;
+        setItems(nextItems);
+        setPlayOrder(nextOrder);
+        setPriorityNext(nextPriority);
     }, []);
 
     const setShuffleEnabled = useCallback((enabled: boolean) => {
         shuffleEnabledRef.current = enabled;
         setShuffleEnabledState(enabled);
         setPlayMode(enabled ? 'random' : repeatModeRef.current === 'one' ? 'single' : 'loop');
-        setPlayOrder((previousOrder) => {
-            const itemIds = itemsRef.current.map((item) => item.queueItemId);
-            const validPrevious = previousOrder.filter((id) => itemIds.includes(id));
-            const latestCurrentId = currentQueueItemIdRef.current;
-            const currentIndexValue = latestCurrentId ? validPrevious.indexOf(latestCurrentId) : -1;
-            const playedPrefix = currentIndexValue >= 0 ? validPrevious.slice(0, currentIndexValue) : [];
-            const playedSet = new Set([...playedPrefix, ...(latestCurrentId ? [latestCurrentId] : [])]);
-            const future = enabled
-                ? fisherYates(validPrevious.slice(currentIndexValue + 1))
-                : itemIds.filter((id) => !playedSet.has(id));
-            const order = latestCurrentId
-                ? [...playedPrefix, latestCurrentId, ...future]
-                : enabled ? fisherYates(itemIds) : itemIds;
-            const validPriority = priorityNextRef.current.filter((id, index) => order.includes(id) && priorityNextRef.current.indexOf(id) === index);
-            if (validPriority.length === 0) return order;
+        const itemIds = itemsRef.current.map((item) => item.queueItemId);
+        const validPrevious = playOrderRef.current.filter((id) => itemIds.includes(id));
+        const latestCurrentId = currentQueueItemIdRef.current;
+        const currentIndexValue = latestCurrentId ? validPrevious.indexOf(latestCurrentId) : -1;
+        const playedPrefix = currentIndexValue >= 0 ? validPrevious.slice(0, currentIndexValue) : [];
+        const playedSet = new Set([...playedPrefix, ...(latestCurrentId ? [latestCurrentId] : [])]);
+        const future = enabled
+            ? fisherYates(validPrevious.slice(currentIndexValue + 1))
+            : itemIds.filter((id) => !playedSet.has(id));
+        const order = latestCurrentId
+            ? [...playedPrefix, latestCurrentId, ...future]
+            : enabled ? fisherYates(itemIds) : itemIds;
+        const validPriority = priorityNextRef.current.filter((id, index) =>
+            order.includes(id) && priorityNextRef.current.indexOf(id) === index,
+        );
+        const nextOrder = validPriority.length === 0 ? order : (() => {
             const withoutPriority = order.filter((id) => !validPriority.includes(id));
             const priorityInsertIndex = latestCurrentId ? withoutPriority.indexOf(latestCurrentId) : -1;
             withoutPriority.splice(priorityInsertIndex >= 0 ? priorityInsertIndex + 1 : 0, 0, ...validPriority);
             return withoutPriority;
-        });
+        })();
+        playOrderRef.current = nextOrder;
+        setPlayOrder(nextOrder);
     }, []);
 
     const toggleShuffle = useCallback(() => setShuffleEnabled(!shuffleEnabledRef.current), [setShuffleEnabled]);
@@ -249,16 +305,15 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         setQueue,
         setCurrentIndex: setCurrentIndexSafe,
         setPlaylistHydrated,
-        setCurrentQueueItemId,
-        setPlayOrder,
-        setHistory,
+        activateQueueItem,
+        setPlayOrder: setPlayOrderSafe,
+        setHistory: setHistorySafe,
         playQueueItemAt,
         enqueueNext,
         enqueueLast,
         removeQueueItem,
         reorderQueueItems,
         clearUpcoming,
-        consumePriorityNext,
         setShuffleEnabled,
         setRepeatMode,
         toggleShuffle,
@@ -279,11 +334,13 @@ export const PlayerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             repeatModeRef.current = mode === 'single' ? 'one' : 'all';
             setShuffleEnabledState(enabled);
             setRepeatModeState(mode === 'single' ? 'one' : 'all');
-            setPlayOrder(buildPlayOrder(itemsRef.current, currentQueueItemIdRef.current, enabled, currentQueueItemIdRef.current));
+            const nextOrder = buildPlayOrder(itemsRef.current, currentQueueItemIdRef.current, enabled, currentQueueItemIdRef.current);
+            playOrderRef.current = nextOrder;
+            setPlayOrder(nextOrder);
         },
     }), [
-        setQueue, setCurrentIndexSafe, setCurrentQueueItemId, playQueueItemAt, enqueueNext, enqueueLast,
-        removeQueueItem, reorderQueueItems, clearUpcoming, consumePriorityNext, setShuffleEnabled, setRepeatMode,
+        setQueue, setCurrentIndexSafe, activateQueueItem, setPlayOrderSafe, setHistorySafe,
+        playQueueItemAt, enqueueNext, enqueueLast, removeQueueItem, reorderQueueItems, clearUpcoming, setShuffleEnabled, setRepeatMode,
         toggleShuffle, toggleRepeatMode,
     ]);
 

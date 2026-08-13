@@ -19,11 +19,8 @@ const renderPlayModes = () => {
 	const hook = renderHook(() => usePlayModes({
 		loadFavoriteSongs,
 		queue: [],
-		currentIndex: 0,
 		setQueue,
 		setCurrentIndex,
-		setCurrentSong: vi.fn(),
-		setIsPlaying: vi.fn(),
 		playSong,
 	}));
 	return { ...hook, loadFavoriteSongs, setQueue, setCurrentIndex, playSong };
@@ -38,7 +35,7 @@ describe('usePlayModes lazy hydration', () => {
 		expect(loadFavoriteSongs).not.toHaveBeenCalled();
 		expect(setQueue).toHaveBeenCalledWith([song]);
 		expect(setCurrentIndex).toHaveBeenCalledWith(0);
-		expect(playSong).toHaveBeenCalledWith(song, [song]);
+		expect(playSong).toHaveBeenCalledWith(song);
 	});
 
 	it('loads all pages only for the explicit play-all action', async () => {

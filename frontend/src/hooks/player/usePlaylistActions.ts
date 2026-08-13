@@ -20,7 +20,7 @@ interface UsePlaylistActionsProps {
     setConfirmRemoveSongId: (id: string | null) => void;
     openModal: (name: ModalName) => void;
     closeModal: (name: ModalName) => void;
-    playSong: (song: Song, list?: Song[]) => Promise<void>;
+    playSong: (song: Song) => Promise<void>;
     addSongToFavorite: (favId: string, song: Song) => Promise<void>;
     setPendingFavoriteSong: (song: Song | null) => void;
     pendingFavoriteSong: Song | null;
@@ -89,8 +89,8 @@ export const usePlaylistActions = ({
     const playlistSelect = useCallback((song: Song, index: number) => {
         setCurrentIndex(index);
         setIsPlaying(true);
-        playSong(song, queue);
-    }, [setCurrentIndex, setIsPlaying, playSong, queue]);
+        playSong(song);
+    }, [setCurrentIndex, setIsPlaying, playSong]);
 
     const playlistReorder = useCallback((fromIndex: number, toIndex: number) => {
         const result = reorderQueue(queue, currentIndex, fromIndex, toIndex);
@@ -112,11 +112,11 @@ export const usePlaylistActions = ({
             } else if (index >= newQueue.length) {
                 // 删除的是最后一首，播放前一首
                 setIsPlaying(true);
-                playSong(newQueue[result.currentIndex], newQueue);
+                playSong(newQueue[result.currentIndex]);
             } else {
                 // 播放同一位置的下一首
                 setIsPlaying(true);
-                playSong(newQueue[result.currentIndex], newQueue);
+                playSong(newQueue[result.currentIndex]);
             }
         }
     }, [queue, setQueue, currentIndex, setCurrentIndex, setIsPlaying, setCurrentSong, playSong]);

@@ -78,4 +78,97 @@ describe('PlayerContext queue persistence', () => {
         );
         expect(prioritySongs).toEqual(['song-2', 'song-3']);
     });
+
+    it('consumes a priority item when it is activated manually', () => {
+        const { result } = renderHook(() => usePlayerContext(), { wrapper });
+        const second = { ...song, id: 'song-2', name: 'Second' };
+
+        act(() => result.current.actions.setQueue([song]));
+        let insertedId = '';
+        act(() => {
+            insertedId = result.current.actions.enqueueNext(second);
+        });
+        act(() => result.current.actions.activateQueueItem(insertedId, 'manual'));
+
+        expect(result.current.queue.currentQueueItemId).toBe(insertedId);
+        expect(result.current.playback.currentSong).toEqual(second);
+        expect(result.current.queue.priorityNext).toEqual([]);
+    });
+
+    it('keeps priority items when a non-priority item is activated manually', () => {
+        const { result } = renderHook(() => usePlayerContext(), { wrapper });
+        const second = { ...song, id: 'song-2', name: 'Second' };
+        const priority = { ...song, id: 'song-3', name: 'Priority' };
+
+        act(() => result.current.actions.setQueue([song, second]));
+        const secondId = result.current.queue.items[1].queueItemId;
+        let priorityId = '';
+        act(() => {
+            priorityId = result.current.actions.enqueueNext(priority);
+        });
+        act(() => result.current.actions.activateQueueItem(secondId, 'manual'));
+
+        expect(result.current.queue.currentQueueItemId).toBe(secondId);
+        expect(result.current.queue.priorityNext).toEqual([priorityId]);
+    });
+
+    it('removes deleted priority items from navigation state', () => {
+        const { result } = renderHook(() => usePlayerContext(), { wrapper });
+        const second = { ...song, id: 'song-2', name: 'Second' };
+
+        act(() => result.current.actions.setQueue([song]));
+        let insertedId = '';
+        act(() => {
+            insertedId = result.current.actions.enqueueNext(second);
+        });
+        act(() => result.current.actions.removeQueueItem(insertedId));
+
+        expect(result.current.queue.items.some((item) => item.queueItemId === insertedId)).toBe(false);
+        expect(result.current.queue.priorityNext).toEqual([]);
+        expect(result.current.queue.playOrder).not.toContain(insertedId);
+    });
+
+    it('consumes a priority fallback when the current item is deleted', () => {
+        const { result } = renderHook(() => usePlayerContext(), { wrapper });
+        const second = { ...song, id: 'song-2', name: 'Second' };
+        const priority = { ...song, id: 'song-3', name: 'Priority' };
+
+        act(() => result.current.actions.setQueue([song, second]));
+        const currentId = result.current.queue.currentQueueItemId;
+        let priorityId = '';
+        act(() => {
+            priorityId = result.current.actions.enqueueNext(priority);
+        });
+        act(() => {
+            if (currentId) result.current.actions.removeQueueItem(currentId);
+        });
+
+        expect(result.current.queue.currentQueueItemId).toBe(priorityId);
+        expect(result.current.playback.currentSong).toEqual(priority);
+        expect(result.current.queue.priorityNext).toEqual([]);
+    });
+
+    it('keeps no stale priority IDs after clearing or reordering upcoming items', () => {
+        const { result } = renderHook(() => usePlayerContext(), { wrapper });
+        const second = { ...song, id: 'song-2', name: 'Second' };
+        const priority = { ...song, id: 'song-3', name: 'Priority' };
+
+        act(() => result.current.actions.setQueue([song, second]));
+        let priorityId = '';
+        act(() => {
+            priorityId = result.current.actions.enqueueNext(priority);
+        });
+        const secondId = result.current.queue.items.find((item) => item.song.id === second.id)?.queueItemId;
+        act(() => {
+            if (secondId) result.current.actions.reorderQueueItems(priorityId, secondId);
+        });
+        expect(result.current.queue.priorityNext).toEqual([]);
+
+        act(() => {
+            result.current.actions.enqueueNext(priority);
+            result.current.actions.clearUpcoming();
+        });
+        expect(result.current.queue.priorityNext).toEqual([]);
+        expect(result.current.queue.items).toHaveLength(1);
+    });
 });

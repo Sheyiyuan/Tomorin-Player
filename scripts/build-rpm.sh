@@ -93,7 +93,7 @@ fpm -s dir -t rpm \
   -a amd64 \
   --description "基于 B站 API 的音乐播放器" \
   --url "https://github.com/Sheyiyuan/Half-Beat-Player" \
-  --license "MIT" \
+  --license "AGPL-3.0" \
   --depends gtk3 \
   --depends "webkit2gtk4.1" \
   -C . \
@@ -107,7 +107,7 @@ fpm -s dir -t rpm \
       -a amd64 \
       --description "基于 B站 API 的音乐播放器" \
       --url "https://github.com/Sheyiyuan/Half-Beat-Player" \
-      --license "MIT" \
+      --license "AGPL-3.0" \
       --depends gtk3 \
       --depends "webkit2gtk4.0" \
       -C . \

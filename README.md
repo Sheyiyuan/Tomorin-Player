@@ -10,7 +10,7 @@
 
 _使用 Wails v2 构建的跨平台桌面应用_
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPLv3-blue.svg)](LICENSE)
 [![Wails](https://img.shields.io/badge/Wails-v2.11-DF0039?logo=wails&logoColor=white)](https://wails.io)
 [![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://golang.org)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
@@ -298,6 +298,6 @@ make package-macos
 
 ## 开源协议
 
-- 本项目的**源代码与仓库文档**按 [MIT License](LICENSE) 授权。
-- 项目 Logo、应用图标和其他品牌视觉资产不包含在 MIT 授权中，除非对应文件另有明确许可。
+- 本项目的**源代码与仓库文档**按 [GNU AGPL v3](LICENSE) 授权。
+- 项目 Logo、应用图标和其他品牌视觉资产不包含在 AGPL 授权中，除非对应文件另有明确许可。
 - Bilibili 视频、音频、封面、商标以及第三方依赖仍归各自权利人所有，不因本仓库许可证获得额外授权。
